@@ -1,13 +1,14 @@
+use std::ops::Deref;
 use chrono::{NaiveDateTime, TimeDelta};
 use surrealdb::RecordId;
 
+#[derive(Clone, Debug)]
 pub(crate) struct Task {
     id: RecordId,
     name: String,
     description: String,
     priority: Priority,
     estimated_duration: TimeDelta,
-    scheduled_for: Option<NaiveDateTime>,
 }
 
 impl Task {
@@ -24,12 +25,14 @@ impl Task {
             description,
             priority,
             estimated_duration,
-            scheduled_for: None,
         }
     }
 
-    pub fn schedule(&mut self, datetime: NaiveDateTime) {
-        self.scheduled_for = Some(datetime);
+    pub fn schedule(&self, schedule_for: NaiveDateTime) -> ScheduledTask {
+        ScheduledTask::new(
+            &self,
+            schedule_for
+        )
     }
 
     pub fn id(&self) -> &RecordId {
@@ -51,12 +54,9 @@ impl Task {
     pub fn estimated_duration(&self) -> TimeDelta {
         self.estimated_duration
     }
-
-    pub fn scheduled_for(&self) -> Option<NaiveDateTime> {
-        self.scheduled_for
-    }
 }
 
+#[derive(Copy, Clone, Debug)]
 pub(crate) enum Priority {
     Low,
     Medium,
@@ -72,5 +72,39 @@ impl From<Priority> for u64 {
         };
 
         priority_as_number.pow(2)
+    }
+}
+
+impl From<&Priority> for u64 {
+    fn from(value: &Priority) -> Self {
+        u64::from(*value)
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub(crate) struct ScheduledTask<'a> {
+    task: &'a Task,
+    scheduled_for: NaiveDateTime
+}
+
+impl<'a> Deref for ScheduledTask<'a> {
+    type Target = Task;
+
+    fn deref(&self) -> &Self::Target {
+        self.task
+    }
+}
+
+impl<'a> ScheduledTask<'a> {
+    pub fn new(task: &'a Task, scheduled_for: NaiveDateTime) -> Self {
+        Self { task, scheduled_for }
+    }
+
+    pub fn task(&self) -> &'a Task {
+        self.task
+    }
+
+    pub fn scheduled_for(&self) -> NaiveDateTime {
+        self.scheduled_for
     }
 }
