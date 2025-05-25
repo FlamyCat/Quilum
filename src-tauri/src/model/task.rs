@@ -1,14 +1,28 @@
+use std::cmp::Ordering;
 use std::ops::Deref;
 use chrono::{NaiveDateTime, TimeDelta};
 use surrealdb::RecordId;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub(crate) struct Task {
     id: RecordId,
     name: String,
     description: String,
     priority: Priority,
     estimated_duration: TimeDelta,
+    deadline: NaiveDateTime
+}
+
+impl PartialOrd for Task {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Task {
+    fn cmp(&self, other: &Self) -> Ordering {
+        u64::from(self.priority).cmp(&u64::from(other.priority))
+    }
 }
 
 impl Task {
@@ -18,6 +32,7 @@ impl Task {
         description: String,
         priority: Priority,
         estimated_duration: TimeDelta,
+        deadline: NaiveDateTime
     ) -> Self {
         Self {
             id,
@@ -25,6 +40,7 @@ impl Task {
             description,
             priority,
             estimated_duration,
+            deadline
         }
     }
 
@@ -54,9 +70,13 @@ impl Task {
     pub fn estimated_duration(&self) -> TimeDelta {
         self.estimated_duration
     }
+
+    pub fn deadline(&self) -> NaiveDateTime {
+        self.deadline
+    }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub(crate) enum Priority {
     Low,
     Medium,
