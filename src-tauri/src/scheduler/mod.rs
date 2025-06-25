@@ -74,7 +74,10 @@ mod state {
     use std::cmp;
     use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
-    /// Состояние, используемое при рекурсивном составлении плана.
+    /// Структура, описывающая состояние
+    /// (еще не запланированные задачи, текущий план, оставшиеся слоты)
+    /// на каждой итерации алгоритма планирования.
+    ///
     #[derive(Clone, Debug)]
     pub(super) struct State<'a> {
         table: BTreeMap<TimeDelta, BTreeSet<&'a Task>>,
@@ -84,6 +87,24 @@ mod state {
     }
 
     impl<'a> State<'a> {
+        /// Создает начальный вариант состояния на основе списка задач, слотов и
+        /// текущего момента времени.
+        ///
+        pub(super) fn new(
+            tasks: &'a [Task],
+            slots: VecDeque<&'a Slot>,
+            now: NaiveDateTime,
+        ) -> Self {
+            let table = Self::construct_duration_table(tasks);
+
+            Self {
+                table,
+                plan: Plan::new(),
+                slots,
+                now,
+            }
+        }
+
         /// Функция создает следующую фазу состояния, где задача ``task`` добавлена в план.
         ///
         /// Функция не проверяет, возможно ли добавить задачу в план.
@@ -100,13 +121,14 @@ mod state {
             }
         }
 
-        /// Функция ищет первый слот, в котором будет достаточно времени,
-        /// чтобы выполнить самую короткую задачу. Слоты до найденного будут удалены.
+        /// Метод ищет первый слот, в котором будет достаточно времени,
+        /// чтобы выполнить самую короткую задачу. Слоты до найденного будут удалены из списка.
         ///
-        /// Функция обновляет поле ``now``.
+        /// Метод обновляет поле ``now`` - она задает его равным началу найденного слота.
+        /// Если слота не нашлось, ``now`` не обновляется.
         ///
-        /// Функция вернет ``None``, если подходящего слота не нашлось.
-        /// При этом все слоты будут удалены.
+        /// Метод вернет ``None``, если подходящего слота не нашлось.
+        /// При этом список слотов в состоянии будет очищен.
         ///
         pub(super) fn get_available_time(&mut self) -> Option<TimeDelta> {
             let min_duration = *self.table.first_key_value().unwrap().0;
@@ -136,37 +158,24 @@ mod state {
             self.table.retain(|_, task_set| !task_set.is_empty());
         }
 
+        /// Метод удаляет все задачи, которые нельзя успеть выполнить в срок.
+        ///
         pub(super) fn remove_overdue_tasks(&mut self) {
             self.table.values_mut().for_each(|task_set| {
                 task_set.retain(|&task| task.deadline() >= self.now + task.estimated_duration())
             });
         }
 
-        pub(super) fn new(
-            tasks: &'a [Task],
-            slots: VecDeque<&'a Slot>,
-            now: NaiveDateTime,
-        ) -> Self {
-            let table = Self::construct_duration_table(tasks);
-
-            Self {
-                table,
-                plan: Plan::new(),
-                slots,
-                now,
-            }
-        }
-
+        /// Метод строит таблицу, которая группирует задачи по отведенному на них времени.
+        ///
         fn construct_duration_table(tasks: &'a [Task]) -> BTreeMap<TimeDelta, BTreeSet<&'a Task>> {
-            tasks
-                .iter()
-                .fold(BTreeMap::new(), |mut table, task| {
-                    table
-                        .entry(task.estimated_duration())
-                        .or_default()
-                        .insert(task);
-                    table
-                })
+            tasks.iter().fold(BTreeMap::new(), |mut table, task| {
+                table
+                    .entry(task.estimated_duration())
+                    .or_default()
+                    .insert(task);
+                table
+            })
         }
 
         pub(super) fn table(&self) -> &BTreeMap<TimeDelta, BTreeSet<&'a Task>> {
