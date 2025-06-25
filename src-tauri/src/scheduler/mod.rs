@@ -164,6 +164,8 @@ mod state {
             self.table.values_mut().for_each(|task_set| {
                 task_set.retain(|&task| task.deadline() >= self.now + task.estimated_duration())
             });
+
+            self.remove_empty_rows();
         }
 
         /// Метод строит таблицу, которая группирует задачи по отведенному на них времени.
