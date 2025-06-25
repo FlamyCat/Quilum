@@ -127,12 +127,32 @@ mod state {
         /// Метод обновляет поле ``now`` - она задает его равным началу найденного слота.
         /// Если слота не нашлось, ``now`` не обновляется.
         ///
-        /// Метод вернет ``None``, если подходящего слота не нашлось.
-        /// При этом список слотов в состоянии будет очищен.
+        /// ## Возвращаемое значение
+        /// * Метод вернет ``None``, если подходящего слота не нашлось или список задач пуст.
+        ///   При этом список слотов в состоянии будет очищен.
         ///
+        /// * Метод вернет ``Some(time_delta)``, если подходящий слот найдется.
+        ///   Значение ``time_delta`` будет равняться оставшемуся в слоте времени
+        ///   (с учетом текущего момента времени).
+        ///
+        #[must_use]
         pub(super) fn get_available_time(&mut self) -> Option<TimeDelta> {
-            let min_duration = *self.table.first_key_value().unwrap().0;
+            let min_duration = *self.table.first_key_value()?.0;
 
+            self.skip_unsuitable_slots(min_duration);
+
+            self.slots.front().copied().map(|slot| {
+                self.now = cmp::max(self.now, slot.starts_at());
+
+                slot.ends_at() - self.now
+            })
+        }
+
+        /// Метод удаляет ведущие слоты в списке,
+        /// * в которых осталось времени меньше, чем ``min_duration``;
+        /// * просрочены.
+        ///
+        fn skip_unsuitable_slots(&mut self, min_duration: TimeDelta) {
             let count = self
                 .slots
                 .iter()
@@ -144,12 +164,6 @@ mod state {
                 .unwrap_or(self.slots.len());
 
             self.slots.drain(..count);
-
-            self.slots.front().copied().map(|slot| {
-                self.now = cmp::max(self.now, slot.starts_at());
-
-                slot.ends_at() - self.now
-            })
         }
 
         /// Функция удаляет из таблицы записи по ключам, по которым не осталось задач.
