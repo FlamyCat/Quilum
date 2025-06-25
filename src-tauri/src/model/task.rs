@@ -69,9 +69,10 @@ impl Task {
     }
 }
 
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Default)]
 pub(crate) enum Priority {
     Low,
+    #[default]
     Medium,
     High,
 }
