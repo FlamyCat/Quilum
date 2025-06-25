@@ -28,8 +28,12 @@ impl<'a> Plan<'a> {
             tasks,
         }
     }
-    
+
     pub fn score(&self) -> u64 {
         self.score
+    }
+
+    pub fn tasks(&self) -> &Vec<ScheduledTask<'a>> {
+        &self.tasks
     }
 }
