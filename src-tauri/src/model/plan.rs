@@ -1,5 +1,4 @@
 use crate::model::task::ScheduledTask;
-use std::iter;
 
 #[derive(Clone, Debug)]
 pub(crate) struct Plan<'a> {
@@ -21,7 +20,8 @@ impl<'a> Plan<'a> {
     }
 
     pub fn with_task(self, task: ScheduledTask<'a>) -> Self {
-        let tasks = self.tasks.into_iter().chain(iter::once(task)).collect();
+        let mut tasks = self.tasks;
+        tasks.push(task);
 
         Self {
             score: self.score + u64::from(task.priority()),
