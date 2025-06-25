@@ -5,7 +5,6 @@ use surrealdb::RecordId;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub(crate) struct Task {
-    id: RecordId,
     name: String,
     description: String,
     priority: Priority,
@@ -27,7 +26,6 @@ impl Ord for Task {
 
 impl Task {
     pub fn new(
-        id: RecordId,
         name: String,
         description: String,
         priority: Priority,
@@ -35,7 +33,6 @@ impl Task {
         deadline: NaiveDateTime
     ) -> Self {
         Self {
-            id,
             name,
             description,
             priority,
@@ -49,10 +46,6 @@ impl Task {
             self,
             schedule_for
         )
-    }
-
-    pub fn id(&self) -> &RecordId {
-        &self.id
     }
 
     pub fn name(&self) -> &str {
