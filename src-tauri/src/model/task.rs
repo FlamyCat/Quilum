@@ -46,7 +46,7 @@ impl Task {
 
     pub fn schedule(&self, schedule_for: NaiveDateTime) -> ScheduledTask {
         ScheduledTask::new(
-            &self,
+            self,
             schedule_for
         )
     }
