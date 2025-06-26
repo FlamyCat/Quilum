@@ -1,9 +1,18 @@
+use std::ops::Index;
 use crate::model::task::ScheduledTask;
 
 #[derive(Clone, Debug)]
 pub(crate) struct Plan<'a> {
     tasks: Vec<ScheduledTask<'a>>,
     score: u64,
+}
+
+impl<'a> Index<usize> for Plan<'a> {
+    type Output = ScheduledTask<'a>;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.tasks[index]
+    }
 }
 
 impl<'a> Plan<'a> {
