@@ -95,7 +95,7 @@ impl From<&Priority> for u64 {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub(crate) struct ScheduledTask<'a> {
     task: &'a Task,
     scheduled_for: NaiveDateTime
