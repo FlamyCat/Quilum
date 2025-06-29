@@ -1,9 +1,10 @@
+use crate::model::task::{ScheduledTask, Task};
 use std::ops::Index;
-use crate::model::task::ScheduledTask;
 
 #[derive(Clone, Debug)]
 pub(crate) struct Plan<'a> {
     tasks: Vec<ScheduledTask<'a>>,
+    discarded_tasks: Vec<&'a Task>,
     score: u64,
 }
 
@@ -19,6 +20,7 @@ impl<'a> Plan<'a> {
     pub fn new() -> Self {
         Self {
             tasks: Vec::new(),
+            discarded_tasks: Vec::new(),
             score: 0,
         }
     }
@@ -35,7 +37,16 @@ impl<'a> Plan<'a> {
         Self {
             score: self.score + u64::from(task.priority()),
             tasks,
+            ..self
         }
+    }
+
+    pub fn discard_task(&mut self, task: &'a Task) {
+        self.discarded_tasks.push(task);
+    }
+
+    pub fn discard_tasks(&mut self, tasks: impl Iterator<Item = &'a Task>) {
+        tasks.collect_into(&mut self.discarded_tasks);
     }
 
     pub fn score(&self) -> u64 {
@@ -44,5 +55,9 @@ impl<'a> Plan<'a> {
 
     pub fn tasks(&self) -> &Vec<ScheduledTask<'a>> {
         &self.tasks
+    }
+
+    pub fn discarded_tasks(&self) -> &Vec<&'a Task> {
+        &self.discarded_tasks
     }
 }

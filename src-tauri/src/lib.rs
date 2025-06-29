@@ -1,3 +1,5 @@
+#![feature(iter_collect_into)]
+
 mod model;
 mod scheduler;
 
