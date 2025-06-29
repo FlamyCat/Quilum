@@ -20,7 +20,16 @@ impl PartialOrd for Task {
 
 impl Ord for Task {
     fn cmp(&self, other: &Self) -> Ordering {
-        u64::from(self.priority).cmp(&u64::from(other.priority))
+        fn to_priority_tuple(task: &Task) -> (u64, NaiveDateTime, &String, &String) {
+            (
+                u64::from(task.priority),
+                task.deadline,
+                &task.name,
+                &task.description,
+            )
+        }
+
+        to_priority_tuple(self).cmp(&to_priority_tuple(other))
     }
 }
 
