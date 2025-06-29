@@ -1,6 +1,6 @@
+use chrono::{NaiveDateTime, TimeDelta};
 use std::cmp::Ordering;
 use std::ops::Deref;
-use chrono::{NaiveDateTime, TimeDelta};
 use surrealdb::RecordId;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -9,7 +9,7 @@ pub(crate) struct Task {
     description: String,
     priority: Priority,
     estimated_duration: TimeDelta,
-    deadline: NaiveDateTime
+    deadline: NaiveDateTime,
 }
 
 impl PartialOrd for Task {
@@ -39,22 +39,19 @@ impl Task {
         description: String,
         priority: Priority,
         estimated_duration: TimeDelta,
-        deadline: NaiveDateTime
+        deadline: NaiveDateTime,
     ) -> Self {
         Self {
             name,
             description,
             priority,
             estimated_duration,
-            deadline
+            deadline,
         }
     }
 
     pub fn schedule(&self, schedule_for: NaiveDateTime) -> ScheduledTask {
-        ScheduledTask::new(
-            self,
-            schedule_for
-        )
+        ScheduledTask::new(self, schedule_for)
     }
 
     pub fn name(&self) -> &str {
@@ -91,7 +88,7 @@ impl From<Priority> for u64 {
         let priority_as_number: u64 = match value {
             Priority::Low => 1,
             Priority::Medium => 2,
-            Priority::High => 3
+            Priority::High => 3,
         };
 
         priority_as_number.pow(2)
@@ -107,7 +104,7 @@ impl From<&Priority> for u64 {
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub(crate) struct ScheduledTask<'a> {
     task: &'a Task,
-    scheduled_for: NaiveDateTime
+    scheduled_for: NaiveDateTime,
 }
 
 impl<'a> Deref for ScheduledTask<'a> {
@@ -120,7 +117,10 @@ impl<'a> Deref for ScheduledTask<'a> {
 
 impl<'a> ScheduledTask<'a> {
     pub fn new(task: &'a Task, scheduled_for: NaiveDateTime) -> Self {
-        Self { task, scheduled_for }
+        Self {
+            task,
+            scheduled_for,
+        }
     }
 
     pub fn task(&self) -> &'a Task {

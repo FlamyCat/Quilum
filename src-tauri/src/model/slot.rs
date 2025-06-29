@@ -18,7 +18,7 @@ impl Slot {
     pub fn ends_at(&self) -> NaiveDateTime {
         self.ends_at
     }
-    
+
     pub fn duration(&self) -> TimeDelta {
         self.ends_at - self.starts_at
     }
