@@ -3,4 +3,6 @@
 body {
     @apply w-[100vw] h-[100vh];
     @apply bg-slate-400 dark:bg-slate-950;
+
+    @apply text-black dark:text-slate-200
 }
