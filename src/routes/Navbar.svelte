@@ -10,7 +10,7 @@
     ];
 </script>
 
-<nav class="lg:w-[min(10vw,90px)] sm:w-full flex sm:flex-row lg:flex-col gap-4 p-2 items-center justify-center sm:static bg-transparent">
+<nav class="lg:w-auto sm:w-full flex sm:flex-row lg:flex-col gap-4 p-4 items-center justify-center sm:static bg-transparent">
     {#each navItems as item}
         {@const isActive = $page.url.pathname === item.href}
         <a
