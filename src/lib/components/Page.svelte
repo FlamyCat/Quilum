@@ -19,7 +19,7 @@
         {/if}
     </header>
 
-    <div class="flex-1 p-8 rounded-2xl dark:bg-slate-900 size-full">
+    <div class="flex-1 p-8 rounded-2xl bg-slate-50 dark:bg-slate-900 size-full">
         {@render body()}
     </div>
 </div>
