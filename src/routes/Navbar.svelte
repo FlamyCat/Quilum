@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { page } from "$app/stores";
+    import { page } from "$app/state";
     import { CalendarCheck, Calendar1, ListTodo, Settings } from "@lucide/svelte";
 
     const navItems = [
@@ -12,7 +12,7 @@
 
 <nav class="lg:w-auto sm:w-full flex sm:flex-row lg:flex-col gap-4 p-4 items-center justify-center sm:static bg-transparent">
     {#each navItems as item}
-        {@const isActive = $page.url.pathname === item.href}
+        {@const isActive = page.url.pathname === item.href}
         <a
             href={item.href}
             aria-label={item.label}
