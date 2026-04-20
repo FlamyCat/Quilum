@@ -80,7 +80,7 @@
 {/snippet}
 
 <div
-    class="h-20 transition duration-300 flex flex-row gap-4 items-center bg-white dark:bg-slate-800 rounded-lg px-4 shadow-md {containerClass}"
+    class="h-20 transition duration-300 flex flex-row gap-4 items-center bg-white dark:bg-slate-700 rounded-lg px-4 shadow-md {containerClass}"
 >
     {@render checkbox()}
     {@render time()}
