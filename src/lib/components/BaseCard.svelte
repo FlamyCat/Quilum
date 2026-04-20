@@ -88,23 +88,9 @@
 </div>
 
 <style>
-    .strikethrough {
-        position: relative;
-        display: inline-block;
-    }
-
-    .strikethrough::after {
-        content: "";
-        position: absolute;
-        left: 0;
-        top: 50%;
-        height: 1px;
-        width: 0;
-        background: currentColor;
-        transition: width 0.5s cubic-bezier(0.33, 1, 0.68, 1);
-    }
-
-    .completed .strikethrough::after {
-        width: 100%;
+    .completed .strikethrough {
+        text-decoration: line-through;
+        text-decoration-color: currentColor;
+        text-decoration-thickness: 1px;
     }
 </style>
