@@ -65,7 +65,7 @@
     }
 </script>
 
-<Page title="Calendar">
+<Page title="Календарь">
     {#snippet body()}
         <div class="grid grid-cols-1 lg:grid-cols-7 gap-4 h-full">
             {#each weekDays as day, index}
