@@ -61,9 +61,11 @@
         <h3 class="font-semibold text-black dark:text-white">
             <span class="strikethrough">{title}</span>
         </h3>
-        <p class="text-gray-500 dark:text-gray-400 truncate">
-            <span class="strikethrough">{description}</span>
-        </p>
+        {#if description}
+            <p class="text-gray-500 dark:text-gray-400 truncate">
+                <span class="strikethrough">{description}</span>
+            </p>
+        {/if}
         {#if children}
             {@render children()}
         {/if}
