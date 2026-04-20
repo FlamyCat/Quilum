@@ -18,7 +18,7 @@
             const d = new Date(weekStart);
             d.setDate(d.getDate() + i);
             return d;
-        })
+        }),
     );
 
     function formatDay(date: Date): string {
@@ -57,7 +57,10 @@
         return mockTasks.filter((t) => t.dayIndex === dayIndex);
     }
 
-    async function saveTaskState(taskId: number, completed: boolean): Promise<void> {
+    async function saveTaskState(
+        taskId: number,
+        completed: boolean,
+    ): Promise<void> {
         const task = mockTasks.find((t) => t.id === taskId);
         if (task) {
             task.completed = completed;
@@ -72,13 +75,21 @@
                 {@const events = getEventsForDay(index)}
                 {@const tasks = getTasksForDay(index)}
                 <div
-                    class="flex flex-col gap-2 p-2 rounded-lg border-2 {isToday(day)
+                    class="flex flex-col gap-2 p-2 rounded-lg border-2 {isToday(
+                        day,
+                    )
                         ? 'border-slate-600 dark:border-slate-400'
                         : 'border-slate-400 dark:border-slate-600'} bg-slate-300 dark:bg-slate-800"
                 >
                     <div class="text-center">
-                        <span class="text-lg font-semibold text-black dark:text-white">{formatDay(day)}</span>
-                        <span class="block text-sm text-gray-500 dark:text-gray-400">{formatMonth(day)}</span>
+                        <span
+                            class="text-lg font-semibold text-black dark:text-white"
+                            >{formatDay(day)}
+                        </span>
+                        <span
+                            class="block text-sm text-gray-500 dark:text-gray-400"
+                            >{formatMonth(day)}
+                        </span>
                     </div>
 
                     <div class="flex flex-col gap-2">
@@ -95,7 +106,8 @@
                                 startTime={day}
                                 endTime={day}
                                 completed={task.completed}
-                                onToggle={(completed) => saveTaskState(task.id, completed)}
+                                onToggle={(completed) =>
+                                    saveTaskState(task.id, completed)}
                             />
                         {/each}
                     </div>
