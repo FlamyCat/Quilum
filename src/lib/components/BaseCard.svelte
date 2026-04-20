@@ -44,7 +44,7 @@
 </script>
 
 {#snippet checkbox()}
-    <div class="w-12 flex items-center justify-center">
+    <div class="w-4 flex items-center justify-center">
         {#if showCheckbox}
             <input
                 type="checkbox"
