@@ -12,10 +12,12 @@
 </script>
 
 <div class="flex flex-col gap-4 size-full">
-    <header>
+    <header class="flex items-end py-4 justify-between">
         <PageTitle {title} />
         {#if header}
-            {@render header()}
+            <div>
+                {@render header()}
+            </div>
         {/if}
     </header>
 
