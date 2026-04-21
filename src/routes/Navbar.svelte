@@ -1,6 +1,7 @@
 <script lang="ts">
     import { page } from "$app/state";
     import { CalendarCheck, Calendar1, ListTodo, Settings } from "@lucide/svelte";
+    import { DarkMode } from "flowbite-svelte";
 
     const navItems = [
         { href: "/", icon: CalendarCheck, label: "Сегодня" },
@@ -24,4 +25,5 @@
             <span class="text-sm font-medium">{item.label}</span>
         </a>
     {/each}
+    <DarkMode />
 </nav>

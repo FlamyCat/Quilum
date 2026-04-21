@@ -2,7 +2,8 @@
     import Page from "$lib/components/Page.svelte";
     import EventCard from "$lib/components/EventCard.svelte";
     import TaskCard from "$lib/components/TaskCard.svelte";
-    import { ChevronLeft, ChevronRight, Circle } from "@lucide/svelte";
+    import { ChevronLeft, ChevronRight, Circle, CalendarPlus } from "@lucide/svelte";
+    import { eventsStore, getEventsForWeek, getTasksForWeek } from "$lib/stores/events";
 
     function getWeekStart(date: Date): Date {
         const d = new Date(date);
@@ -61,51 +62,9 @@
         );
     }
 
-    type Event = { id: number; title: string; dayIndex: number };
-    type Task = { id: number; title: string; dayIndex: number; completed: boolean };
+    let mockEvents = $derived(getEventsForWeek(getWeekOffset()));
 
-    const mockEventsByWeek: Record<number, Event[]> = {
-        [-1]: [
-            { id: 101, title: "Sprint planning", dayIndex: 1 },
-            { id: 102, title: "1:1 with manager", dayIndex: 3 },
-        ],
-        [0]: [
-            { id: 1, title: "Team standup", dayIndex: 0 },
-            { id: 2, title: "Lunch break", dayIndex: 2 },
-            { id: 3, title: "Meeting", dayIndex: 4 },
-        ],
-        [1]: [
-            { id: 201, title: "Code review", dayIndex: 0 },
-            { id: 202, title: "Team lunch", dayIndex: 2 },
-            { id: 203, title: "Project demo", dayIndex: 4 },
-        ],
-    };
-
-    const mockTasksByWeek: Record<number, Task[]> = {
-        [-1]: [
-            { id: 101, title: "Write report", dayIndex: 0, completed: true },
-            { id: 102, title: "Call client", dayIndex: 2, completed: false },
-            { id: 103, title: "Prepare slides", dayIndex: 4, completed: true },
-        ],
-        [0]: [
-            { id: 1, title: "Buy groceries", dayIndex: 1, completed: false },
-            { id: 2, title: "Read docs", dayIndex: 3, completed: false },
-            { id: 3, title: "Send email", dayIndex: 5, completed: true },
-        ],
-        [1]: [
-            { id: 201, title: "Fix bugs", dayIndex: 1, completed: false },
-            { id: 202, title: "Update documentation", dayIndex: 3, completed: false },
-            { id: 203, title: "Deploy to staging", dayIndex: 5, completed: false },
-        ],
-    };
-
-    let mockEvents = $derived(
-        mockEventsByWeek[getWeekOffset()] ?? mockEventsByWeek[0]
-    );
-
-    let mockTasks = $state<Task[]>(
-        mockTasksByWeek[getWeekOffset()] ?? [...mockTasksByWeek[0]].map(t => ({ ...t }))
-    );
+    let mockTasks = $state(getTasksForWeek(getWeekOffset()));
 
     function getEventsForDay(dayIndex: number) {
         return mockEvents.filter((e) => e.dayIndex === dayIndex);
@@ -128,7 +87,14 @@
 
 <Page title="Календарь">
     {#snippet header()}
-        <div class="flex items-center gap-2 h-full self-baseline">
+        <div class="flex items-center gap-4 h-full self-baseline">
+            <a
+                href="/calendar/create-event"
+                class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors"
+            >
+                <CalendarPlus class="w-5 h-5" />
+                <span>Создать событие</span>
+            </a>
             <button
                 onclick={goToPrevWeek}
                 class="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
