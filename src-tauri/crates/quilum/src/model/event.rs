@@ -1,5 +1,5 @@
 use chrono::NaiveDateTime;
-use surrealdb::RecordId;
+use surrealdb::types::RecordId;
 
 pub(crate) struct Event {
     id: RecordId,

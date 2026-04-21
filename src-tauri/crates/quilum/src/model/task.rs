@@ -1,7 +1,6 @@
 use chrono::{NaiveDateTime, TimeDelta};
 use std::cmp::Ordering;
 use std::ops::Deref;
-use surrealdb::RecordId;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub(crate) struct Task {
