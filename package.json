@@ -13,10 +13,12 @@
   },
   "license": "MIT",
   "dependencies": {
+    "@internationalized/date": "^3.12.1",
     "@lucide/svelte": "^1.8.0",
     "@tailwindcss/vite": "^4.2.2",
     "@tauri-apps/api": "^2.10.1",
     "@tauri-apps/plugin-opener": "^2.5.3",
+    "bits-ui": "^2.18.0",
     "tailwindcss": "^4.2.2"
   },
   "devDependencies": {
