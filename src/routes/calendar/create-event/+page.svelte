@@ -2,15 +2,8 @@
     import Page from "$lib/components/Page.svelte";
     import { addEvent } from "$lib/stores/events";
     import { goto } from "$app/navigation";
-    import Calendar from "$lib/components/ui/calendar/calendar.svelte";
-    import * as Popover from "$lib/components/ui/popover/index.js";
-    import Input from "$lib/components/ui/input/input.svelte";
-    import Label from "$lib/components/ui/label/label.svelte";
-    import { Button } from "$lib/components/ui/button/index.js";
-    import { CalendarDate } from "@internationalized/date";
-    import { cn } from "$lib/utils.js";
-
-    import CalendarIcon from "@lucide/svelte/icons/calendar";
+    import DateTimePicker from "$lib/components/DateTimePicker.svelte";
+    import { CalendarDate, type DateValue } from "@internationalized/date";
 
     let name = $state("");
     let description = $state("");
@@ -19,7 +12,11 @@
     now.setMinutes(Math.ceil(now.getMinutes() / 15) * 15);
 
     let startDate = $state(
-        new CalendarDate(now.getFullYear(), now.getMonth() + 1, now.getDate()),
+        new CalendarDate(
+            now.getFullYear(),
+            now.getMonth() + 1,
+            now.getDate(),
+        ) as DateValue,
     );
     let startTime = $state(
         `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`,
@@ -32,7 +29,7 @@
             endNow.getFullYear(),
             endNow.getMonth() + 1,
             endNow.getDate(),
-        ),
+        ) as DateValue,
     );
     let endTime = $state(
         `${String(endNow.getHours()).padStart(2, "0")}:${String(endNow.getMinutes()).padStart(2, "0")}`,
@@ -41,10 +38,6 @@
     let startPopoverOpen = $state(false);
     let endPopoverOpen = $state(false);
     let error = $state("");
-
-    function formatDate(date: CalendarDate): string {
-        return date.toDate("UTC").toLocaleDateString("ru-RU");
-    }
 
     function handleSubmit(event: Event) {
         event.preventDefault();
@@ -125,93 +118,21 @@
                 ></textarea>
             </div>
 
-            <div class="flex flex-col gap-2">
-                <Label for="startsAt" class="font-semibold">Начало *</Label>
-                <div class="flex gap-2">
-                    <Popover.Root bind:open={startPopoverOpen}>
-                        <Popover.Trigger>
-                            {#snippet child({ props })}
-                                <Button
-                                    variant="outline"
-                                    class={cn(
-                                        "w-35 justify-start text-left font-normal",
-                                        !startDate && "text-muted-foreground",
-                                    )}
-                                    {...props}
-                                >
-                                    <CalendarIcon class="h-4 w-4" />
-                                    {formatDate(startDate)}
-                                </Button>
-                            {/snippet}
-                        </Popover.Trigger>
-                        <Popover.Content class="w-auto p-0" align="start">
-                            {#snippet child({ wrapperProps, props })}
-                                <div {...wrapperProps}>
-                                    <div {...props}>
-                                        <Calendar
-                                            type="single"
-                                            bind:value={startDate}
-                                            onValueChange={() => {
-                                                startPopoverOpen = false;
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-                            {/snippet}
-                        </Popover.Content>
-                    </Popover.Root>
-                    <Input
-                        id="startTime"
-                        type="time"
-                        bind:value={startTime}
-                        class="w-auto"
-                    />
-                </div>
-            </div>
+            <DateTimePicker
+                label="Начало *"
+                id="startsAt"
+                bind:date={startDate}
+                bind:time={startTime}
+                bind:open={startPopoverOpen}
+            />
 
-            <div class="flex flex-col gap-2">
-                <Label for="endsAt" class="font-semibold">Конец *</Label>
-                <div class="flex gap-2">
-                    <Popover.Root bind:open={endPopoverOpen}>
-                        <Popover.Trigger>
-                            {#snippet child({ props })}
-                                <Button
-                                    variant="outline"
-                                    class={cn(
-                                        "w-35 justify-start text-left font-normal",
-                                        !endDate && "text-muted-foreground",
-                                    )}
-                                    {...props}
-                                >
-                                    <CalendarIcon class="h-4 w-4" />
-                                    {formatDate(endDate)}
-                                </Button>
-                            {/snippet}
-                        </Popover.Trigger>
-                        <Popover.Content class="w-auto p-0" align="start">
-                            {#snippet child({ wrapperProps, props })}
-                                <div {...wrapperProps}>
-                                    <div {...props}>
-                                        <Calendar
-                                            type="single"
-                                            bind:value={endDate}
-                                            onValueChange={() => {
-                                                endPopoverOpen = false;
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-                            {/snippet}
-                        </Popover.Content>
-                    </Popover.Root>
-                    <Input
-                        id="endTime"
-                        type="time"
-                        bind:value={endTime}
-                        class="w-auto"
-                    />
-                </div>
-            </div>
+            <DateTimePicker
+                label="Конец *"
+                id="endsAt"
+                bind:date={endDate}
+                bind:time={endTime}
+                bind:open={endPopoverOpen}
+            />
 
             {#if error}
                 <p class="text-red-500">{error}</p>
