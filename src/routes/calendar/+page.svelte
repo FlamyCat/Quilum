@@ -127,8 +127,8 @@
                     class="flex flex-col gap-2 p-2 rounded-lg border-2 {isToday(
                         day,
                     )
-                        ? 'border-slate-600 dark:border-slate-400'
-                        : 'border-slate-400 dark:border-slate-600'} bg-slate-300 dark:bg-slate-800"
+                        ? 'border-slate-700 dark:border-slate-400'
+                        : 'border-slate-400 dark:border-slate-600'} bg-slate-100 dark:bg-slate-800"
                 >
                     <div class="text-center">
                         <span
