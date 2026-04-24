@@ -1,8 +1,6 @@
 use chrono::NaiveDateTime;
-use surrealdb::types::RecordId;
 
 pub(crate) struct Event {
-    id: RecordId,
     name: String,
     description: String,
     starts_at: NaiveDateTime,
@@ -11,7 +9,6 @@ pub(crate) struct Event {
 
 impl Event {
     pub fn new(
-        id: RecordId,
         name: String,
         description: String,
         starts_at: NaiveDateTime,
@@ -26,9 +23,6 @@ impl Event {
         }
     }
 
-    pub fn id(&self) -> &RecordId {
-        &self.id
-    }
 
     pub fn name(&self) -> &str {
         &self.name
