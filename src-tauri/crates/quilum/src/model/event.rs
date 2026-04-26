@@ -15,7 +15,6 @@ impl Event {
         ends_at: NaiveDateTime,
     ) -> Self {
         Self {
-            id,
             name,
             description,
             starts_at,
