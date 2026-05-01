@@ -33,7 +33,7 @@ pkgs.mkShell {
 
   shellHook = ''
     # 1. Standard Library Path
-    export LD_LIBRARY_PATH=${pkgs.lib.makeLibraryPath libraries}:/run/opengl-driver/lib:${pkgs.libglvnd}/lib:$LD_LIBRARY_PATH
+    export LD_LIBRARY_PATH=${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.lib.makeLibraryPath libraries}:/run/opengl-driver/lib:${pkgs.libglvnd}/lib:$LD_LIBRARY_PATH
 
     # 2. XDG Data Dirs (Themes)
     export XDG_DATA_DIRS=${pkgs.gsettings-desktop-schemas}/share/gsettings-schemas/${pkgs.gsettings-desktop-schemas.name}:${pkgs.gtk3}/share/gsettings-schemas/${pkgs.gtk3.name}:${pkgs.gnome-themes-extra}/share:$XDG_DATA_DIRS

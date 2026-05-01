@@ -26,16 +26,18 @@ impl<'a> Plan<'a> {
     }
 
     pub fn add_task(&mut self, task: ScheduledTask<'a>) {
+        let priority = u64::from(*task.priority());
         self.tasks.push(task);
-        self.score += u64::from(task.priority());
+        self.score += priority;
     }
 
     pub fn with_task(self, task: ScheduledTask<'a>) -> Self {
+        let priority = u64::from(*task.priority());
         let mut tasks = self.tasks;
         tasks.push(task);
 
         Self {
-            score: self.score + u64::from(task.priority()),
+            score: self.score + priority,
             tasks,
             ..self
         }

@@ -1,10 +1,12 @@
-use chrono::NaiveDateTime;
+use chrono::{DateTime, NaiveDateTime};
+use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Event {
     name: String,
     description: String,
-    starts_at: NaiveDateTime,
-    ends_at: NaiveDateTime,
+    starts_at: i64,
+    ends_at: i64,
 }
 
 impl Event {
@@ -17,8 +19,8 @@ impl Event {
         Self {
             name,
             description,
-            starts_at,
-            ends_at,
+            starts_at: starts_at.and_utc().timestamp(),
+            ends_at: ends_at.and_utc().timestamp(),
         }
     }
 
@@ -32,10 +34,26 @@ impl Event {
     }
 
     pub fn starts_at(&self) -> NaiveDateTime {
-        self.starts_at
+        DateTime::from_timestamp(self.starts_at, 0).unwrap_or_default().naive_utc()
     }
 
     pub fn ends_at(&self) -> NaiveDateTime {
-        self.ends_at
+        DateTime::from_timestamp(self.ends_at, 0).unwrap_or_default().naive_utc()
+    }
+
+    pub fn set_name(&mut self, name: String) {
+        self.name = name;
+    }
+
+    pub fn set_description(&mut self, description: String) {
+        self.description = description;
+    }
+
+    pub fn set_starts_at(&mut self, starts_at: NaiveDateTime) {
+        self.starts_at = starts_at.and_utc().timestamp();
+    }
+
+    pub fn set_ends_at(&mut self, ends_at: NaiveDateTime) {
+        self.ends_at = ends_at.and_utc().timestamp();
     }
 }

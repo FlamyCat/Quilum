@@ -124,7 +124,7 @@ impl<'a> State<'a> {
                     let latest = cmp::max(self.now, slot.starts_at());
                     let available_time = slot.ends_at() - latest;
                     task.estimated_duration() <= available_time
-                        && task.deadline() >= latest + task.estimated_duration()
+                        && task.deadline_as_datetime() >= latest + task.estimated_duration()
                 });
 
                 applicable_tasks.count() > 0
@@ -150,7 +150,7 @@ impl<'a> State<'a> {
         self.table.values_mut().for_each(|task_set| {
             let overdue_tasks: BTreeSet<&Task> = task_set
                 .iter()
-                .filter(|&&task| task.deadline() < self.now + task.estimated_duration())
+                .filter(|&&task| task.deadline_as_datetime() < self.now + task.estimated_duration())
                 .copied()
                 .collect();
 
