@@ -53,6 +53,6 @@ pkgs.mkShell {
     # export WEBKIT_DEBUG=compositing,layers
 
     # surrealdb-librocksdb-sys does not compile without this one
-    LIBCLANG_PATH=/nix/store/19mjhjglq0g1qrnyr7prbi6xxl1ghsr3-user-environment/lib
+    export LIBCLANG_PATH=/nix/store/19mjhjglq0g1qrnyr7prbi6xxl1ghsr3-user-environment/lib
   '';
 }
