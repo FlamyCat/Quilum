@@ -21,7 +21,6 @@ pkgs.mkShell {
     pkg-config
     gobject-introspection
     nodejs
-    cargo
     cargo-tauri
   ];
 
