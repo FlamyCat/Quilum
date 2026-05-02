@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use surrealdb::types::RecordId;
 
 pub(crate) struct TaskList {
     pub(crate) tasks: HashSet<crate::model::task::Task>,
@@ -15,5 +16,5 @@ impl TaskList {
 }
 
 pub(crate) struct TaskListRecord {
-    pub(crate) title: String
+    pub(crate) id: RecordId
 }
