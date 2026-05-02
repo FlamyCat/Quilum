@@ -41,7 +41,7 @@ impl Storage {
     /// * `Result<Storage, Error>` - The storage instance or an error
     pub async fn new_mem() -> Result<Self, Error> {
         let db = Surreal::new::<Mem>(()).await?;
-        db.use_ns("test").use_db("test").await;
+        db.use_ns("test").use_db("test").await?;
         Ok(Self::new(db)?)
     }
 
@@ -54,7 +54,7 @@ impl Storage {
     /// * `Result<Storage, Error>` - The storage instance or an error
     pub async fn new_rocksdb(path: &str) -> Result<Self, Error> {
         let db = Surreal::new::<RocksDb>(path).await?;
-        db.use_ns("test").use_db("test").await;
+        db.use_ns("test").use_db("test").await?;
         Ok(Self::new(db)?)
     }
 
