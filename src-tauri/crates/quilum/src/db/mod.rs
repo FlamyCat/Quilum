@@ -1,10 +1,16 @@
-use surrealdb::engine::local::{Db, Mem, RocksDb};
-use surrealdb::Surreal;
-use surrealdb::types::RecordId;
-use surrealdb::Error;
+use surrealdb::{
+    engine::local::{Db, Mem, RocksDb},
+    types::RecordId,
+    Error,
+    Surreal
+};
 
-use crate::model::event::Event;
-use crate::model::task::Task;
+use crate::{
+    model::{
+        event::Event,
+        task::Task
+    }
+};
 
 pub(crate) struct Record<T> {
     pub(crate) id: RecordId,
@@ -65,15 +71,42 @@ impl Storage {
         table: &str,
         data: T,
     ) -> Result<Record<T>, Error> {
-        let json_value = serde_json::to_value(&data).map_err(|e| Error::query(format!("Serialization error: {}", e), None))?;
+        let json_value = serde_json::to_value(&data)
+            .map_err(|e| Error::query(format!("Serialization error: {}", e), None))?;
         let created: Option<serde_json::Value> = self.db.create(table).content(json_value).await?;
 
-        let value = created.ok_or_else(|| Error::query("Failed to create record".to_string(), None))?;
+        let value =
+            created.ok_or_else(|| Error::query("Failed to create record".to_string(), None))?;
 
-        let id = RecordId::new(table, "auto");
-        let result_data: T = serde_json::from_value(value).map_err(|e| Error::query(format!("Failed to deserialize: {}", e), None))?;
+        let id = Self::extract_record_id_from_value(&value, table);
+        let result_data: T = serde_json::from_value(value)
+            .map_err(|e| Error::query(format!("Failed to deserialize: {}", e), None))?;
 
-        Ok(Record { id, data: result_data })
+        Ok(Record {
+            id,
+            data: result_data,
+        })
+    }
+
+    fn extract_record_id_from_value(value: &serde_json::Value, default_table: &str) -> RecordId {
+        match value {
+            serde_json::Value::Object(map) => {
+                let full_id = map.get("id").and_then(|v| v.as_str()).unwrap_or("unknown");
+
+                // The id field contains the full record ID (e.g., "event:didtm716xkyfjuinldb6")
+                // We need to extract just the key part after the table name
+                let (table, key) = if let Some(colon_pos) = full_id.find(':') {
+                    let t = &full_id[..colon_pos];
+                    let k = &full_id[colon_pos + 1..];
+                    (t, k)
+                } else {
+                    (default_table, full_id)
+                };
+
+                RecordId::new(table, key)
+            }
+            _ => RecordId::new(default_table, "unknown"),
+        }
     }
 
     /// Base delete method that works with any type.
@@ -84,11 +117,7 @@ impl Storage {
     ///
     /// # Returns
     /// * `Result<(), Error>` - Success or error
-    async fn delete_base(
-        &self,
-        table: &str,
-        id: &RecordId,
-    ) -> Result<(), Error> {
+    async fn delete_base(&self, table: &str, id: &RecordId) -> Result<(), Error> {
         let key = match &id.key {
             surrealdb::types::RecordIdKey::String(s) => s.as_str(),
             _ => "unknown",
@@ -117,9 +146,13 @@ impl Storage {
         let value: Option<serde_json::Value> = self.db.select((table, key)).await?;
 
         let data = value.ok_or_else(|| Error::query("Record not found".to_string(), None))?;
-        let parsed: T = serde_json::from_value(data).map_err(|e| Error::query(format!("Failed to deserialize: {}", e), None))?;
+        let parsed: T = serde_json::from_value(data)
+            .map_err(|e| Error::query(format!("Failed to deserialize: {}", e), None))?;
 
-        Ok(Record { id: id.clone(), data: parsed })
+        Ok(Record {
+            id: id.clone(),
+            data: parsed,
+        })
     }
 
     /// Base update method that works with any serializable type.
@@ -139,10 +172,9 @@ impl Storage {
             surrealdb::types::RecordIdKey::String(s) => s.as_str(),
             _ => "unknown",
         };
-        let json_value = serde_json::to_value(&record.data).map_err(|e| Error::query(format!("Serialization error: {}", e), None))?;
-        let _: Option<serde_json::Value> = self.db.update((table, key))
-            .content(json_value)
-            .await?;
+        let json_value = serde_json::to_value(&record.data)
+            .map_err(|e| Error::query(format!("Serialization error: {}", e), None))?;
+        let _: Option<serde_json::Value> = self.db.update((table, key)).content(json_value).await?;
         Ok(())
     }
 }
@@ -253,10 +285,14 @@ mod tests {
     async fn test_event_crud() {
         let storage = Storage::new_mem().await.expect("Failed to create storage");
 
-        let start_time = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap()
-            .and_hms_opt(10, 0, 0).unwrap();
-        let end_time = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap()
-            .and_hms_opt(12, 0, 0).unwrap();
+        let start_time = NaiveDate::from_ymd_opt(2026, 5, 1)
+            .unwrap()
+            .and_hms_opt(10, 0, 0)
+            .unwrap();
+        let end_time = NaiveDate::from_ymd_opt(2026, 5, 1)
+            .unwrap()
+            .and_hms_opt(12, 0, 0)
+            .unwrap();
 
         let event = Event::new(
             "Test Event".to_string(),
@@ -265,22 +301,41 @@ mod tests {
             end_time,
         );
 
-        let record = storage.create_event(event).await.expect("Failed to create event");
-        let key_is_set = matches!(&record.id.key, surrealdb::types::RecordIdKey::String(s) if !s.is_empty());
+        let record = storage
+            .create_event(event)
+            .await
+            .expect("Failed to create event");
+        let key_is_set =
+            matches!(&record.id.key, surrealdb::types::RecordIdKey::String(s) if !s.is_empty());
         assert!(key_is_set, "Record ID key should be set");
 
-        let read_record = storage.read_event(&record.id).await.expect("Failed to read event");
+        let read_record = storage
+            .read_event(&record.id)
+            .await
+            .expect("Failed to read event");
         assert_eq!(read_record.data.name(), "Test Event");
 
         let mut updated_event = read_record.data;
         updated_event.set_name("Updated Event".to_string());
-        let updated_record = Record { id: read_record.id.clone(), data: updated_event };
-        storage.update_event(updated_record).await.expect("Failed to update event");
+        let updated_record = Record {
+            id: read_record.id.clone(),
+            data: updated_event,
+        };
+        storage
+            .update_event(updated_record)
+            .await
+            .expect("Failed to update event");
 
-        let updated_read_record = storage.read_event(&record.id).await.expect("Failed to read updated event");
+        let updated_read_record = storage
+            .read_event(&record.id)
+            .await
+            .expect("Failed to read updated event");
         assert_eq!(updated_read_record.data.name(), "Updated Event");
 
-        storage.delete_event(&record.id).await.expect("Failed to delete event");
+        storage
+            .delete_event(&record.id)
+            .await
+            .expect("Failed to delete event");
 
         let result = storage.read_event(&record.id).await;
         assert!(result.is_err());
