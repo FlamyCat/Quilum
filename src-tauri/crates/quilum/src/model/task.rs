@@ -1,10 +1,9 @@
 use chrono::{DateTime, NaiveDateTime, TimeDelta};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
-use std::fmt::Debug;
-use std::ops::Deref;
+use surrealdb::types::SurrealValue;
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize, SurrealValue)]
 pub(crate) struct Task {
     name: String,
     description: String,
@@ -61,10 +60,6 @@ impl Task {
         }
     }
 
-    pub fn schedule(&self, schedule_for: NaiveDateTime) -> ScheduledTask {
-        ScheduledTask::new(self, schedule_for)
-    }
-
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -106,7 +101,7 @@ impl Task {
     }
 }
 
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Default, Serialize, Deserialize, SurrealValue)]
 pub(crate) enum Priority {
     Low,
     #[default]
@@ -129,52 +124,5 @@ impl From<Priority> for u64 {
 impl From<&Priority> for u64 {
     fn from(value: &Priority) -> Self {
         u64::from(*value)
-    }
-}
-
-pub(crate) struct ScheduledTask<'a> {
-    task: &'a Task,
-    scheduled_for: NaiveDateTime,
-}
-
-impl<'a> Deref for ScheduledTask<'a> {
-    type Target = Task;
-
-    fn deref(&self) -> &Self::Target {
-        self.task
-    }
-}
-
-impl<'a> Clone for ScheduledTask<'a> {
-    fn clone(&self) -> Self {
-        Self {
-            task: self.task,
-            scheduled_for: self.scheduled_for,
-        }
-    }
-}
-
-impl<'a> Debug for ScheduledTask<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ScheduledTask")
-            .field("scheduled_for", &self.scheduled_for)
-            .finish()
-    }
-}
-
-impl<'a> ScheduledTask<'a> {
-    pub fn new(task: &'a Task, scheduled_for: NaiveDateTime) -> Self {
-        Self {
-            task,
-            scheduled_for,
-        }
-    }
-
-    pub fn task(&self) -> &'a Task {
-        self.task
-    }
-
-    pub fn scheduled_for(&self) -> NaiveDateTime {
-        self.scheduled_for
     }
 }

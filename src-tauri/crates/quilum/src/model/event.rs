@@ -1,7 +1,8 @@
 use chrono::{DateTime, NaiveDateTime};
 use serde::{Deserialize, Serialize};
+use surrealdb::types::SurrealValue;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, SurrealValue)]
 pub(crate) struct Event {
     name: String,
     description: String,

@@ -1,6 +1,7 @@
+use chrono::NaiveDateTime;
 use surrealdb::{
     engine::local::{Db, Mem, RocksDb},
-    types::RecordId,
+    types::{RecordId, SurrealValue},
     Error,
     Surreal
 };
@@ -8,13 +9,48 @@ use surrealdb::{
 use crate::{
     model::{
         event::Event,
-        task::Task
+        slot::Slot,
+        task::Task,
+        tasklist::TaskList,
     }
 };
 
+#[derive(Clone, Debug)]
 pub(crate) struct Record<T> {
     pub(crate) id: RecordId,
     pub(crate) data: T,
+}
+
+impl<T: SurrealValue + std::fmt::Debug> SurrealValue for Record<T> {
+    fn kind_of() -> surrealdb::types::Kind {
+        T::kind_of()
+    }
+
+    fn is_value(value: &surrealdb::types::Value) -> bool {
+        T::is_value(value)
+    }
+
+    fn into_value(self) -> surrealdb::types::Value {
+        let mut obj = surrealdb::types::Object::new();
+        obj.insert("id", SurrealValue::into_value(self.id));
+        obj.insert("data", SurrealValue::into_value(self.data));
+        surrealdb::types::Value::Object(obj)
+    }
+
+    fn from_value(value: surrealdb::types::Value) -> Result<Self, Error> {
+        let obj = if let surrealdb::types::Value::Object(obj) = value {
+            obj
+        } else {
+            return Err(Error::thrown(
+                format!("Expected Object, got {:?}", value),
+            ));
+        };
+
+        let id: RecordId = SurrealValue::from_value(obj.get("id").cloned().unwrap_or_default())?;
+        let data: T = SurrealValue::from_value(obj.get("data").cloned().unwrap_or_default())?;
+
+        Ok(Record { id, data })
+    }
 }
 
 /// Storage struct that holds a handle to a SurrealDB instance
@@ -30,7 +66,7 @@ impl Storage {
     /// * `db` - A SurrealDB instance connected to a specific engine
     ///
     /// # Returns
-    /// * `Result<Self, Error>` - The storage instance or an error
+    /// * The storage instance or an error
     pub fn new(db: Surreal<Db>) -> Result<Self, Error> {
         Ok(Self { db })
     }
@@ -38,7 +74,7 @@ impl Storage {
     /// Creates a new Storage instance using in-memory database mode.
     ///
     /// # Returns
-    /// * `Result<Storage, Error>` - The storage instance or an error
+    /// * The storage instance or an error
     pub async fn new_mem() -> Result<Self, Error> {
         let db = Surreal::new::<Mem>(()).await?;
         db.use_ns("test").use_db("test").await?;
@@ -51,7 +87,7 @@ impl Storage {
     /// * `path` - File path where the RocksDB database will be stored
     ///
     /// # Returns
-    /// * `Result<Storage, Error>` - The storage instance or an error
+    /// * The storage instance or an error
     pub async fn new_rocksdb(path: &str) -> Result<Self, Error> {
         let db = Surreal::new::<RocksDb>(path).await?;
         db.use_ns("test").use_db("test").await?;
@@ -65,7 +101,7 @@ impl Storage {
     /// * `data` - The data to insert
     ///
     /// # Returns
-    /// * `Result<Record<T>, Error>` - The created record with its ID and data
+    /// * The created record with its ID and data
     async fn create_base<T: serde::Serialize + serde::de::DeserializeOwned>(
         &self,
         table: &str,
@@ -116,7 +152,7 @@ impl Storage {
     /// * `id` - The record ID to delete
     ///
     /// # Returns
-    /// * `Result<(), Error>` - Success or error
+    /// * Success or error
     async fn delete_base(&self, table: &str, id: &RecordId) -> Result<(), Error> {
         let key = match &id.key {
             surrealdb::types::RecordIdKey::String(s) => s.as_str(),
@@ -133,7 +169,7 @@ impl Storage {
     /// * `id` - The record ID to read
     ///
     /// # Returns
-    /// * `Result<Record<T>, Error>` - The record with its ID and data
+    /// * The record with its ID and data
     async fn read_base<T: serde::de::DeserializeOwned>(
         &self,
         table: &str,
@@ -162,7 +198,7 @@ impl Storage {
     /// * `record` - The record containing ID and data to update
     ///
     /// # Returns
-    /// * `Result<(), Error>` - Success or error
+    /// * Success or error
     async fn update_base<T: serde::Serialize>(
         &self,
         table: &str,
@@ -186,7 +222,7 @@ impl Storage {
     /// * `event` - The event data to store
     ///
     /// # Returns
-    /// * `Result<Record<Event>, Error>` - The created event record with its ID
+    /// * The created event record with its ID
     pub async fn create_event(&self, event: Event) -> Result<Record<Event>, Error> {
         self.create_base("event", event).await
     }
@@ -197,7 +233,7 @@ impl Storage {
     /// * `id` - The ID of the event to read
     ///
     /// # Returns
-    /// * `Result<Record<Event>, Error>` - The event record with its ID and data
+    /// * The event record with its ID and data
     pub async fn read_event(&self, id: &RecordId) -> Result<Record<Event>, Error> {
         self.read_base("event", id).await
     }
@@ -208,7 +244,7 @@ impl Storage {
     /// * `record` - The event record containing ID and updated data
     ///
     /// # Returns
-    /// * `Result<(), Error>` - Success or error
+    /// * Success or error
     pub async fn update_event(&self, record: Record<Event>) -> Result<(), Error> {
         self.update_base("event", record).await
     }
@@ -219,7 +255,7 @@ impl Storage {
     /// * `id` - The ID of the event to delete
     ///
     /// # Returns
-    /// * `Result<(), Error>` - Success or error
+    /// * Success or error
     pub async fn delete_event(&self, id: &RecordId) -> Result<(), Error> {
         self.delete_base("event", id).await
     }
@@ -232,7 +268,7 @@ impl Storage {
     /// * `task` - The task data to store
     ///
     /// # Returns
-    /// * `Result<Record<Task>, Error>` - The created task record with its ID
+    /// * The created task record with its ID
     pub async fn create_task(&self, task: Task) -> Result<Record<Task>, Error> {
         self.create_base("task", task).await
     }
@@ -243,7 +279,7 @@ impl Storage {
     /// * `id` - The ID of the task to read
     ///
     /// # Returns
-    /// * `Result<Record<Task>, Error>` - The task record with its ID and data
+    /// * The task record with its ID and data
     pub async fn read_task(&self, id: &RecordId) -> Result<Record<Task>, Error> {
         self.read_base("task", id).await
     }
@@ -254,7 +290,7 @@ impl Storage {
     /// * `record` - The task record containing ID and updated data
     ///
     /// # Returns
-    /// * `Result<(), Error>` - Success or error
+    /// * Success or error
     pub async fn update_task(&self, record: Record<Task>) -> Result<(), Error> {
         self.update_base("task", record).await
     }
@@ -265,9 +301,218 @@ impl Storage {
     /// * `id` - The ID of the task to delete
     ///
     /// # Returns
-    /// * `Result<(), Error>` - Success or error
+    /// * Success or error
     pub async fn delete_task(&self, id: &RecordId) -> Result<(), Error> {
         self.delete_base("task", id).await
+    }
+}
+
+impl Storage {
+    /// Creates a new slot record in the database.
+    ///
+    /// # Arguments
+    /// * `slot` - The slot data to store
+    ///
+    /// # Returns
+    /// * The created slot record with its ID
+    pub async fn create_slot(&self, slot: Slot) -> Result<Record<Slot>, Error> {
+        self.create_base("slot", slot).await
+    }
+
+    /// Reads a slot record from the database by its ID.
+    ///
+    /// # Arguments
+    /// * `id` - The ID of the slot to read
+    ///
+    /// # Returns
+    /// * The slot record with its ID and data
+    pub async fn read_slot(&self, id: &RecordId) -> Result<Record<Slot>, Error> {
+        self.read_base("slot", id).await
+    }
+
+    /// Updates a slot record in the database.
+    ///
+    /// # Arguments
+    /// * `record` - The slot record containing ID and updated data
+    ///
+    /// # Returns
+    /// * Success or error
+    pub async fn update_slot(&self, record: Record<Slot>) -> Result<(), Error> {
+        self.update_base("slot", record).await
+    }
+
+    /// Deletes a slot record from the database by its ID.
+    ///
+    /// # Arguments
+    /// * `id` - The ID of the slot to delete
+    ///
+    /// # Returns
+    /// * Success or error
+    pub async fn delete_slot(&self, id: &RecordId) -> Result<(), Error> {
+        self.delete_base("slot", id).await
+    }
+}
+
+impl Storage {
+    /// Creates a new task list record in the database.
+    ///
+    /// # Arguments
+    /// * `list` - The task list data to store
+    ///
+    /// # Returns
+    /// * The created task list record with its ID
+    pub async fn create_task_list(&self, list: TaskList) -> Result<Record<TaskList>, Error> {
+        self.create_base("task_list", list).await
+    }
+
+    /// Reads a task list record from the database by its ID.
+    ///
+    /// # Arguments
+    /// * `id` - The ID of the task list to read
+    ///
+    /// # Returns
+    /// * The task list record with its ID and data
+    pub async fn read_task_list(&self, id: &RecordId) -> Result<Record<TaskList>, Error> {
+        self.read_base("task_list", id).await
+    }
+
+    /// Updates a task list record in the database.
+    ///
+    /// # Arguments
+    /// * `record` - The task list record containing ID and updated data
+    ///
+    /// # Returns
+    /// * Success or error
+    pub async fn update_task_list(&self, record: Record<TaskList>) -> Result<(), Error> {
+        self.update_base("task_list", record).await
+    }
+
+    /// Deletes a task list record from the database by its ID.
+    ///
+    /// # Arguments
+    /// * `id` - The ID of the task list to delete
+    ///
+    /// # Returns
+    /// * Success or error
+    pub async fn delete_task_list(&self, id: &RecordId) -> Result<(), Error> {
+        self.delete_base("task_list", id).await
+    }
+}
+
+impl Storage {
+    /// Relates a task to a slot with the scheduled_for timestamp.
+    ///
+    /// # Arguments
+    /// * `slot_id` - The slot record ID
+    /// * `task_id` - The task record ID
+    /// * `scheduled_for` - The timestamp when the task is scheduled
+    ///
+    /// # Returns
+    /// * Success or error
+    pub async fn relate_task_to_slot(
+        &self,
+        slot_id: &RecordId,
+        task_id: &RecordId,
+        scheduled_for: NaiveDateTime,
+    ) -> Result<(), Error> {
+        let sql = format!(
+            "RELATE {}->scheduled_in->{} SET scheduled_for = {}",
+            Self::record_id_to_string(slot_id),
+            Self::record_id_to_string(task_id),
+            scheduled_for.and_utc().timestamp()
+        );
+        self.db.query(sql).await?;
+        Ok(())
+    }
+
+    /// Gets the slot for a task (if scheduled).
+    ///
+    /// # Arguments
+    /// * `task_id` - The task record ID
+    ///
+    /// # Returns
+    /// * The slot record if found, None if not scheduled
+    pub async fn get_slot_for_task(
+        &self,
+        task_id: &RecordId,
+    ) -> Result<Option<Record<Slot>>, Error> {
+        let sql = format!(
+            "SELECT * FROM ONLY slot WHERE id IN (SELECT out FROM scheduled_in WHERE in = {}) LIMIT 1",
+            Self::record_id_to_string(task_id)
+        );
+        let mut result = self.db.query(sql).await?;
+        let slot: Option<Record<Slot>> = result.take(0)?;
+        Ok(slot)
+    }
+
+    /// Gets all tasks in a slot.
+    ///
+    /// # Arguments
+    /// * `slot_id` - The slot record ID
+    ///
+    /// # Returns
+    /// * The task records in the slot
+    pub async fn get_tasks_in_slot(
+        &self,
+        slot_id: &RecordId,
+    ) -> Result<Vec<Record<Task>>, Error> {
+        let sql = format!(
+            "SELECT * FROM task WHERE id IN (SELECT in FROM scheduled_in WHERE out = {})",
+            Self::record_id_to_string(slot_id)
+        );
+        let mut result = self.db.query(sql).await?;
+        let tasks: Vec<Record<Task>> = result.take(0)?;
+        Ok(tasks)
+    }
+
+    /// Relates a task to a task list.
+    ///
+    /// # Arguments
+    /// * `task_id` - The task record ID
+    /// * `list_id` - The task list record ID
+    ///
+    /// # Returns
+    /// * Success or error
+    pub async fn relate_task_to_list(
+        &self,
+        task_id: &RecordId,
+        list_id: &RecordId,
+    ) -> Result<(), Error> {
+        let sql = format!(
+            "RELATE {}->belongs_to->{}",
+            Self::record_id_to_string(task_id),
+            Self::record_id_to_string(list_id)
+        );
+        self.db.query(sql).await?;
+        Ok(())
+    }
+
+    /// Gets all tasks in a task list.
+    ///
+    /// # Arguments
+    /// * `list_id` - The task list record ID
+    ///
+    /// # Returns
+    /// * The task records in the list
+    pub async fn get_tasks_in_list(
+        &self,
+        list_id: &RecordId,
+    ) -> Result<Vec<Record<Task>>, Error> {
+        let sql = format!(
+            "SELECT * FROM task WHERE id IN (SELECT in FROM belongs_to WHERE out = {})",
+            Self::record_id_to_string(list_id)
+        );
+        let mut result = self.db.query(sql).await?;
+        let tasks: Vec<Record<Task>> = result.take(0)?;
+        Ok(tasks)
+    }
+
+    /// Helper to convert RecordId to string for SQL queries
+    fn record_id_to_string(id: &RecordId) -> String {
+        match &id.key {
+            surrealdb::types::RecordIdKey::String(s) => format!("{}:{}", id.table, s),
+            _ => format!("{}:unknown", id.table),
+        }
     }
 }
 

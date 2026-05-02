@@ -1,65 +1,55 @@
-use crate::model::task::{ScheduledTask, Task};
-use std::ops::Index;
+use chrono::NaiveDateTime;
+use surrealdb::types::RecordId;
 
 #[derive(Clone, Debug)]
-pub(crate) struct Plan<'a> {
-    tasks: Vec<ScheduledTask<'a>>,
-    discarded_tasks: Vec<&'a Task>,
+pub(crate) struct Plan {
+    scheduled: Vec<(RecordId, RecordId, NaiveDateTime)>, // (task_id, slot_id, scheduled_for)
+    discarded_task_ids: Vec<RecordId>,
     score: u64,
 }
 
-impl<'a> Index<usize> for Plan<'a> {
-    type Output = ScheduledTask<'a>;
-
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.tasks[index]
-    }
-}
-
-impl<'a> Plan<'a> {
+impl Plan {
     pub fn new() -> Self {
         Self {
-            tasks: Vec::new(),
-            discarded_tasks: Vec::new(),
+            scheduled: Vec::new(),
+            discarded_task_ids: Vec::new(),
             score: 0,
         }
     }
 
-    pub fn add_task(&mut self, task: ScheduledTask<'a>) {
-        let priority = u64::from(*task.priority());
-        self.tasks.push(task);
+    pub fn add_task(&mut self, task_id: RecordId, slot_id: RecordId, scheduled_for: NaiveDateTime, priority: u64) {
+        self.scheduled.push((task_id, slot_id, scheduled_for));
         self.score += priority;
     }
 
-    pub fn with_task(self, task: ScheduledTask<'a>) -> Self {
-        let priority = u64::from(*task.priority());
-        let mut tasks = self.tasks;
-        tasks.push(task);
+    pub fn with_task(self, task_id: RecordId, slot_id: RecordId, scheduled_for: NaiveDateTime, priority: u64) -> Self {
+        let mut scheduled = self.scheduled;
+        scheduled.push((task_id, slot_id, scheduled_for));
 
         Self {
             score: self.score + priority,
-            tasks,
+            scheduled,
             ..self
         }
     }
 
-    pub fn discard_task(&mut self, task: &'a Task) {
-        self.discarded_tasks.push(task);
+    pub fn discard_task(&mut self, task_id: RecordId) {
+        self.discarded_task_ids.push(task_id);
     }
 
-    pub fn discard_tasks(&mut self, tasks: impl Iterator<Item = &'a Task>) {
-        tasks.collect_into(&mut self.discarded_tasks);
+    pub fn discard_tasks(&mut self, task_ids: impl Iterator<Item = RecordId>) {
+        task_ids.collect_into(&mut self.discarded_task_ids);
     }
 
     pub fn score(&self) -> u64 {
         self.score
     }
 
-    pub fn tasks(&self) -> &Vec<ScheduledTask<'a>> {
-        &self.tasks
+    pub fn tasks(&self) -> &Vec<(RecordId, RecordId, NaiveDateTime)> {
+        &self.scheduled
     }
 
-    pub fn discarded_tasks(&self) -> &Vec<&'a Task> {
-        &self.discarded_tasks
+    pub fn discarded_tasks(&self) -> &Vec<RecordId> {
+        &self.discarded_task_ids
     }
 }
