@@ -1,4 +1,5 @@
-use chrono::NaiveDateTime;
+use chrono::{NaiveDate, NaiveDateTime, TimeDelta};
+use serde::{Deserialize, Serialize};
 use surrealdb::{
     engine::local::{Db, Mem, RocksDb},
     types::{RecordId, SurrealValue},
@@ -15,7 +16,7 @@ use crate::{
     }
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Record<T> {
     pub(crate) id: RecordId,
     pub(crate) data: T,
@@ -51,6 +52,18 @@ impl<T: SurrealValue + std::fmt::Debug> SurrealValue for Record<T> {
 
         Ok(Record { id, data })
     }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub(crate) struct ScheduledTask {
+    pub(crate) task: Record<Task>,
+    pub(crate) scheduled_for: i64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub(crate) struct SlotWithTasks {
+    pub(crate) slot: Record<Slot>,
+    pub(crate) tasks: Vec<ScheduledTask>,
 }
 
 /// Storage struct that holds a handle to a SurrealDB instance
@@ -258,6 +271,70 @@ impl Storage {
     /// * Success or error
     pub async fn delete_event(&self, id: &RecordId) -> Result<(), Error> {
         self.delete_base("event", id).await
+    }
+}
+
+impl Storage {
+    /// Gets events occurring within a date range (inclusive start, exclusive end).
+    /// Events that overlap with the date range are returned (even if they span multiple days).
+    ///
+    /// # Arguments
+    /// * `start` - The start date (inclusive, at 00:00:00)
+    /// * `end` - The end date (exclusive, at 00:00:00)
+    ///
+    /// # Returns
+    /// * Vector of event records occurring in the date range
+    pub async fn get_events_for_date_range(
+        &self,
+        start: NaiveDate,
+        end: NaiveDate,
+    ) -> Result<Vec<Record<Event>>, Error> {
+        let range_start = start.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp();
+        let range_end = end.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp();
+
+        let sql = format!(
+            "SELECT * FROM event WHERE starts_at < {} AND ends_at > {}",
+            range_end, range_start
+        );
+        let mut result = self.db.query(sql).await?;
+        
+        // Take raw JSON values and convert to Record<Event>
+        let values: Vec<serde_json::Value> = result.take(0).unwrap_or_default();
+        
+        let events: Vec<Record<Event>> = values
+            .into_iter()
+            .filter_map(|value| {
+                // Use existing helper to extract RecordId
+                let id = Self::extract_record_id_from_value(&value, "event");
+                
+                // Get the data by removing id and deserializing the rest
+                if let serde_json::Value::Object(mut obj) = value {
+                    obj.remove("id");
+                    let data: Event = serde_json::from_value(serde_json::Value::Object(obj)).ok()?;
+                    Some(Record { id, data })
+                } else {
+                    None
+                }
+            })
+            .collect();
+        
+        Ok(events)
+    }
+
+    /// Gets events occurring on a specific date.
+    /// Events that overlap with the date are returned (even if they span multiple days).
+    ///
+    /// # Arguments
+    /// * `date` - The date to query
+    ///
+    /// # Returns
+    /// * Vector of event records occurring on the date
+    pub async fn get_events_for_date(
+        &self,
+        date: NaiveDate,
+    ) -> Result<Vec<Record<Event>>, Error> {
+        let next_day = date + TimeDelta::days(1);
+        self.get_events_for_date_range(date, next_day).await
     }
 }
 
@@ -584,5 +661,139 @@ mod tests {
 
         let result = storage.read_event(&record.id).await;
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_get_events_for_date_range_basic() {
+        let storage = Storage::new_mem().await.expect("Failed to create storage");
+
+        let date = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap();
+
+        // Create events on different dates
+        let event_a = Event::new(
+            "Event A".to_string(),
+            "On May 1".to_string(),
+            date.and_hms_opt(10, 0, 0).unwrap(),
+            date.and_hms_opt(12, 0, 0).unwrap(),
+        );
+        let event_b = Event::new(
+            "Event B".to_string(),
+            "On May 3".to_string(),
+            NaiveDate::from_ymd_opt(2026, 5, 3).unwrap().and_hms_opt(10, 0, 0).unwrap(),
+            NaiveDate::from_ymd_opt(2026, 5, 3).unwrap().and_hms_opt(12, 0, 0).unwrap(),
+        );
+        let event_c = Event::new(
+            "Event C".to_string(),
+            "On May 5".to_string(),
+            NaiveDate::from_ymd_opt(2026, 5, 5).unwrap().and_hms_opt(10, 0, 0).unwrap(),
+            NaiveDate::from_ymd_opt(2026, 5, 5).unwrap().and_hms_opt(12, 0, 0).unwrap(),
+        );
+
+        storage.create_event(event_a).await.expect("Failed to create event A");
+        storage.create_event(event_b).await.expect("Failed to create event B");
+        storage.create_event(event_c).await.expect("Failed to create event C");
+
+        // Query range: May 2 to May 4 (should only return event B)
+        let start = NaiveDate::from_ymd_opt(2026, 5, 2).unwrap();
+        let end = NaiveDate::from_ymd_opt(2026, 5, 4).unwrap();
+        let events = storage.get_events_for_date_range(start, end).await.expect("Failed to query events");
+
+        assert_eq!(events.len(), 1, "Should return exactly 1 event");
+        assert_eq!(events[0].data.name(), "Event B");
+    }
+
+    #[tokio::test]
+    async fn test_get_events_for_date_range_overlapping() {
+        let storage = Storage::new_mem().await.expect("Failed to create storage");
+
+        // Create event that spans multiple days: May 1 20:00 to May 3 06:00
+        let event = Event::new(
+            "Multi-day Event".to_string(),
+            "Spans 3 days".to_string(),
+            NaiveDate::from_ymd_opt(2026, 5, 1).unwrap().and_hms_opt(20, 0, 0).unwrap(),
+            NaiveDate::from_ymd_opt(2026, 5, 3).unwrap().and_hms_opt(6, 0, 0).unwrap(),
+        );
+        storage.create_event(event).await.expect("Failed to create event");
+
+        // Query for May 2 (middle day) - should return the event
+        let date = NaiveDate::from_ymd_opt(2026, 5, 2).unwrap();
+        let events = storage.get_events_for_date(date).await.expect("Failed to query events");
+
+        assert_eq!(events.len(), 1, "Should return the overlapping event");
+        assert_eq!(events[0].data.name(), "Multi-day Event");
+    }
+
+    #[tokio::test]
+    async fn test_get_events_for_date_single() {
+        let storage = Storage::new_mem().await.expect("Failed to create storage");
+
+        let date1 = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap();
+        let date2 = NaiveDate::from_ymd_opt(2026, 5, 2).unwrap();
+        let date3 = NaiveDate::from_ymd_opt(2026, 5, 3).unwrap();
+
+        // Create events on different dates
+        let event1 = Event::new(
+            "Event 1".to_string(),
+            "On May 1".to_string(),
+            date1.and_hms_opt(10, 0, 0).unwrap(),
+            date1.and_hms_opt(12, 0, 0).unwrap(),
+        );
+        let event2 = Event::new(
+            "Event 2".to_string(),
+            "On May 2".to_string(),
+            date2.and_hms_opt(10, 0, 0).unwrap(),
+            date2.and_hms_opt(12, 0, 0).unwrap(),
+        );
+        let event3 = Event::new(
+            "Event 3".to_string(),
+            "On May 3".to_string(),
+            date3.and_hms_opt(10, 0, 0).unwrap(),
+            date3.and_hms_opt(12, 0, 0).unwrap(),
+        );
+
+        storage.create_event(event1).await.expect("Failed to create event 1");
+        storage.create_event(event2).await.expect("Failed to create event 2");
+        storage.create_event(event3).await.expect("Failed to create event 3");
+
+        // Query for May 2 only
+        let events = storage.get_events_for_date(date2).await.expect("Failed to query events");
+
+        assert_eq!(events.len(), 1, "Should return exactly 1 event");
+        assert_eq!(events[0].data.name(), "Event 2");
+    }
+
+    #[tokio::test]
+    async fn test_get_events_for_date_range_empty() {
+        let storage = Storage::new_mem().await.expect("Failed to create storage");
+
+        // Query range with no events
+        let start = NaiveDate::from_ymd_opt(2026, 5, 10).unwrap();
+        let end = NaiveDate::from_ymd_opt(2026, 5, 20).unwrap();
+        let events = storage.get_events_for_date_range(start, end).await.expect("Failed to query events");
+
+        assert!(events.is_empty(), "Should return empty vec");
+    }
+
+    #[tokio::test]
+    async fn test_get_events_for_date_multiple_same_day() {
+        let storage = Storage::new_mem().await.expect("Failed to create storage");
+
+        let date = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap();
+
+        // Create 3 events on the same day
+        for i in 1..=3 {
+            let event = Event::new(
+                format!("Event {}", i),
+                format!("On May 1, event {}", i),
+                date.and_hms_opt(i as u32 * 2, 0, 0).unwrap(),
+                date.and_hms_opt(i as u32 * 2 + 1, 0, 0).unwrap(),
+            );
+            storage.create_event(event).await.expect("Failed to create event");
+        }
+
+        // Query for May 1
+        let events = storage.get_events_for_date(date).await.expect("Failed to query events");
+
+        assert_eq!(events.len(), 3, "Should return all 3 events");
     }
 }
