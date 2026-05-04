@@ -1,3 +1,9 @@
+use std::thread;
+use std::time::Duration;
+
 fn main() {
-    println!("Hello, world!");
+    // Infinite sleep loop to simulate a running process
+    loop {
+        thread::sleep(Duration::MAX);
+    }
 }
