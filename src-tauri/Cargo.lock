@@ -125,6 +125,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "applock-test-dummy"
+version = "0.1.0"
+
+[[package]]
 name = "approx"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
