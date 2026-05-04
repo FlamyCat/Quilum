@@ -2,12 +2,12 @@ use super::*;
 use chrono::NaiveDate;
 
 #[tokio::test]
-async fn test_storage_mem_creation() {
+async fn storage_mem_creation() {
     let _storage = Storage::new_mem().await.expect("Failed to create storage");
 }
 
 #[tokio::test]
-async fn test_event_crud() {
+async fn event_crud() {
     let storage = Storage::new_mem().await.expect("Failed to create storage");
 
     let start_time = NaiveDate::from_ymd_opt(2026, 5, 1)
@@ -67,7 +67,7 @@ async fn test_event_crud() {
 }
 
 #[tokio::test]
-async fn test_get_events_for_date_range_basic() {
+async fn get_events_for_date_range_basic() {
     let storage = Storage::new_mem().await.expect("Failed to create storage");
 
     let date = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap();
@@ -106,7 +106,7 @@ async fn test_get_events_for_date_range_basic() {
 }
 
 #[tokio::test]
-async fn test_get_events_for_date_range_overlapping() {
+async fn get_events_for_date_range_overlapping() {
     let storage = Storage::new_mem().await.expect("Failed to create storage");
 
     // Create event that spans multiple days: May 1 20:00 to May 3 06:00
@@ -127,7 +127,7 @@ async fn test_get_events_for_date_range_overlapping() {
 }
 
 #[tokio::test]
-async fn test_get_events_for_date_single() {
+async fn get_events_for_date_single() {
     let storage = Storage::new_mem().await.expect("Failed to create storage");
 
     let date1 = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap();
@@ -166,7 +166,7 @@ async fn test_get_events_for_date_single() {
 }
 
 #[tokio::test]
-async fn test_get_events_for_date_range_empty() {
+async fn get_events_for_date_range_empty() {
     let storage = Storage::new_mem().await.expect("Failed to create storage");
 
     // Query range with no events
@@ -178,7 +178,7 @@ async fn test_get_events_for_date_range_empty() {
 }
 
 #[tokio::test]
-async fn test_get_events_for_date_multiple_same_day() {
+async fn get_events_for_date_multiple_same_day() {
     let storage = Storage::new_mem().await.expect("Failed to create storage");
 
     let date = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap();
@@ -201,7 +201,7 @@ async fn test_get_events_for_date_multiple_same_day() {
 }
 
 #[tokio::test]
-async fn test_get_scheduled_tasks_basic() {
+async fn get_scheduled_tasks_basic() {
     let storage = Storage::new_mem().await.expect("Failed to create storage");
 
     // Create a slot on 2026-05-01
@@ -240,7 +240,7 @@ async fn test_get_scheduled_tasks_basic() {
 }
 
 #[tokio::test]
-async fn test_get_scheduled_tasks_wrong_date() {
+async fn get_scheduled_tasks_wrong_date() {
     let storage = Storage::new_mem().await.expect("Failed to create storage");
 
     // Create a slot on 2026-05-01
@@ -276,7 +276,7 @@ async fn test_get_scheduled_tasks_wrong_date() {
 }
 
 #[tokio::test]
-async fn test_get_scheduled_tasks_multiple_in_slot() {
+async fn get_scheduled_tasks_multiple_in_slot() {
     let storage = Storage::new_mem().await.expect("Failed to create storage");
 
     // Create a slot on 2026-05-01
@@ -325,7 +325,7 @@ async fn test_get_scheduled_tasks_multiple_in_slot() {
 }
 
 #[tokio::test]
-async fn test_get_scheduled_tasks_date_range_filter() {
+async fn get_scheduled_tasks_date_range_filter() {
     let storage = Storage::new_mem().await.expect("Failed to create storage");
 
     // Slot A on 2026-05-01 with task T1
@@ -379,7 +379,7 @@ async fn test_get_scheduled_tasks_date_range_filter() {
 }
 
 #[tokio::test]
-async fn test_get_scheduled_tasks_empty_result() {
+async fn get_scheduled_tasks_empty_result() {
     let storage = Storage::new_mem().await.expect("Failed to create storage");
 
     // Query range with no slots/tasks
