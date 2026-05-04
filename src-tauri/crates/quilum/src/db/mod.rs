@@ -1,19 +1,16 @@
 use chrono::{NaiveDate, NaiveDateTime, TimeDelta};
 use serde::{Deserialize, Serialize};
-use surrealdb::{
-    types::{RecordId, SurrealValue},
-    Error,
-    Surreal
-};
 use surrealdb::engine::local::{Db, Mem, RocksDb};
+use surrealdb::{
+    types::{RecordId, SurrealValue}, Error,
+    Surreal,
+};
 
-use crate::{
-    model::{
-        event::Event,
-        slot::Slot,
-        task::{self, Task},
-        tasklist::TaskList,
-    }
+use crate::model::{
+    event::Event,
+    slot::Slot,
+    task::{self, Task},
+    tasklist::TaskList,
 };
 
 /// Helper struct for creating tasks without the id field
@@ -24,6 +21,13 @@ struct TaskCreate {
     priority: task::Priority,
     estimated_duration: i64,
     deadline: i64,
+}
+
+/// Struct for returning slots with their scheduled tasks
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub(crate) struct SlotWithTasks {
+    pub(crate) slot: Slot,
+    pub(crate) tasks: Vec<(Task, i64)>,
 }
 
 /// Storage struct that holds a handle to a SurrealDB instance
@@ -187,10 +191,7 @@ impl Storage {
     ///
     /// # Returns
     /// * Vector of events occurring on the date
-    pub async fn get_events_for_date(
-        &self,
-        date: NaiveDate,
-    ) -> Result<Vec<Event>, Error> {
+    pub async fn get_events_for_date(&self, date: NaiveDate) -> Result<Vec<Event>, Error> {
         let next_day = date + TimeDelta::days(1);
         self.get_events_for_date_range(date, next_day).await
     }
@@ -222,11 +223,14 @@ impl Storage {
         );
         let mut result = self.db.query(sql).await?;
         let raw: Vec<serde_json::Value> = result.take(0).unwrap_or_default();
-        
+
         let mut scheduled_tasks = Vec::new();
         for item in raw {
-            if let (Some(task_value), Some(scheduled_for)) = (item.get("out"), item.get("scheduled_for")) {
-                if let (Some(task_obj), Some(sf)) = (task_value.as_object(), scheduled_for.as_i64()) {
+            if let (Some(task_value), Some(scheduled_for)) =
+                (item.get("out"), item.get("scheduled_for"))
+            {
+                if let (Some(task_obj), Some(sf)) = (task_value.as_object(), scheduled_for.as_i64())
+                {
                     // Convert the task object to proper JSON, handling id field
                     let mut task_json = serde_json::Map::new();
                     for (k, v) in task_obj {
@@ -236,16 +240,28 @@ impl Storage {
                                 let parts: Vec<&str> = id_str.split(':').collect();
                                 if parts.len() == 2 {
                                     let mut id_obj = serde_json::Map::new();
-                                    id_obj.insert("table".to_string(), serde_json::Value::String(parts[0].to_string()));
-                                    id_obj.insert("key".to_string(), serde_json::json!({"String": parts[1]}));
-                                    task_json.insert("id".to_string(), serde_json::Value::Object(id_obj));
+                                    id_obj.insert(
+                                        "table".to_string(),
+                                        serde_json::Value::String(parts[0].to_string()),
+                                    );
+                                    id_obj.insert(
+                                        "key".to_string(),
+                                        serde_json::json!({"String": parts[1]}),
+                                    );
+                                    task_json.insert(
+                                        "id".to_string(),
+                                        serde_json::Value::Object(id_obj),
+                                    );
                                 }
                             }
                         } else if k == "priority" {
                             // Handle priority enum - extract the variant name
                             if let Some(priority_obj) = v.as_object() {
                                 if let Some(first_key) = priority_obj.keys().next() {
-                                    task_json.insert("priority".to_string(), serde_json::Value::String(first_key.clone()));
+                                    task_json.insert(
+                                        "priority".to_string(),
+                                        serde_json::Value::String(first_key.clone()),
+                                    );
                                 }
                             }
                         } else {
@@ -253,12 +269,168 @@ impl Storage {
                         }
                     }
                     let task: Task = serde_json::from_value(serde_json::Value::Object(task_json))
-                        .map_err(|e| Error::query(format!("Failed to deserialize task: {}", e), None))?;
+                        .map_err(|e| {
+                        Error::query(format!("Failed to deserialize task: {}", e), None)
+                    })?;
                     scheduled_tasks.push((task, sf));
                 }
             }
         }
         Ok(scheduled_tasks)
+    }
+
+    /// Gets all slots within a date range along with their scheduled tasks.
+    /// Returns ALL slots (including empty ones) grouped with their tasks.
+    ///
+    /// # Arguments
+    /// * `start` - The start date (inclusive, at 00:00:00)
+    /// * `end` - The end date (exclusive, at 00:00:00)
+    ///
+    /// # Returns
+    /// * Vector of slots with their scheduled tasks
+    pub async fn get_slots_with_tasks_for_date_range(
+        &self,
+        start: NaiveDate,
+        end: NaiveDate,
+    ) -> Result<Vec<SlotWithTasks>, Error> {
+        let range_start = start.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp();
+        let range_end = end.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp();
+
+        // Query using graph syntax to get slots + their tasks in one query
+        let sql = format!(
+            "SELECT *, ->(SELECT out.*, scheduled_for FROM contains) AS tasks \
+             FROM slot WHERE starts_at < {} AND ends_at > {}",
+            range_end, range_start
+        );
+        let mut result = self.db.query(sql).await?;
+        let slot_values: Vec<serde_json::Value> = result.take(0).unwrap_or_default();
+
+        let mut slots_with_tasks: Vec<SlotWithTasks> = Vec::new();
+
+        for mut slot_value in slot_values {
+            // === Parse slot ===
+            let _slot_id = {
+                let id_str = slot_value
+                    .get("id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default();
+                let parts: Vec<&str> = id_str.split(':').collect();
+                if parts.len() == 2 {
+                    RecordId::new(parts[0], parts[1])
+                } else {
+                    continue;
+                }
+            };
+
+            // Clone tasks BEFORE removing from slot_value
+            let tasks_value = slot_value.get("tasks").cloned().unwrap_or_default();
+
+            // Remove non-Slot fields (but keep id for deserialization)
+            if let Some(obj) = slot_value.as_object_mut() {
+                obj.remove("tasks");
+            }
+
+            // Convert the slot object to proper JSON, handling id field
+            let mut slot_json = serde_json::Map::new();
+            if let Some(obj) = slot_value.as_object() {
+                for (k, v) in obj {
+                    if k == "id" {
+                        // id is a string like "slot:xxx", convert to object format for RecordId
+                        if let Some(id_str) = v.as_str() {
+                            let parts: Vec<&str> = id_str.split(':').collect();
+                            if parts.len() == 2 {
+                                let mut id_obj = serde_json::Map::new();
+                                id_obj.insert(
+                                    "table".to_string(),
+                                    serde_json::Value::String(parts[0].to_string()),
+                                );
+                                id_obj.insert(
+                                    "key".to_string(),
+                                    serde_json::json!({"String": parts[1]}),
+                                );
+                                slot_json
+                                    .insert("id".to_string(), serde_json::Value::Object(id_obj));
+                            }
+                        }
+                    } else {
+                        slot_json.insert(k.clone(), v.clone());
+                    }
+                }
+            }
+
+            let slot: Slot = serde_json::from_value(serde_json::Value::Object(slot_json))
+                .map_err(|e| Error::query(format!("Failed to deserialize slot: {}", e), None))?;
+
+            // === Parse tasks ===
+            let tasks: Vec<(Task, i64)> = if let serde_json::Value::Array(arr) = tasks_value {
+                arr.into_iter()
+                    .filter_map(|task_item| {
+                        // task_item = {"out": {...}, "scheduled_for": 123...}
+
+                        // Extract scheduled_for from top level
+                        let scheduled_for =
+                            task_item.get("scheduled_for").and_then(|v| v.as_i64())?;
+
+                        // Extract "out" object which contains task data
+                        let out_value = task_item.get("out").cloned()?;
+                        let out_obj = if let serde_json::Value::Object(obj) = out_value {
+                            obj
+                        } else {
+                            return None;
+                        };
+
+                        // Convert the task object to proper JSON, handling id field
+                        let mut task_json = serde_json::Map::new();
+                        for (k, v) in &out_obj {
+                            if k == "id" {
+                                // id is a string like "task:xxx", convert to object format for RecordId
+                                if let Some(id_str) = v.as_str() {
+                                    let parts: Vec<&str> = id_str.split(':').collect();
+                                    if parts.len() == 2 {
+                                        let mut id_obj = serde_json::Map::new();
+                                        id_obj.insert(
+                                            "table".to_string(),
+                                            serde_json::Value::String(parts[0].to_string()),
+                                        );
+                                        id_obj.insert(
+                                            "key".to_string(),
+                                            serde_json::json!({"String": parts[1]}),
+                                        );
+                                        task_json.insert(
+                                            "id".to_string(),
+                                            serde_json::Value::Object(id_obj),
+                                        );
+                                    }
+                                }
+                            } else if k == "priority" {
+                                // Handle priority enum - extract the variant name
+                                if let Some(priority_obj) = v.as_object() {
+                                    if let Some(first_key) = priority_obj.keys().next() {
+                                        task_json.insert(
+                                            "priority".to_string(),
+                                            serde_json::Value::String(first_key.clone()),
+                                        );
+                                    }
+                                }
+                            } else {
+                                task_json.insert(k.clone(), v.clone());
+                            }
+                        }
+
+                        let task: Task =
+                            serde_json::from_value(serde_json::Value::Object(task_json)).ok()?;
+
+                        Some((task, scheduled_for))
+                    })
+                    .collect()
+            } else {
+                vec![]
+            };
+
+            slots_with_tasks.push(SlotWithTasks { slot, tasks });
+        }
+
+        Ok(slots_with_tasks)
     }
 }
 
@@ -403,10 +575,7 @@ impl Storage {
     ///
     /// # Returns
     /// * The created task list
-    pub async fn create_task_list(
-        &self,
-        title: String,
-    ) -> Result<TaskList, Error> {
+    pub async fn create_task_list(&self, title: String) -> Result<TaskList, Error> {
         let data = serde_json::json!({
             "title": title
         });
@@ -487,10 +656,7 @@ impl Storage {
     ///
     /// # Returns
     /// * The slot if found, None if not scheduled
-    pub async fn get_slot_for_task(
-        &self,
-        task_id: &RecordId,
-    ) -> Result<Option<Slot>, Error> {
+    pub async fn get_slot_for_task(&self, task_id: &RecordId) -> Result<Option<Slot>, Error> {
         let sql = format!(
             "SELECT * FROM ONLY slot WHERE id IN (SELECT out FROM contains WHERE in = {}) LIMIT 1",
             Self::record_id_to_string(task_id)
@@ -507,10 +673,7 @@ impl Storage {
     ///
     /// # Returns
     /// * The tasks in the slot
-    pub async fn get_tasks_in_slot(
-        &self,
-        slot_id: &RecordId,
-    ) -> Result<Vec<Task>, Error> {
+    pub async fn get_tasks_in_slot(&self, slot_id: &RecordId) -> Result<Vec<Task>, Error> {
         let sql = format!(
             "SELECT * FROM task WHERE id IN (SELECT in FROM contains WHERE out = {})",
             Self::record_id_to_string(slot_id)
@@ -549,10 +712,7 @@ impl Storage {
     ///
     /// # Returns
     /// * The tasks in the list
-    pub async fn get_tasks_in_list(
-        &self,
-        list_id: &RecordId,
-    ) -> Result<Vec<Task>, Error> {
+    pub async fn get_tasks_in_list(&self, list_id: &RecordId) -> Result<Vec<Task>, Error> {
         let sql = format!(
             "SELECT * FROM task WHERE id IN (SELECT in FROM belongs_to WHERE out = {})",
             Self::record_id_to_string(list_id)
