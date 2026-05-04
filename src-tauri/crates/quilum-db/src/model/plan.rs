@@ -2,7 +2,7 @@ use chrono::NaiveDateTime;
 use surrealdb::types::RecordId;
 
 #[derive(Clone, Debug)]
-pub(crate) struct Plan {
+pub struct Plan {
     scheduled: Vec<(RecordId, RecordId, NaiveDateTime)>, // (task_id, slot_id, scheduled_for)
     discarded_task_ids: Vec<RecordId>,
     score: u64,
@@ -22,13 +22,12 @@ impl Plan {
         self.score += priority;
     }
 
-    pub fn with_task(self, task_id: RecordId, slot_id: RecordId, scheduled_for: NaiveDateTime, priority: u64) -> Self {
-        let mut scheduled = self.scheduled;
-        scheduled.push((task_id, slot_id, scheduled_for));
+    pub fn with_task(mut self, task_id: RecordId, slot_id: RecordId, scheduled_for: NaiveDateTime, priority: u64) -> Self {
+        self.scheduled.push((task_id, slot_id, scheduled_for));
 
         Self {
             score: self.score + priority,
-            scheduled,
+            scheduled: self.scheduled,
             ..self
         }
     }
@@ -38,7 +37,7 @@ impl Plan {
     }
 
     pub fn discard_tasks(&mut self, task_ids: impl Iterator<Item = RecordId>) {
-        task_ids.collect_into(&mut self.discarded_task_ids);
+        self.discarded_task_ids.extend(task_ids);
     }
 
     pub fn score(&self) -> u64 {

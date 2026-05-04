@@ -1,13 +1,13 @@
 use chrono::{DateTime, NaiveDateTime, TimeDelta};
 use serde::{Deserialize, Serialize};
-use surrealdb::types::{RecordId, SurrealValue};
+use surrealdb::types::RecordId;
 
-#[derive(Clone, Debug, Serialize, Deserialize, SurrealValue)]
-pub(crate) struct Slot {
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Slot {
     #[serde(skip_serializing)]
-    pub(crate) id: RecordId,
-    pub(crate) starts_at: i64,
-    pub(crate) ends_at: i64,
+    pub id: RecordId,
+    pub starts_at: i64,
+    pub ends_at: i64,
 }
 
 impl Slot {

@@ -1,17 +1,17 @@
 use chrono::{DateTime, NaiveDateTime, TimeDelta};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
-use surrealdb::types::{RecordId, SurrealValue};
+use surrealdb::types::RecordId;
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize, SurrealValue)]
-pub(crate) struct Task {
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Task {
     #[serde(skip_serializing)]
-    pub(crate) id: RecordId,
-    pub(crate) name: String,
-    pub(crate) description: String,
-    pub(crate) priority: Priority,
-    pub(crate) estimated_duration: i64,
-    pub(crate) deadline: i64,
+    pub id: RecordId,
+    pub name: String,
+    pub description: String,
+    pub priority: Priority,
+    pub estimated_duration: i64,
+    pub deadline: i64,
 }
 
 impl Task {
@@ -91,8 +91,8 @@ impl Task {
     }
 }
 
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Default, Serialize, Deserialize, SurrealValue)]
-pub(crate) enum Priority {
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Default, Serialize, Deserialize)]
+pub enum Priority {
     Low,
     #[default]
     Medium,

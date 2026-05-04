@@ -1,15 +1,15 @@
 use chrono::{DateTime, NaiveDateTime};
 use serde::{Deserialize, Serialize};
-use surrealdb::types::{RecordId, SurrealValue};
+use surrealdb::types::RecordId;
 
-#[derive(Clone, Debug, Serialize, Deserialize, SurrealValue)]
-pub(crate) struct Event {
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Event {
     #[serde(skip_serializing)]
-    pub(crate) id: RecordId,
-    pub(crate) name: String,
-    pub(crate) description: String,
-    pub(crate) starts_at: i64,
-    pub(crate) ends_at: i64,
+    pub id: RecordId,
+    pub name: String,
+    pub description: String,
+    pub starts_at: i64,
+    pub ends_at: i64,
 }
 
 impl Event {
