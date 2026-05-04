@@ -119,6 +119,7 @@ name = "applock"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "quilum-db",
  "serde",
  "serde_json",
  "surrealdb",
@@ -4612,6 +4613,7 @@ name = "quilum"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "quilum-db",
  "serde",
  "serde_json",
  "surrealdb",
@@ -4624,6 +4626,12 @@ dependencies = [
 [[package]]
 name = "quilum-db"
 version = "0.1.0"
+dependencies = [
+ "chrono",
+ "serde",
+ "serde_json",
+ "surrealdb",
+]
 
 [[package]]
 name = "quinn"
