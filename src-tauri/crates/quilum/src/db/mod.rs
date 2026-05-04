@@ -359,7 +359,7 @@ impl Storage {
         // Query 1: Get task IDs and scheduled_for from edges where slot is in date range
         // Use graph traversal to access slot fields directly from the relation
         let sql1 = format!(
-            "SELECT out AS task_id, scheduled_for FROM scheduled_in \
+            "SELECT out AS task_id, scheduled_for FROM contains \
             WHERE in.starts_at < {} AND in.ends_at > {}",
             range_end, range_start
         );
@@ -393,7 +393,7 @@ impl Storage {
         // Query 2: Fetch task data using graph traversal from the relation
         // Get task data directly by following the relation
         let sql2 = format!(
-            "SELECT out.*, scheduled_for FROM scheduled_in \
+            "SELECT out.*, scheduled_for FROM contains \
             WHERE in.starts_at < {} AND in.ends_at > {}",
             range_end, range_start
         );
@@ -615,7 +615,7 @@ impl Storage {
         scheduled_for: NaiveDateTime,
     ) -> Result<(), Error> {
         let sql = format!(
-            "RELATE {}->scheduled_in->{} SET scheduled_for = {}",
+            "RELATE {}->contains->{} SET scheduled_for = {}",
             Self::record_id_to_string(slot_id),
             Self::record_id_to_string(task_id),
             scheduled_for.and_utc().timestamp()
@@ -636,7 +636,7 @@ impl Storage {
         task_id: &RecordId,
     ) -> Result<Option<Record<Slot>>, Error> {
         let sql = format!(
-            "SELECT * FROM ONLY slot WHERE id IN (SELECT out FROM scheduled_in WHERE in = {}) LIMIT 1",
+            "SELECT * FROM ONLY slot WHERE id IN (SELECT out FROM contains WHERE in = {}) LIMIT 1",
             Self::record_id_to_string(task_id)
         );
         let mut result = self.db.query(sql).await?;
@@ -656,7 +656,7 @@ impl Storage {
         slot_id: &RecordId,
     ) -> Result<Vec<Record<Task>>, Error> {
         let sql = format!(
-            "SELECT * FROM task WHERE id IN (SELECT in FROM scheduled_in WHERE out = {})",
+            "SELECT * FROM task WHERE id IN (SELECT in FROM contains WHERE out = {})",
             Self::record_id_to_string(slot_id)
         );
         let mut result = self.db.query(sql).await?;
