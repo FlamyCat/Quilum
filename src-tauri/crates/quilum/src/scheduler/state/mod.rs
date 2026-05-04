@@ -1,5 +1,4 @@
 use crate::{
-    db::Record,
     model::{plan::Plan, slot::Slot, task::Task},
 };
 use chrono::{NaiveDateTime, TimeDelta};
@@ -9,29 +8,29 @@ use std::{
 };
 use surrealdb::types::RecordId;
 
-/// Обертка вокруг &Record<Task>, которая реализует `Ord` для использования в `BTreeSet`.
+/// Обертка вокруг &Task, которая реализует `Ord` для использования в `BTreeSet`.
 #[derive(Clone, Copy, Debug)]
 pub(super) struct TaskRef<'a> {
-    record: &'a Record<Task>,
+    task: &'a Task,
 }
 
 impl<'a> TaskRef<'a> {
-    pub fn new(record: &'a Record<Task>) -> Self {
-        Self { record }
+    pub fn new(task: &'a Task) -> Self {
+        Self { task }
     }
 
     pub fn record_id(&self) -> &RecordId {
-        &self.record.id
+        &self.task.id()
     }
 
     pub fn task(&self) -> &Task {
-        &self.record.data
+        self.task
     }
 }
 
 impl<'a> PartialEq for TaskRef<'a> {
     fn eq(&self, other: &Self) -> bool {
-        self.record.data == other.record.data
+        self.task == other.task
     }
 }
 
@@ -45,7 +44,7 @@ impl<'a> PartialOrd for TaskRef<'a> {
 
 impl<'a> Ord for TaskRef<'a> {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
-        self.record.data.cmp(&other.record.data)
+        self.task.cmp(other.task)
     }
 }
 
@@ -57,9 +56,9 @@ impl<'a> Ord for TaskRef<'a> {
 pub(super) struct State<'a> {
     table: BTreeMap<TimeDelta, BTreeSet<TaskRef<'a>>>,
     plan: Plan,
-    slots: VecDeque<&'a Record<Slot>>,
+    slots: VecDeque<&'a Slot>,
     now: NaiveDateTime,
-    current_slot: Option<&'a Record<Slot>>,
+    current_slot: Option<&'a Slot>,
 }
 
 impl<'a> State<'a> {
@@ -67,8 +66,8 @@ impl<'a> State<'a> {
     /// текущего момента времени.
     ///
     pub(super) fn new(
-        tasks: &'a [Record<Task>],
-        slots: VecDeque<&'a Record<Slot>>,
+        tasks: &'a [Task],
+        slots: VecDeque<&'a Slot>,
         now: NaiveDateTime,
     ) -> Self {
         let table = Self::construct_duration_table(tasks);
@@ -111,7 +110,7 @@ impl<'a> State<'a> {
         let current_slot = self.current_slot.expect("Current slot should be set");
         let plan = self.plan.clone().with_task(
             task_ref.record_id().clone(),
-            current_slot.id.clone(),
+            current_slot.id().clone(),
             self.now,
             priority,
         );
@@ -141,7 +140,7 @@ impl<'a> State<'a> {
 
         next.plan.add_task(
             task_ref.record_id().clone(),
-            current_slot.id.clone(),
+            current_slot.id().clone(),
             self.now,
             priority,
         );
@@ -170,10 +169,10 @@ impl<'a> State<'a> {
         self.skip_unsuitable_slots();
 
         self.slots.front().copied().map(|slot| {
-            self.now = cmp::max(self.now, slot.data.starts_at());
+            self.now = cmp::max(self.now, slot.starts_at());
             self.current_slot = Some(slot);
 
-            slot.data.ends_at() - self.now
+            slot.ends_at() - self.now
         })
     }
 
@@ -190,8 +189,8 @@ impl<'a> State<'a> {
                 // slot.ends_at() - latest >= min_duration
                 let applicable_tasks = self.table.values().flatten().copied().filter(|task_ref| {
                     let task = task_ref.task();
-                    let latest = cmp::max(self.now, slot.data.starts_at());
-                    let available_time = slot.data.ends_at() - latest;
+                    let latest = cmp::max(self.now, slot.starts_at());
+                    let available_time = slot.ends_at() - latest;
                     task.estimated_duration() <= available_time
                         && task.deadline_as_datetime() >= latest + task.estimated_duration()
                 });
@@ -237,10 +236,10 @@ impl<'a> State<'a> {
     /// Метод строит таблицу, которая группирует задачи по отведенному на них времени.
     ///
     fn construct_duration_table(
-        tasks: &'a [Record<Task>],
+        tasks: &'a [Task],
     ) -> BTreeMap<TimeDelta, BTreeSet<TaskRef<'a>>> {
-        tasks.iter().fold(BTreeMap::new(), |mut table, record| {
-            let task_ref = TaskRef::new(record);
+        tasks.iter().fold(BTreeMap::new(), |mut table, task| {
+            let task_ref = TaskRef::new(task);
             table
                 .entry(task_ref.task().estimated_duration())
                 .or_default()
@@ -265,7 +264,7 @@ impl<'a> State<'a> {
         self.plan
     }
 
-    pub(super) fn slots(&self) -> &VecDeque<&'a Record<Slot>> {
+    pub(super) fn slots(&self) -> &VecDeque<&'a Slot> {
         &self.slots
     }
 }

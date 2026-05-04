@@ -1,30 +1,21 @@
 use chrono::{DateTime, NaiveDateTime};
 use serde::{Deserialize, Serialize};
-use surrealdb::types::SurrealValue;
+use surrealdb::types::{RecordId, SurrealValue};
 
 #[derive(Clone, Debug, Serialize, Deserialize, SurrealValue)]
 pub(crate) struct Event {
-    name: String,
-    description: String,
-    starts_at: i64,
-    ends_at: i64,
+    #[serde(skip_serializing)]
+    pub(crate) id: RecordId,
+    pub(crate) name: String,
+    pub(crate) description: String,
+    pub(crate) starts_at: i64,
+    pub(crate) ends_at: i64,
 }
 
 impl Event {
-    pub fn new(
-        name: String,
-        description: String,
-        starts_at: NaiveDateTime,
-        ends_at: NaiveDateTime,
-    ) -> Self {
-        Self {
-            name,
-            description,
-            starts_at: starts_at.and_utc().timestamp(),
-            ends_at: ends_at.and_utc().timestamp(),
-        }
+    pub fn id(&self) -> &RecordId {
+        &self.id
     }
-
 
     pub fn name(&self) -> &str {
         &self.name

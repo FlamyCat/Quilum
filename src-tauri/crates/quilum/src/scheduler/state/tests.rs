@@ -20,7 +20,6 @@ pub(in crate::scheduler) mod test_helpers {
 }
 
 mod skip_unsuitable_slots_tests {
-    use crate::db::Record;
     use crate::model::{
         slot::Slot,
         task::{Priority, Task},
@@ -30,23 +29,27 @@ mod skip_unsuitable_slots_tests {
     use chrono::TimeDelta;
     use std::collections::VecDeque;
 
-    fn create_task(index: u32, estimated_duration: TimeDelta) -> Record<Task> {
+    fn create_task(index: u32, estimated_duration: TimeDelta) -> Task {
         let name = format!("Задача {index}");
         let description = format!("Описание для задачи {index}");
         let priority = Priority::default();
         let deadline = create_date_time(2025, 6, 2, 23, 59);
 
-        let task = Task::new(name, description, priority, estimated_duration, deadline);
-        Record {
+        Task {
             id: surrealdb::types::RecordId::new("task", format!("{index}").as_str()),
-            data: task,
+            name,
+            description,
+            priority,
+            estimated_duration: estimated_duration.num_seconds(),
+            deadline: deadline.and_utc().timestamp(),
         }
     }
 
-    fn create_slot(start: chrono::NaiveDateTime, end: chrono::NaiveDateTime) -> Record<Slot> {
-        Record {
+    fn create_slot(start: chrono::NaiveDateTime, end: chrono::NaiveDateTime) -> Slot {
+        Slot {
             id: surrealdb::types::RecordId::new("slot", "test"),
-            data: Slot::new(start, end),
+            starts_at: start.and_utc().timestamp(),
+            ends_at: end.and_utc().timestamp(),
         }
     }
 
@@ -61,7 +64,7 @@ mod skip_unsuitable_slots_tests {
         state.skip_unsuitable_slots();
 
         assert!(
-            state.slots.is_empty(),
+            state.slots().is_empty(),
             "Очередь слотов должна остаться пустой"
         );
     }
@@ -81,9 +84,8 @@ mod skip_unsuitable_slots_tests {
         state.skip_unsuitable_slots();
 
         assert!(
-            state.slots.is_empty(),
-            "Единственный просроченный слот должен был быть \
-            удален из очереди"
+            state.slots().is_empty(),
+            "Единственный просроченный слот должен был быть удален из очереди"
         );
     }
 
@@ -104,9 +106,8 @@ mod skip_unsuitable_slots_tests {
         state.skip_unsuitable_slots();
 
         assert!(
-            state.slots.is_empty(),
-            "Единственный слот, в котором не осталось времени \
-            на задачу, должен был быть удален"
+            state.slots().is_empty(),
+            "Единственный слот, в котором не осталось времени на задачу, должен был быть удален"
         );
     }
 
@@ -127,7 +128,7 @@ mod skip_unsuitable_slots_tests {
         state.skip_unsuitable_slots();
 
         assert!(
-            state.slots.is_empty(),
+            state.slots().is_empty(),
             "Два слишком коротких слота должны были быть удалены"
         );
     }
@@ -149,7 +150,7 @@ mod skip_unsuitable_slots_tests {
         state.skip_unsuitable_slots();
 
         assert_eq!(
-            state.slots.len(),
+            state.slots().len(),
             1,
             "Подходящий слот должен был быть сохранен в очереди"
         );
@@ -157,7 +158,6 @@ mod skip_unsuitable_slots_tests {
 }
 
 mod get_available_time_tests {
-    use crate::db::Record;
     use crate::model::{
         slot::Slot,
         task::{Priority, Task},
@@ -167,23 +167,27 @@ mod get_available_time_tests {
     use chrono::TimeDelta;
     use std::collections::VecDeque;
 
-    fn create_task(index: u32, estimated_duration: TimeDelta) -> Record<Task> {
+    fn create_task(index: u32, estimated_duration: TimeDelta) -> Task {
         let name = format!("Задача {index}");
         let description = format!("Описание для задачи {index}");
         let priority = Priority::default();
         let deadline = create_date_time(2025, 6, 2, 23, 59);
 
-        let task = Task::new(name, description, priority, estimated_duration, deadline);
-        Record {
+        Task {
             id: surrealdb::types::RecordId::new("task", format!("{index}").as_str()),
-            data: task,
+            name,
+            description,
+            priority,
+            estimated_duration: estimated_duration.num_seconds(),
+            deadline: deadline.and_utc().timestamp(),
         }
     }
 
-    fn create_slot(start: chrono::NaiveDateTime, end: chrono::NaiveDateTime) -> Record<Slot> {
-        Record {
+    fn create_slot(start: chrono::NaiveDateTime, end: chrono::NaiveDateTime) -> Slot {
+        Slot {
             id: surrealdb::types::RecordId::new("slot", "test"),
-            data: Slot::new(start, end),
+            starts_at: start.and_utc().timestamp(),
+            ends_at: end.and_utc().timestamp(),
         }
     }
 
@@ -242,9 +246,9 @@ mod get_available_time_tests {
             .find_map(|task_set| task_set.first().copied())
             .expect("В таблице должна остаться задача");
 
-        assert_eq!(state.slots.len(), 1);
-        let first_slot = state.slots.front().copied().expect("Слот должен остаться");
-        let expected_available_time = first_slot.data.ends_at() - now;
+        assert_eq!(state.slots().len(), 1);
+        let first_slot = state.slots().front().copied().expect("Слот должен остаться");
+        let expected_available_time = first_slot.ends_at() - now;
         assert_eq!(actual_available_time, expected_available_time);
         assert!(actual_available_time >= task.task().estimated_duration());
         assert_eq!(now, state.now);
@@ -275,11 +279,11 @@ mod get_available_time_tests {
             .find_map(|task_set| task_set.first().copied())
             .expect("В таблице должна остаться задача");
 
-        assert_eq!(state.slots.len(), 1);
-        let first_slot = state.slots.front().copied().expect("Слот должен остаться");
-        let expected_available_time = first_slot.data.ends_at() - first_slot.data.starts_at();
+        assert_eq!(state.slots().len(), 1);
+        let first_slot = state.slots().front().copied().expect("Слот должен остаться");
+        let expected_available_time = first_slot.ends_at() - first_slot.starts_at();
         assert_eq!(actual_available_time, expected_available_time);
         assert!(actual_available_time >= task.task().estimated_duration());
-        assert_eq!(first_slot.data.starts_at(), state.now);
+        assert_eq!(first_slot.starts_at(), state.now);
     }
 }

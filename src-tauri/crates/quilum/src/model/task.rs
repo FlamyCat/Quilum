@@ -1,18 +1,24 @@
 use chrono::{DateTime, NaiveDateTime, TimeDelta};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
-use surrealdb::types::SurrealValue;
+use surrealdb::types::{RecordId, SurrealValue};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize, SurrealValue)]
 pub(crate) struct Task {
-    name: String,
-    description: String,
-    priority: Priority,
-    estimated_duration: i64,
-    deadline: i64,
+    #[serde(skip_serializing)]
+    pub(crate) id: RecordId,
+    pub(crate) name: String,
+    pub(crate) description: String,
+    pub(crate) priority: Priority,
+    pub(crate) estimated_duration: i64,
+    pub(crate) deadline: i64,
 }
 
 impl Task {
+    pub fn id(&self) -> &RecordId {
+        &self.id
+    }
+
     pub fn estimated_duration(&self) -> TimeDelta {
         TimeDelta::seconds(self.estimated_duration)
     }
@@ -44,22 +50,6 @@ impl Ord for Task {
 }
 
 impl Task {
-    pub fn new(
-        name: String,
-        description: String,
-        priority: Priority,
-        estimated_duration: TimeDelta,
-        deadline: NaiveDateTime,
-    ) -> Self {
-        Self {
-            name,
-            description,
-            priority,
-            estimated_duration: estimated_duration.num_seconds(),
-            deadline: deadline.and_utc().timestamp(),
-        }
-    }
-
     pub fn name(&self) -> &str {
         &self.name
     }

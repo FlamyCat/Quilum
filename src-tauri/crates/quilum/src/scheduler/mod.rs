@@ -1,19 +1,19 @@
 mod state;
 
-use crate::db::{Record, Storage};
+use crate::db::Storage;
 use crate::model::{plan::Plan, slot::Slot, task::Task};
 use chrono::{Local, NaiveDateTime};
 use state::State;
 
 pub(crate) struct Scheduler<'a> {
-    tasks: &'a [Record<Task>],
-    upcoming_slots: &'a [Record<Slot>],
+    tasks: &'a [Task],
+    upcoming_slots: &'a [Slot],
     now: NaiveDateTime,
     storage: &'a Storage,
 }
 
 impl<'a> Scheduler<'a> {
-    pub fn new(tasks: &'a [Record<Task>], upcoming_slots: &'a [Record<Slot>], now: NaiveDateTime, storage: &'a Storage) -> Self {
+    pub fn new(tasks: &'a [Task], upcoming_slots: &'a [Slot], now: NaiveDateTime, storage: &'a Storage) -> Self {
         Self {
             tasks,
             upcoming_slots,
@@ -22,7 +22,7 @@ impl<'a> Scheduler<'a> {
         }
     }
 
-    pub fn new_with_local_datetime(tasks: &'a [Record<Task>], upcoming_slots: &'a [Record<Slot>], storage: &'a Storage) -> Self {
+    pub fn new_with_local_datetime(tasks: &'a [Task], upcoming_slots: &'a [Slot], storage: &'a Storage) -> Self {
         Self::new(tasks, upcoming_slots, Local::now().naive_local(), storage)
     }
 

@@ -1,69 +1,29 @@
 use chrono::{NaiveDate, NaiveDateTime, TimeDelta};
 use serde::{Deserialize, Serialize};
 use surrealdb::{
-    engine::local::{Db, Mem, RocksDb},
     types::{RecordId, SurrealValue},
     Error,
     Surreal
 };
+use surrealdb::engine::local::{Db, Mem, RocksDb};
 
 use crate::{
     model::{
         event::Event,
         slot::Slot,
-        task::Task,
+        task::{self, Task},
         tasklist::TaskList,
     }
 };
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub(crate) struct Record<T> {
-    pub(crate) id: RecordId,
-    pub(crate) data: T,
-}
-
-impl<T: SurrealValue + std::fmt::Debug> SurrealValue for Record<T> {
-    fn kind_of() -> surrealdb::types::Kind {
-        T::kind_of()
-    }
-
-    fn is_value(value: &surrealdb::types::Value) -> bool {
-        T::is_value(value)
-    }
-
-    fn into_value(self) -> surrealdb::types::Value {
-        let mut obj = surrealdb::types::Object::new();
-        obj.insert("id", SurrealValue::into_value(self.id));
-        obj.insert("data", SurrealValue::into_value(self.data));
-        surrealdb::types::Value::Object(obj)
-    }
-
-    fn from_value(value: surrealdb::types::Value) -> Result<Self, Error> {
-        let obj = if let surrealdb::types::Value::Object(obj) = value {
-            obj
-        } else {
-            return Err(Error::thrown(
-                format!("Expected Object, got {:?}", value),
-            ));
-        };
-
-        let id: RecordId = SurrealValue::from_value(obj.get("id").cloned().unwrap_or_default())?;
-        let data: T = SurrealValue::from_value(obj.get("data").cloned().unwrap_or_default())?;
-
-        Ok(Record { id, data })
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub(crate) struct ScheduledTask {
-    pub(crate) task: Record<Task>,
-    pub(crate) scheduled_for: i64,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub(crate) struct SlotWithTasks {
-    pub(crate) slot: Record<Slot>,
-    pub(crate) tasks: Vec<ScheduledTask>,
+/// Helper struct for creating tasks without the id field
+#[derive(Serialize, Deserialize, SurrealValue)]
+struct TaskCreate {
+    name: String,
+    description: String,
+    priority: task::Priority,
+    estimated_duration: i64,
+    deadline: i64,
 }
 
 /// Storage struct that holds a handle to a SurrealDB instance
@@ -107,124 +67,20 @@ impl Storage {
         Ok(Self::new(db)?)
     }
 
-    /// Base create method that works with any serializable type.
-    ///
-    /// # Arguments
-    /// * `table` - The table name to insert into
-    /// * `data` - The data to insert
-    ///
-    /// # Returns
-    /// * The created record with its ID and data
-    async fn create_base<T: serde::Serialize + serde::de::DeserializeOwned>(
-        &self,
-        table: &str,
-        data: T,
-    ) -> Result<Record<T>, Error> {
-        let json_value = serde_json::to_value(&data)
-            .map_err(|e| Error::query(format!("Serialization error: {}", e), None))?;
-        let created: Option<serde_json::Value> = self.db.create(table).content(json_value).await?;
-
-        let value =
-            created.ok_or_else(|| Error::query("Failed to create record".to_string(), None))?;
-
-        let id = Self::extract_record_id_from_value(&value, table);
-        let result_data: T = serde_json::from_value(value)
-            .map_err(|e| Error::query(format!("Failed to deserialize: {}", e), None))?;
-
-        Ok(Record {
-            id,
-            data: result_data,
-        })
-    }
-
-    fn extract_record_id_from_value(value: &serde_json::Value, default_table: &str) -> RecordId {
-        match value {
-            serde_json::Value::Object(map) => {
-                let full_id = map.get("id").and_then(|v| v.as_str()).unwrap_or("unknown");
-
-                // The id field contains the full record ID (e.g., "event:didtm716xkyfjuinldb6")
-                // We need to extract just the key part after the table name
-                let (table, key) = if let Some(colon_pos) = full_id.find(':') {
-                    let t = &full_id[..colon_pos];
-                    let k = &full_id[colon_pos + 1..];
-                    (t, k)
-                } else {
-                    (default_table, full_id)
-                };
-
-                RecordId::new(table, key)
-            }
-            _ => RecordId::new(default_table, "unknown"),
+    /// Helper to convert RecordId to string for SQL queries
+    fn record_id_to_string(id: &RecordId) -> String {
+        match &id.key {
+            surrealdb::types::RecordIdKey::String(s) => format!("{}:{}", id.table, s),
+            _ => format!("{}:unknown", id.table),
         }
     }
 
-    /// Base delete method that works with any type.
-    ///
-    /// # Arguments
-    /// * `table` - The table name to delete from
-    /// * `id` - The record ID to delete
-    ///
-    /// # Returns
-    /// * Success or error
-    async fn delete_base(&self, table: &str, id: &RecordId) -> Result<(), Error> {
-        let key = match &id.key {
-            surrealdb::types::RecordIdKey::String(s) => s.as_str(),
-            _ => "unknown",
-        };
-        let _: Option<serde_json::Value> = self.db.delete((table, key)).await?;
-        Ok(())
-    }
-
-    /// Base read method that works with any deserializable type.
-    ///
-    /// # Arguments
-    /// * `table` - The table name to select from
-    /// * `id` - The record ID to read
-    ///
-    /// # Returns
-    /// * The record with its ID and data
-    async fn read_base<T: serde::de::DeserializeOwned>(
-        &self,
-        table: &str,
-        id: &RecordId,
-    ) -> Result<Record<T>, Error> {
-        let key = match &id.key {
-            surrealdb::types::RecordIdKey::String(s) => s.as_str(),
-            _ => "unknown",
-        };
-        let value: Option<serde_json::Value> = self.db.select((table, key)).await?;
-
-        let data = value.ok_or_else(|| Error::query("Record not found".to_string(), None))?;
-        let parsed: T = serde_json::from_value(data)
-            .map_err(|e| Error::query(format!("Failed to deserialize: {}", e), None))?;
-
-        Ok(Record {
-            id: id.clone(),
-            data: parsed,
-        })
-    }
-
-    /// Base update method that works with any serializable type.
-    ///
-    /// # Arguments
-    /// * `table` - The table name to update
-    /// * `record` - The record containing ID and data to update
-    ///
-    /// # Returns
-    /// * Success or error
-    async fn update_base<T: serde::Serialize>(
-        &self,
-        table: &str,
-        record: Record<T>,
-    ) -> Result<(), Error> {
-        let key = match &record.id.key {
-            surrealdb::types::RecordIdKey::String(s) => s.as_str(),
-            _ => "unknown",
-        };
-        let json_value = serde_json::to_value(&record.data)
-            .map_err(|e| Error::query(format!("Serialization error: {}", e), None))?;
-        let _: Option<serde_json::Value> = self.db.update((table, key)).content(json_value).await?;
-        Ok(())
+    /// Helper to extract key from RecordId for SurrealDB operations
+    fn record_id_key(id: &RecordId) -> String {
+        match &id.key {
+            surrealdb::types::RecordIdKey::String(s) => s.as_str().to_string(),
+            _ => "unknown".to_string(),
+        }
     }
 }
 
@@ -232,12 +88,28 @@ impl Storage {
     /// Creates a new event record in the database.
     ///
     /// # Arguments
-    /// * `event` - The event data to store
+    /// * `name` - Event name
+    /// * `description` - Event description
+    /// * `starts_at` - Start time
+    /// * `ends_at` - End time
     ///
     /// # Returns
-    /// * The created event record with its ID
-    pub async fn create_event(&self, event: Event) -> Result<Record<Event>, Error> {
-        self.create_base("event", event).await
+    /// * The created event
+    pub async fn create_event(
+        &self,
+        name: String,
+        description: String,
+        starts_at: NaiveDateTime,
+        ends_at: NaiveDateTime,
+    ) -> Result<Event, Error> {
+        let data = serde_json::json!({
+            "name": name,
+            "description": description,
+            "starts_at": starts_at.and_utc().timestamp(),
+            "ends_at": ends_at.and_utc().timestamp()
+        });
+        let created: Option<Event> = self.db.create("event").content(data).await?;
+        created.ok_or_else(|| Error::query("Failed to create event".to_string(), None))
     }
 
     /// Reads an event record from the database by its ID.
@@ -246,20 +118,24 @@ impl Storage {
     /// * `id` - The ID of the event to read
     ///
     /// # Returns
-    /// * The event record with its ID and data
-    pub async fn read_event(&self, id: &RecordId) -> Result<Record<Event>, Error> {
-        self.read_base("event", id).await
+    /// * The event
+    pub async fn read_event(&self, id: &RecordId) -> Result<Event, Error> {
+        let key = Self::record_id_key(id);
+        let event: Option<Event> = self.db.select(("event", key)).await?;
+        event.ok_or_else(|| Error::query("Event not found".to_string(), None))
     }
 
     /// Updates an event record in the database.
     ///
     /// # Arguments
-    /// * `record` - The event record containing ID and updated data
+    /// * `event` - The event to update
     ///
     /// # Returns
     /// * Success or error
-    pub async fn update_event(&self, record: Record<Event>) -> Result<(), Error> {
-        self.update_base("event", record).await
+    pub async fn update_event(&self, event: Event) -> Result<(), Error> {
+        let key = Self::record_id_key(&event.id());
+        let _: Option<Event> = self.db.update(("event", key)).content(event).await?;
+        Ok(())
     }
 
     /// Deletes an event record from the database by its ID.
@@ -270,7 +146,9 @@ impl Storage {
     /// # Returns
     /// * Success or error
     pub async fn delete_event(&self, id: &RecordId) -> Result<(), Error> {
-        self.delete_base("event", id).await
+        let key = Self::record_id_key(id);
+        let _: Option<Event> = self.db.delete(("event", key)).await?;
+        Ok(())
     }
 }
 
@@ -283,12 +161,12 @@ impl Storage {
     /// * `end` - The end date (exclusive, at 00:00:00)
     ///
     /// # Returns
-    /// * Vector of event records occurring in the date range
+    /// * Vector of events occurring in the date range
     pub async fn get_events_for_date_range(
         &self,
         start: NaiveDate,
         end: NaiveDate,
-    ) -> Result<Vec<Record<Event>>, Error> {
+    ) -> Result<Vec<Event>, Error> {
         let range_start = start.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp();
         let range_end = end.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp();
 
@@ -297,27 +175,7 @@ impl Storage {
             range_end, range_start
         );
         let mut result = self.db.query(sql).await?;
-        
-        // Take raw JSON values and convert to Record<Event>
-        let values: Vec<serde_json::Value> = result.take(0).unwrap_or_default();
-        
-        let events: Vec<Record<Event>> = values
-            .into_iter()
-            .filter_map(|value| {
-                // Use existing helper to extract RecordId
-                let id = Self::extract_record_id_from_value(&value, "event");
-                
-                // Get the data by removing id and deserializing the rest
-                if let serde_json::Value::Object(mut obj) = value {
-                    obj.remove("id");
-                    let data: Event = serde_json::from_value(serde_json::Value::Object(obj)).ok()?;
-                    Some(Record { id, data })
-                } else {
-                    None
-                }
-            })
-            .collect();
-        
+        let events: Vec<Event> = result.take(0).unwrap_or_default();
         Ok(events)
     }
 
@@ -328,11 +186,11 @@ impl Storage {
     /// * `date` - The date to query
     ///
     /// # Returns
-    /// * Vector of event records occurring on the date
+    /// * Vector of events occurring on the date
     pub async fn get_events_for_date(
         &self,
         date: NaiveDate,
-    ) -> Result<Vec<Record<Event>>, Error> {
+    ) -> Result<Vec<Event>, Error> {
         let next_day = date + TimeDelta::days(1);
         self.get_events_for_date_range(date, next_day).await
     }
@@ -347,115 +205,59 @@ impl Storage {
     /// * `end` - The end date (exclusive, at 00:00:00)
     ///
     /// # Returns
-    /// * Vector of scheduled tasks with their scheduled_for timestamps
+    /// * Vector of tasks with their scheduled_for timestamps
     pub async fn get_scheduled_tasks_for_date_range(
         &self,
         start: NaiveDate,
         end: NaiveDate,
-    ) -> Result<Vec<ScheduledTask>, Error> {
+    ) -> Result<Vec<(Task, i64)>, Error> {
         let range_start = start.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp();
         let range_end = end.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp();
 
-        // Query 1: Get task IDs and scheduled_for from edges where slot is in date range
-        // Use graph traversal to access slot fields directly from the relation
-        let sql1 = format!(
-            "SELECT out AS task_id, scheduled_for FROM contains \
-            WHERE in.starts_at < {} AND in.ends_at > {}",
-            range_end, range_start
-        );
-        let mut result1 = self.db.query(sql1).await?;
-        let edge_values: Vec<serde_json::Value> = result1.take(0).unwrap_or_default();
-
-        // Build HashMap: task_id_string -> scheduled_for
-        use std::collections::HashMap;
-        let mut task_scheduled: HashMap<String, i64> = HashMap::new();
-        let mut task_ids: Vec<String> = Vec::new();
-
-        for value in edge_values {
-            let task_id_val = value.get("task_id");
-            let scheduled_for_val = value.get("scheduled_for");
-            
-            if let (Some(task_id), Some(scheduled_for)) = (task_id_val, scheduled_for_val) {
-                if let (Some(task_id_str), Some(num)) = (task_id.as_str(), scheduled_for.as_number()) {
-                    if let Some(ts) = num.as_i64() {
-                        
-                        task_scheduled.insert(task_id_str.to_string(), ts);
-                        task_ids.push(task_id_str.to_string());
-                    }
-                }
-            }
-        }
-        
-        if task_ids.is_empty() {
-            return Ok(Vec::new());
-        }
-        
-        // Query 2: Fetch task data using graph traversal from the relation
-        // Get task data directly by following the relation
-        let sql2 = format!(
+        // Use graph traversal to get task data directly
+        let sql = format!(
             "SELECT out.*, scheduled_for FROM contains \
             WHERE in.starts_at < {} AND in.ends_at > {}",
             range_end, range_start
         );
-        let mut result2 = self.db.query(sql2).await?;
-        let task_values: Vec<serde_json::Value> = result2.take(0).unwrap_or_default();
-
-        // Parse tasks and combine with scheduled_for
-        let mut scheduled_tasks: Vec<ScheduledTask> = Vec::new();
-        for value in task_values {
-            // Extract scheduled_for and out (task data)
-            let _scheduled_for = value.get("scheduled_for")
-                .and_then(|v| v.as_i64())
-                .unwrap_or(0);
-            
-            let out_value = value.get("out")
-                .cloned()
-                .unwrap_or_default();
-            
-            // Parse the out object to get id and task data
-            let mut out_obj = if let serde_json::Value::Object(obj) = out_value {
-                obj
-            } else {
-                continue;
-            };
-            
-            // Extract id from out object - it's a string like "task:xxx"
-            let id_value = out_obj.get("id").cloned().unwrap_or_default();
-            let id_str = if let serde_json::Value::String(s) = &id_value {
-                s.clone()
-            } else {
-                continue;
-            };
-            
-            // Parse "task:xxx" into RecordId
-            let parts: Vec<&str> = id_str.split(':').collect();
-            let id = if parts.len() == 2 {
-                RecordId::new(parts[0], parts[1])
-            } else {
-                continue;
-            };
-            
-            // Remove id for data deserialization
-            out_obj.remove("id");
-
-            let data: Task = serde_json::from_value(serde_json::Value::Object(out_obj))
-                .map_err(|e| Error::query(format!("Failed to deserialize task: {}", e), None))?;
-
-            // Get scheduled_for from HashMap
-            let task_id_str = format!("{}:{}", id.table, match &id.key {
-                surrealdb::types::RecordIdKey::String(s) => s.as_str(),
-                _ => "unknown",
-            });
-            
-            
-            if let Some(&scheduled_for) = task_scheduled.get(&task_id_str) {
-                scheduled_tasks.push(ScheduledTask {
-                    task: Record { id, data },
-                    scheduled_for,
-                });
+        let mut result = self.db.query(sql).await?;
+        let raw: Vec<serde_json::Value> = result.take(0).unwrap_or_default();
+        
+        let mut scheduled_tasks = Vec::new();
+        for item in raw {
+            if let (Some(task_value), Some(scheduled_for)) = (item.get("out"), item.get("scheduled_for")) {
+                if let (Some(task_obj), Some(sf)) = (task_value.as_object(), scheduled_for.as_i64()) {
+                    // Convert the task object to proper JSON, handling id field
+                    let mut task_json = serde_json::Map::new();
+                    for (k, v) in task_obj {
+                        if k == "id" {
+                            // id is a string like "task:xxx", convert to object format for RecordId
+                            if let Some(id_str) = v.as_str() {
+                                let parts: Vec<&str> = id_str.split(':').collect();
+                                if parts.len() == 2 {
+                                    let mut id_obj = serde_json::Map::new();
+                                    id_obj.insert("table".to_string(), serde_json::Value::String(parts[0].to_string()));
+                                    id_obj.insert("key".to_string(), serde_json::json!({"String": parts[1]}));
+                                    task_json.insert("id".to_string(), serde_json::Value::Object(id_obj));
+                                }
+                            }
+                        } else if k == "priority" {
+                            // Handle priority enum - extract the variant name
+                            if let Some(priority_obj) = v.as_object() {
+                                if let Some(first_key) = priority_obj.keys().next() {
+                                    task_json.insert("priority".to_string(), serde_json::Value::String(first_key.clone()));
+                                }
+                            }
+                        } else {
+                            task_json.insert(k.clone(), v.clone());
+                        }
+                    }
+                    let task: Task = serde_json::from_value(serde_json::Value::Object(task_json))
+                        .map_err(|e| Error::query(format!("Failed to deserialize task: {}", e), None))?;
+                    scheduled_tasks.push((task, sf));
+                }
             }
         }
-
         Ok(scheduled_tasks)
     }
 }
@@ -464,12 +266,31 @@ impl Storage {
     /// Creates a new task record in the database.
     ///
     /// # Arguments
-    /// * `task` - The task data to store
+    /// * `name` - Task name
+    /// * `description` - Task description
+    /// * `priority` - Task priority
+    /// * `estimated_duration` - Estimated duration
+    /// * `deadline` - Deadline
     ///
     /// # Returns
-    /// * The created task record with its ID
-    pub async fn create_task(&self, task: Task) -> Result<Record<Task>, Error> {
-        self.create_base("task", task).await
+    /// * The created task
+    pub async fn create_task(
+        &self,
+        name: String,
+        description: String,
+        priority: crate::model::task::Priority,
+        estimated_duration: TimeDelta,
+        deadline: NaiveDateTime,
+    ) -> Result<Task, Error> {
+        let task_data = TaskCreate {
+            name,
+            description,
+            priority,
+            estimated_duration: estimated_duration.num_seconds(),
+            deadline: deadline.and_utc().timestamp(),
+        };
+        let created: Option<Task> = self.db.create("task").content(task_data).await?;
+        created.ok_or_else(|| Error::query("Failed to create task".to_string(), None))
     }
 
     /// Reads a task record from the database by its ID.
@@ -478,20 +299,24 @@ impl Storage {
     /// * `id` - The ID of the task to read
     ///
     /// # Returns
-    /// * The task record with its ID and data
-    pub async fn read_task(&self, id: &RecordId) -> Result<Record<Task>, Error> {
-        self.read_base("task", id).await
+    /// * The task
+    pub async fn read_task(&self, id: &RecordId) -> Result<Task, Error> {
+        let key = Self::record_id_key(id);
+        let task: Option<Task> = self.db.select(("task", key)).await?;
+        task.ok_or_else(|| Error::query("Task not found".to_string(), None))
     }
 
     /// Updates a task record in the database.
     ///
     /// # Arguments
-    /// * `record` - The task record containing ID and updated data
+    /// * `task` - The task to update
     ///
     /// # Returns
     /// * Success or error
-    pub async fn update_task(&self, record: Record<Task>) -> Result<(), Error> {
-        self.update_base("task", record).await
+    pub async fn update_task(&self, task: Task) -> Result<(), Error> {
+        let key = Self::record_id_key(&task.id());
+        let _: Option<Task> = self.db.update(("task", key)).content(task).await?;
+        Ok(())
     }
 
     /// Deletes a task record from the database by its ID.
@@ -502,7 +327,9 @@ impl Storage {
     /// # Returns
     /// * Success or error
     pub async fn delete_task(&self, id: &RecordId) -> Result<(), Error> {
-        self.delete_base("task", id).await
+        let key = Self::record_id_key(id);
+        let _: Option<Task> = self.db.delete(("task", key)).await?;
+        Ok(())
     }
 }
 
@@ -510,12 +337,22 @@ impl Storage {
     /// Creates a new slot record in the database.
     ///
     /// # Arguments
-    /// * `slot` - The slot data to store
+    /// * `starts_at` - Start time
+    /// * `ends_at` - End time
     ///
     /// # Returns
-    /// * The created slot record with its ID
-    pub async fn create_slot(&self, slot: Slot) -> Result<Record<Slot>, Error> {
-        self.create_base("slot", slot).await
+    /// * The created slot
+    pub async fn create_slot(
+        &self,
+        starts_at: NaiveDateTime,
+        ends_at: NaiveDateTime,
+    ) -> Result<Slot, Error> {
+        let data = serde_json::json!({
+            "starts_at": starts_at.and_utc().timestamp(),
+            "ends_at": ends_at.and_utc().timestamp()
+        });
+        let created: Option<Slot> = self.db.create("slot").content(data).await?;
+        created.ok_or_else(|| Error::query("Failed to create slot".to_string(), None))
     }
 
     /// Reads a slot record from the database by its ID.
@@ -524,20 +361,24 @@ impl Storage {
     /// * `id` - The ID of the slot to read
     ///
     /// # Returns
-    /// * The slot record with its ID and data
-    pub async fn read_slot(&self, id: &RecordId) -> Result<Record<Slot>, Error> {
-        self.read_base("slot", id).await
+    /// * The slot
+    pub async fn read_slot(&self, id: &RecordId) -> Result<Slot, Error> {
+        let key = Self::record_id_key(id);
+        let slot: Option<Slot> = self.db.select(("slot", key)).await?;
+        slot.ok_or_else(|| Error::query("Slot not found".to_string(), None))
     }
 
     /// Updates a slot record in the database.
     ///
     /// # Arguments
-    /// * `record` - The slot record containing ID and updated data
+    /// * `slot` - The slot to update
     ///
     /// # Returns
     /// * Success or error
-    pub async fn update_slot(&self, record: Record<Slot>) -> Result<(), Error> {
-        self.update_base("slot", record).await
+    pub async fn update_slot(&self, slot: Slot) -> Result<(), Error> {
+        let key = Self::record_id_key(&slot.id());
+        let _: Option<Slot> = self.db.update(("slot", key)).content(slot).await?;
+        Ok(())
     }
 
     /// Deletes a slot record from the database by its ID.
@@ -548,7 +389,9 @@ impl Storage {
     /// # Returns
     /// * Success or error
     pub async fn delete_slot(&self, id: &RecordId) -> Result<(), Error> {
-        self.delete_base("slot", id).await
+        let key = Self::record_id_key(id);
+        let _: Option<Slot> = self.db.delete(("slot", key)).await?;
+        Ok(())
     }
 }
 
@@ -556,12 +399,19 @@ impl Storage {
     /// Creates a new task list record in the database.
     ///
     /// # Arguments
-    /// * `list` - The task list data to store
+    /// * `title` - Task list title
     ///
     /// # Returns
-    /// * The created task list record with its ID
-    pub async fn create_task_list(&self, list: TaskList) -> Result<Record<TaskList>, Error> {
-        self.create_base("task_list", list).await
+    /// * The created task list
+    pub async fn create_task_list(
+        &self,
+        title: String,
+    ) -> Result<TaskList, Error> {
+        let data = serde_json::json!({
+            "title": title
+        });
+        let created: Option<TaskList> = self.db.create("task_list").content(data).await?;
+        created.ok_or_else(|| Error::query("Failed to create task list".to_string(), None))
     }
 
     /// Reads a task list record from the database by its ID.
@@ -570,20 +420,24 @@ impl Storage {
     /// * `id` - The ID of the task list to read
     ///
     /// # Returns
-    /// * The task list record with its ID and data
-    pub async fn read_task_list(&self, id: &RecordId) -> Result<Record<TaskList>, Error> {
-        self.read_base("task_list", id).await
+    /// * The task list
+    pub async fn read_task_list(&self, id: &RecordId) -> Result<TaskList, Error> {
+        let key = Self::record_id_key(id);
+        let list: Option<TaskList> = self.db.select(("task_list", key)).await?;
+        list.ok_or_else(|| Error::query("Task list not found".to_string(), None))
     }
 
     /// Updates a task list record in the database.
     ///
     /// # Arguments
-    /// * `record` - The task list record containing ID and updated data
+    /// * `list` - The task list to update
     ///
     /// # Returns
     /// * Success or error
-    pub async fn update_task_list(&self, record: Record<TaskList>) -> Result<(), Error> {
-        self.update_base("task_list", record).await
+    pub async fn update_task_list(&self, list: TaskList) -> Result<(), Error> {
+        let key = Self::record_id_key(&list.id());
+        let _: Option<TaskList> = self.db.update(("task_list", key)).content(list).await?;
+        Ok(())
     }
 
     /// Deletes a task list record from the database by its ID.
@@ -594,7 +448,9 @@ impl Storage {
     /// # Returns
     /// * Success or error
     pub async fn delete_task_list(&self, id: &RecordId) -> Result<(), Error> {
-        self.delete_base("task_list", id).await
+        let key = Self::record_id_key(id);
+        let _: Option<TaskList> = self.db.delete(("task_list", key)).await?;
+        Ok(())
     }
 }
 
@@ -630,17 +486,17 @@ impl Storage {
     /// * `task_id` - The task record ID
     ///
     /// # Returns
-    /// * The slot record if found, None if not scheduled
+    /// * The slot if found, None if not scheduled
     pub async fn get_slot_for_task(
         &self,
         task_id: &RecordId,
-    ) -> Result<Option<Record<Slot>>, Error> {
+    ) -> Result<Option<Slot>, Error> {
         let sql = format!(
             "SELECT * FROM ONLY slot WHERE id IN (SELECT out FROM contains WHERE in = {}) LIMIT 1",
             Self::record_id_to_string(task_id)
         );
         let mut result = self.db.query(sql).await?;
-        let slot: Option<Record<Slot>> = result.take(0)?;
+        let slot: Option<Slot> = result.take(0)?;
         Ok(slot)
     }
 
@@ -650,17 +506,17 @@ impl Storage {
     /// * `slot_id` - The slot record ID
     ///
     /// # Returns
-    /// * The task records in the slot
+    /// * The tasks in the slot
     pub async fn get_tasks_in_slot(
         &self,
         slot_id: &RecordId,
-    ) -> Result<Vec<Record<Task>>, Error> {
+    ) -> Result<Vec<Task>, Error> {
         let sql = format!(
             "SELECT * FROM task WHERE id IN (SELECT in FROM contains WHERE out = {})",
             Self::record_id_to_string(slot_id)
         );
         let mut result = self.db.query(sql).await?;
-        let tasks: Vec<Record<Task>> = result.take(0)?;
+        let tasks: Vec<Task> = result.take(0)?;
         Ok(tasks)
     }
 
@@ -692,26 +548,18 @@ impl Storage {
     /// * `list_id` - The task list record ID
     ///
     /// # Returns
-    /// * The task records in the list
+    /// * The tasks in the list
     pub async fn get_tasks_in_list(
         &self,
         list_id: &RecordId,
-    ) -> Result<Vec<Record<Task>>, Error> {
+    ) -> Result<Vec<Task>, Error> {
         let sql = format!(
             "SELECT * FROM task WHERE id IN (SELECT in FROM belongs_to WHERE out = {})",
             Self::record_id_to_string(list_id)
         );
         let mut result = self.db.query(sql).await?;
-        let tasks: Vec<Record<Task>> = result.take(0)?;
+        let tasks: Vec<Task> = result.take(0)?;
         Ok(tasks)
-    }
-
-    /// Helper to convert RecordId to string for SQL queries
-    fn record_id_to_string(id: &RecordId) -> String {
-        match &id.key {
-            surrealdb::types::RecordIdKey::String(s) => format!("{}:{}", id.table, s),
-            _ => format!("{}:unknown", id.table),
-        }
     }
 }
 

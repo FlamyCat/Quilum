@@ -1,5 +1,7 @@
-use super::*;
-use crate::db::Record;
+use crate::{
+    db::Storage,
+    scheduler::Scheduler,
+};
 use crate::model::{
     slot::Slot,
     task::{Priority, Task},
@@ -35,21 +37,25 @@ fn create_task(
     duration: TimeDelta,
     deadline: NaiveDateTime,
     priority: Priority,
-) -> Record<Task> {
+) -> Task {
     let name = format!("Задача {index}");
     let description = format!("Описание для задачи {index}");
 
-    let task = Task::new(name, description, priority, duration, deadline);
-    Record {
+    Task {
         id: surrealdb::types::RecordId::new("task", format!("{index}").as_str()),
-        data: task,
+        name,
+        description,
+        priority,
+        estimated_duration: duration.num_seconds(),
+        deadline: deadline.and_utc().timestamp(),
     }
 }
 
-fn create_slot(start: NaiveDateTime, end: NaiveDateTime) -> Record<Slot> {
-    Record {
+fn create_slot(start: NaiveDateTime, end: NaiveDateTime) -> Slot {
+    Slot {
         id: surrealdb::types::RecordId::new("slot", "test"),
-        data: Slot::new(start, end),
+        starts_at: start.and_utc().timestamp(),
+        ends_at: end.and_utc().timestamp(),
     }
 }
 
@@ -99,7 +105,7 @@ async fn tasks_fit_into_two_slots() {
     );
 
     for (task_id, _slot_id, scheduled_for) in plan.tasks() {
-        if *task_id == task_1.id {
+        if *task_id == task_1.id().clone() {
             assert_eq!(*scheduled_for, create_date_time(2025, 6, 1, 17, 00));
         } else {
             assert_eq!(*scheduled_for, create_date_time(2025, 6, 1, 16, 10));
@@ -192,7 +198,7 @@ async fn overdue_tasks_are_not_scheduled() {
     );
 
     let first_planned_task = plan.tasks().first().expect("Should have a task");
-    assert_eq!(first_planned_task.0, task_1.id);
+    assert_eq!(first_planned_task.0, task_1.id().clone());
     assert_eq!(
         first_planned_task.2,
         create_date_time(2025, 6, 1, 15, 00)
@@ -206,7 +212,7 @@ async fn overdue_tasks_are_not_scheduled() {
 
     assert_eq!(
         plan.discarded_tasks()[0],
-        task_2.id,
+        task_2.id().clone(),
         "Задача с истекшим сроком должна быть отклонена"
     );
 }
@@ -247,7 +253,7 @@ async fn priority_is_handled_correctly() {
 
     assert_eq!(
         plan.tasks()[0].0,
-        task_1.id,
+        task_1.id().clone(),
         "Задача с более высоким приоритетом должна быть добавлена в план"
     );
 
@@ -265,7 +271,7 @@ async fn priority_is_handled_correctly() {
 
     assert_eq!(
         plan.discarded_tasks()[0],
-        task_2.id,
+        task_2.id().clone(),
         "Задача с более низким приоритетом должна быть отклонена"
     );
 }
@@ -312,7 +318,7 @@ async fn the_task_that_can_be_done_on_time_should_be_prioritized() {
 
     assert_eq!(
         plan.tasks()[0].0,
-        task_2.id,
+        task_2.id().clone(),
         "Можно успеть только вторую задачу"
     );
 
@@ -324,7 +330,7 @@ async fn the_task_that_can_be_done_on_time_should_be_prioritized() {
 
     assert_eq!(
         plan.discarded_tasks()[0],
-        task_1.id,
+        task_1.id().clone(),
         "Невозможно успеть сделать первую задачу"
     );
 }
