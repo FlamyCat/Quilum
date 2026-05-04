@@ -199,3 +199,196 @@ async fn test_get_events_for_date_multiple_same_day() {
 
     assert_eq!(events.len(), 3, "Should return all 3 events");
 }
+
+#[tokio::test]
+async fn test_get_scheduled_tasks_basic() {
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
+
+    // Create a slot on 2026-05-01
+    let slot_date = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap();
+    let slot = Slot::new(
+        slot_date.and_hms_opt(10, 0, 0).unwrap(),
+        slot_date.and_hms_opt(12, 0, 0).unwrap(),
+    );
+    let slot_record = storage.create_slot(slot).await.expect("Failed to create slot");
+
+    // Create a task
+    let task = Task::new(
+        "Test Task".to_string(),
+        "A scheduled task".to_string(),
+        crate::model::task::Priority::Medium,
+        chrono::TimeDelta::hours(1),
+        slot_date.and_hms_opt(0, 0, 0).unwrap(),
+    );
+    let task_record = storage.create_task(task).await.expect("Failed to create task");
+
+    // Relate task to slot with scheduled_for
+    let scheduled_for = slot_date.and_hms_opt(10, 30, 0).unwrap();
+    storage.relate_task_to_slot(&slot_record.id, &task_record.id, scheduled_for)
+        .await
+        .expect("Failed to relate task to slot");
+
+    // Query for May 1
+    let scheduled_tasks = storage
+        .get_scheduled_tasks_for_date_range(slot_date, slot_date + chrono::TimeDelta::days(1))
+        .await
+        .expect("Failed to query scheduled tasks");
+
+    assert_eq!(scheduled_tasks.len(), 1, "Should return 1 scheduled task");
+    assert_eq!(scheduled_tasks[0].task.data.name(), "Test Task");
+    assert_eq!(scheduled_tasks[0].scheduled_for, scheduled_for.and_utc().timestamp());
+}
+
+#[tokio::test]
+async fn test_get_scheduled_tasks_wrong_date() {
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
+
+    // Create a slot on 2026-05-01
+    let slot_date = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap();
+    let slot = Slot::new(
+        slot_date.and_hms_opt(10, 0, 0).unwrap(),
+        slot_date.and_hms_opt(12, 0, 0).unwrap(),
+    );
+    let slot_record = storage.create_slot(slot).await.expect("Failed to create slot");
+
+    // Create a task and relate to slot
+    let task = Task::new(
+        "Test Task".to_string(),
+        "A scheduled task".to_string(),
+        crate::model::task::Priority::Medium,
+        chrono::TimeDelta::hours(1),
+        slot_date.and_hms_opt(0, 0, 0).unwrap(),
+    );
+    let task_record = storage.create_task(task).await.expect("Failed to create task");
+
+    storage.relate_task_to_slot(&slot_record.id, &task_record.id, slot_date.and_hms_opt(10, 0, 0).unwrap())
+        .await
+        .expect("Failed to relate task to slot");
+
+    // Query for May 2 (wrong date)
+    let wrong_date = NaiveDate::from_ymd_opt(2026, 5, 2).unwrap();
+    let scheduled_tasks = storage
+        .get_scheduled_tasks_for_date_range(wrong_date, wrong_date + chrono::TimeDelta::days(1))
+        .await
+        .expect("Failed to query scheduled tasks");
+
+    assert!(scheduled_tasks.is_empty(), "Should return empty vec for wrong date");
+}
+
+#[tokio::test]
+async fn test_get_scheduled_tasks_multiple_in_slot() {
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
+
+    // Create a slot on 2026-05-01
+    let slot_date = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap();
+    let slot = Slot::new(
+        slot_date.and_hms_opt(10, 0, 0).unwrap(),
+        slot_date.and_hms_opt(14, 0, 0).unwrap(),
+    );
+    let slot_record = storage.create_slot(slot).await.expect("Failed to create slot");
+
+    // Create 3 tasks and relate to slot
+    let mut expected_scheduled_fors = Vec::new();
+    for i in 1..=3 {
+        let task = Task::new(
+            format!("Task {}", i),
+            format!("Scheduled task {}", i),
+            crate::model::task::Priority::Medium,
+            chrono::TimeDelta::hours(1),
+            slot_date.and_hms_opt(0, 0, 0).unwrap(),
+        );
+        let task_record = storage.create_task(task).await.expect("Failed to create task");
+
+        let scheduled_for = slot_date.and_hms_opt(10 + (i - 1) as u32, 0, 0).unwrap();
+        storage.relate_task_to_slot(&slot_record.id, &task_record.id, scheduled_for)
+            .await
+            .expect("Failed to relate task to slot");
+        expected_scheduled_fors.push(scheduled_for.and_utc().timestamp());
+    }
+
+    // Query for May 1
+    let scheduled_tasks = storage
+        .get_scheduled_tasks_for_date_range(slot_date, slot_date + chrono::TimeDelta::days(1))
+        .await
+        .expect("Failed to query scheduled tasks");
+
+    assert_eq!(scheduled_tasks.len(), 3, "Should return all 3 tasks");
+
+    // Verify all task names and scheduled_for times
+    let mut task_names: Vec<&str> = scheduled_tasks.iter().map(|st| st.task.data.name()).collect();
+    task_names.sort();
+    assert_eq!(task_names, vec!["Task 1", "Task 2", "Task 3"]);
+
+    let mut scheduled_fors: Vec<i64> = scheduled_tasks.iter().map(|st| st.scheduled_for).collect();
+    scheduled_fors.sort();
+    assert_eq!(scheduled_fors, expected_scheduled_fors);
+}
+
+#[tokio::test]
+async fn test_get_scheduled_tasks_date_range_filter() {
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
+
+    // Slot A on 2026-05-01 with task T1
+    let date1 = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap();
+    let slot_a = Slot::new(
+        date1.and_hms_opt(10, 0, 0).unwrap(),
+        date1.and_hms_opt(12, 0, 0).unwrap(),
+    );
+    let slot_a_record = storage.create_slot(slot_a).await.expect("Failed to create slot A");
+
+    let task_t1 = Task::new(
+        "Task T1".to_string(),
+        "In slot A".to_string(),
+        crate::model::task::Priority::Medium,
+        chrono::TimeDelta::hours(1),
+        date1.and_hms_opt(0, 0, 0).unwrap(),
+    );
+    let task_t1_record = storage.create_task(task_t1).await.expect("Failed to create T1");
+    storage.relate_task_to_slot(&slot_a_record.id, &task_t1_record.id, date1.and_hms_opt(10, 0, 0).unwrap())
+        .await
+        .expect("Failed to relate T1 to slot A");
+
+    // Slot B on 2026-05-03 with task T2
+    let date2 = NaiveDate::from_ymd_opt(2026, 5, 3).unwrap();
+    let slot_b = Slot::new(
+        date2.and_hms_opt(10, 0, 0).unwrap(),
+        date2.and_hms_opt(12, 0, 0).unwrap(),
+    );
+    let slot_b_record = storage.create_slot(slot_b).await.expect("Failed to create slot B");
+
+    let task_t2 = Task::new(
+        "Task T2".to_string(),
+        "In slot B".to_string(),
+        crate::model::task::Priority::Medium,
+        chrono::TimeDelta::hours(1),
+        date2.and_hms_opt(0, 0, 0).unwrap(),
+    );
+    let task_t2_record = storage.create_task(task_t2).await.expect("Failed to create T2");
+    storage.relate_task_to_slot(&slot_b_record.id, &task_t2_record.id, date2.and_hms_opt(10, 0, 0).unwrap())
+        .await
+        .expect("Failed to relate T2 to slot B");
+
+    // Query range: 2026-05-01 to 2026-05-03 (exclusive end, so May 3 is excluded)
+    let scheduled_tasks = storage
+        .get_scheduled_tasks_for_date_range(date1, date2)
+        .await
+        .expect("Failed to query scheduled tasks");
+
+    assert_eq!(scheduled_tasks.len(), 1, "Should return only T1 (May 3 is excluded)");
+    assert_eq!(scheduled_tasks[0].task.data.name(), "Task T1");
+}
+
+#[tokio::test]
+async fn test_get_scheduled_tasks_empty_result() {
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
+
+    // Query range with no slots/tasks
+    let start = NaiveDate::from_ymd_opt(2026, 5, 10).unwrap();
+    let end = NaiveDate::from_ymd_opt(2026, 5, 20).unwrap();
+    let scheduled_tasks = storage
+        .get_scheduled_tasks_for_date_range(start, end)
+        .await
+        .expect("Failed to query scheduled tasks");
+
+    assert!(scheduled_tasks.is_empty(), "Should return empty vec when no data");
+}

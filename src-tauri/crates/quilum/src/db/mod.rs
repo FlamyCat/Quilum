@@ -339,6 +339,128 @@ impl Storage {
 }
 
 impl Storage {
+    /// Gets all tasks scheduled in slots within a date range.
+    /// Returns flat list of tasks with their scheduled_for timestamps (for today view).
+    ///
+    /// # Arguments
+    /// * `start` - The start date (inclusive, at 00:00:00)
+    /// * `end` - The end date (exclusive, at 00:00:00)
+    ///
+    /// # Returns
+    /// * Vector of scheduled tasks with their scheduled_for timestamps
+    pub async fn get_scheduled_tasks_for_date_range(
+        &self,
+        start: NaiveDate,
+        end: NaiveDate,
+    ) -> Result<Vec<ScheduledTask>, Error> {
+        let range_start = start.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp();
+        let range_end = end.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp();
+
+        // Query 1: Get task IDs and scheduled_for from edges where slot is in date range
+        // Use graph traversal to access slot fields directly from the relation
+        let sql1 = format!(
+            "SELECT out AS task_id, scheduled_for FROM scheduled_in \
+            WHERE in.starts_at < {} AND in.ends_at > {}",
+            range_end, range_start
+        );
+        let mut result1 = self.db.query(sql1).await?;
+        let edge_values: Vec<serde_json::Value> = result1.take(0).unwrap_or_default();
+
+        // Build HashMap: task_id_string -> scheduled_for
+        use std::collections::HashMap;
+        let mut task_scheduled: HashMap<String, i64> = HashMap::new();
+        let mut task_ids: Vec<String> = Vec::new();
+
+        for value in edge_values {
+            let task_id_val = value.get("task_id");
+            let scheduled_for_val = value.get("scheduled_for");
+            
+            if let (Some(task_id), Some(scheduled_for)) = (task_id_val, scheduled_for_val) {
+                if let (Some(task_id_str), Some(num)) = (task_id.as_str(), scheduled_for.as_number()) {
+                    if let Some(ts) = num.as_i64() {
+                        
+                        task_scheduled.insert(task_id_str.to_string(), ts);
+                        task_ids.push(task_id_str.to_string());
+                    }
+                }
+            }
+        }
+        
+        if task_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        
+        // Query 2: Fetch task data using graph traversal from the relation
+        // Get task data directly by following the relation
+        let sql2 = format!(
+            "SELECT out.*, scheduled_for FROM scheduled_in \
+            WHERE in.starts_at < {} AND in.ends_at > {}",
+            range_end, range_start
+        );
+        let mut result2 = self.db.query(sql2).await?;
+        let task_values: Vec<serde_json::Value> = result2.take(0).unwrap_or_default();
+
+        // Parse tasks and combine with scheduled_for
+        let mut scheduled_tasks: Vec<ScheduledTask> = Vec::new();
+        for value in task_values {
+            // Extract scheduled_for and out (task data)
+            let _scheduled_for = value.get("scheduled_for")
+                .and_then(|v| v.as_i64())
+                .unwrap_or(0);
+            
+            let out_value = value.get("out")
+                .cloned()
+                .unwrap_or_default();
+            
+            // Parse the out object to get id and task data
+            let mut out_obj = if let serde_json::Value::Object(obj) = out_value {
+                obj
+            } else {
+                continue;
+            };
+            
+            // Extract id from out object - it's a string like "task:xxx"
+            let id_value = out_obj.get("id").cloned().unwrap_or_default();
+            let id_str = if let serde_json::Value::String(s) = &id_value {
+                s.clone()
+            } else {
+                continue;
+            };
+            
+            // Parse "task:xxx" into RecordId
+            let parts: Vec<&str> = id_str.split(':').collect();
+            let id = if parts.len() == 2 {
+                RecordId::new(parts[0], parts[1])
+            } else {
+                continue;
+            };
+            
+            // Remove id for data deserialization
+            out_obj.remove("id");
+
+            let data: Task = serde_json::from_value(serde_json::Value::Object(out_obj))
+                .map_err(|e| Error::query(format!("Failed to deserialize task: {}", e), None))?;
+
+            // Get scheduled_for from HashMap
+            let task_id_str = format!("{}:{}", id.table, match &id.key {
+                surrealdb::types::RecordIdKey::String(s) => s.as_str(),
+                _ => "unknown",
+            });
+            
+            
+            if let Some(&scheduled_for) = task_scheduled.get(&task_id_str) {
+                scheduled_tasks.push(ScheduledTask {
+                    task: Record { id, data },
+                    scheduled_for,
+                });
+            }
+        }
+
+        Ok(scheduled_tasks)
+    }
+}
+
+impl Storage {
     /// Creates a new task record in the database.
     ///
     /// # Arguments
