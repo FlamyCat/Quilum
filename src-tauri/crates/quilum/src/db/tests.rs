@@ -266,8 +266,8 @@ async fn get_scheduled_tasks_basic() {
         .create_task(
             "Test Task".to_string(),
             "A scheduled task".to_string(),
-            crate::model::task::Priority::Medium,
-            chrono::TimeDelta::hours(1),
+            task::Priority::Medium,
+            TimeDelta::hours(1),
             slot_date.and_hms_opt(0, 0, 0).unwrap(),
         )
         .await
@@ -282,7 +282,7 @@ async fn get_scheduled_tasks_basic() {
 
     // Query for May 1
     let scheduled_tasks = storage
-        .get_scheduled_tasks_for_date_range(slot_date, slot_date + chrono::TimeDelta::days(1))
+        .get_scheduled_tasks_for_date_range(slot_date, slot_date + TimeDelta::days(1))
         .await
         .expect("Failed to query scheduled tasks");
 
@@ -310,8 +310,8 @@ async fn get_scheduled_tasks_wrong_date() {
         .create_task(
             "Test Task".to_string(),
             "A scheduled task".to_string(),
-            crate::model::task::Priority::Medium,
-            chrono::TimeDelta::hours(1),
+            task::Priority::Medium,
+            TimeDelta::hours(1),
             slot_date.and_hms_opt(0, 0, 0).unwrap(),
         )
         .await
@@ -329,7 +329,7 @@ async fn get_scheduled_tasks_wrong_date() {
     // Query for May 2 (wrong date)
     let wrong_date = NaiveDate::from_ymd_opt(2026, 5, 2).unwrap();
     let scheduled_tasks = storage
-        .get_scheduled_tasks_for_date_range(wrong_date, wrong_date + chrono::TimeDelta::days(1))
+        .get_scheduled_tasks_for_date_range(wrong_date, wrong_date + TimeDelta::days(1))
         .await
         .expect("Failed to query scheduled tasks");
 
@@ -360,8 +360,8 @@ async fn get_scheduled_tasks_multiple_in_slot() {
             .create_task(
                 format!("Task {}", i),
                 format!("Scheduled task {}", i),
-                crate::model::task::Priority::Medium,
-                chrono::TimeDelta::hours(1),
+                task::Priority::Medium,
+                TimeDelta::hours(1),
                 slot_date.and_hms_opt(0, 0, 0).unwrap(),
             )
             .await
@@ -377,7 +377,7 @@ async fn get_scheduled_tasks_multiple_in_slot() {
 
     // Query for May 1
     let scheduled_tasks = storage
-        .get_scheduled_tasks_for_date_range(slot_date, slot_date + chrono::TimeDelta::days(1))
+        .get_scheduled_tasks_for_date_range(slot_date, slot_date + TimeDelta::days(1))
         .await
         .expect("Failed to query scheduled tasks");
 
@@ -411,8 +411,8 @@ async fn get_scheduled_tasks_date_range_filter() {
         .create_task(
             "Task T1".to_string(),
             "In slot A".to_string(),
-            crate::model::task::Priority::Medium,
-            chrono::TimeDelta::hours(1),
+            task::Priority::Medium,
+            TimeDelta::hours(1),
             date1.and_hms_opt(0, 0, 0).unwrap(),
         )
         .await
@@ -440,8 +440,8 @@ async fn get_scheduled_tasks_date_range_filter() {
         .create_task(
             "Task T2".to_string(),
             "In slot B".to_string(),
-            crate::model::task::Priority::Medium,
-            chrono::TimeDelta::hours(1),
+            task::Priority::Medium,
+            TimeDelta::hours(1),
             date2.and_hms_opt(0, 0, 0).unwrap(),
         )
         .await
@@ -506,8 +506,8 @@ async fn get_slots_with_tasks_basic() {
         .create_task(
             "Test Task".to_string(),
             "A scheduled task".to_string(),
-            crate::model::task::Priority::Medium,
-            chrono::TimeDelta::hours(1),
+            task::Priority::Medium,
+            TimeDelta::hours(1),
             slot_date.and_hms_opt(0, 0, 0).unwrap(),
         )
         .await
@@ -522,7 +522,7 @@ async fn get_slots_with_tasks_basic() {
 
     // Query for May 1
     let slots_with_tasks = storage
-        .get_slots_with_tasks_for_date_range(slot_date, slot_date + chrono::TimeDelta::days(1))
+        .get_slots_with_tasks_for_date_range(slot_date, slot_date + TimeDelta::days(1))
         .await
         .expect("Failed to query slots with tasks");
 
@@ -560,8 +560,8 @@ async fn get_slots_with_tasks_multiple_tasks() {
             .create_task(
                 format!("Task {}", i),
                 format!("Scheduled task {}", i),
-                crate::model::task::Priority::Medium,
-                chrono::TimeDelta::hours(1),
+                task::Priority::Medium,
+                TimeDelta::hours(1),
                 slot_date.and_hms_opt(0, 0, 0).unwrap(),
             )
             .await
@@ -577,7 +577,7 @@ async fn get_slots_with_tasks_multiple_tasks() {
 
     // Query for May 1
     let slots_with_tasks = storage
-        .get_slots_with_tasks_for_date_range(slot_date, slot_date + chrono::TimeDelta::days(1))
+        .get_slots_with_tasks_for_date_range(slot_date, slot_date + TimeDelta::days(1))
         .await
         .expect("Failed to query slots with tasks");
 
@@ -622,8 +622,8 @@ async fn get_slots_with_tasks_multiple_slots() {
             .create_task(
                 format!("Task A{}", i),
                 format!("In slot A"),
-                crate::model::task::Priority::Medium,
-                chrono::TimeDelta::hours(1),
+                task::Priority::Medium,
+                TimeDelta::hours(1),
                 slot_date.and_hms_opt(0, 0, 0).unwrap(),
             )
             .await
@@ -652,8 +652,8 @@ async fn get_slots_with_tasks_multiple_slots() {
         .create_task(
             "Task B1".to_string(),
             "In slot B".to_string(),
-            crate::model::task::Priority::Medium,
-            chrono::TimeDelta::hours(1),
+            task::Priority::Medium,
+            TimeDelta::hours(1),
             slot_date.and_hms_opt(0, 0, 0).unwrap(),
         )
         .await
@@ -670,7 +670,7 @@ async fn get_slots_with_tasks_multiple_slots() {
 
     // Query for May 1
     let slots_with_tasks = storage
-        .get_slots_with_tasks_for_date_range(slot_date, slot_date + chrono::TimeDelta::days(1))
+        .get_slots_with_tasks_for_date_range(slot_date, slot_date + TimeDelta::days(1))
         .await
         .expect("Failed to query slots with tasks");
 
@@ -708,8 +708,8 @@ async fn get_slots_with_tasks_date_range_filter() {
         .create_task(
             "Task T1".to_string(),
             "In slot A".to_string(),
-            crate::model::task::Priority::Medium,
-            chrono::TimeDelta::hours(1),
+            task::Priority::Medium,
+            TimeDelta::hours(1),
             date1.and_hms_opt(0, 0, 0).unwrap(),
         )
         .await
@@ -737,8 +737,8 @@ async fn get_slots_with_tasks_date_range_filter() {
         .create_task(
             "Task T2".to_string(),
             "In slot B".to_string(),
-            crate::model::task::Priority::Medium,
-            chrono::TimeDelta::hours(1),
+            task::Priority::Medium,
+            TimeDelta::hours(1),
             date2.and_hms_opt(0, 0, 0).unwrap(),
         )
         .await
@@ -801,7 +801,7 @@ async fn get_slots_with_tasks_slot_without_tasks() {
 
     // Query for May 1
     let slots_with_tasks = storage
-        .get_slots_with_tasks_for_date_range(slot_date, slot_date + chrono::TimeDelta::days(1))
+        .get_slots_with_tasks_for_date_range(slot_date, slot_date + TimeDelta::days(1))
         .await
         .expect("Failed to query slots with tasks");
 
