@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
-use surrealdb::types::RecordId;
+use surrealdb::types::{RecordId, SurrealValue};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, SurrealValue)]
 pub struct TaskList {
     #[serde(skip_serializing)]
     pub id: RecordId,

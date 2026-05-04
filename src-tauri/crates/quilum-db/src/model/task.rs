@@ -1,9 +1,9 @@
 use chrono::{DateTime, NaiveDateTime, TimeDelta};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
-use surrealdb::types::RecordId;
+use surrealdb::types::{RecordId, SurrealValue};
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize, SurrealValue)]
 pub struct Task {
     #[serde(skip_serializing)]
     pub id: RecordId,
@@ -91,7 +91,7 @@ impl Task {
     }
 }
 
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Default, Serialize, Deserialize, SurrealValue)]
 pub enum Priority {
     Low,
     #[default]

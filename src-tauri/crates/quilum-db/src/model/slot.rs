@@ -1,8 +1,8 @@
 use chrono::{DateTime, NaiveDateTime, TimeDelta};
 use serde::{Deserialize, Serialize};
-use surrealdb::types::RecordId;
+use surrealdb::types::{RecordId, SurrealValue};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, SurrealValue)]
 pub struct Slot {
     #[serde(skip_serializing)]
     pub id: RecordId,

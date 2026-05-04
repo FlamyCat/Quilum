@@ -852,9 +852,9 @@ async fn get_today_timetable_basic() {
         .expect("Failed to get today timetable");
 
     assert_eq!(events.len(), 1, "Should have 1 event");
-    assert_eq!(events[0].name(), "Today Event");
+    assert_eq!(events[0].name(), "Today's Event");
     assert_eq!(scheduled_tasks.len(), 1, "Should have 1 scheduled task");
-    assert_eq!(scheduled_tasks[0].0.name(), "Today Task");
+    assert_eq!(scheduled_tasks[0].0.name(), "Today's Task");
     assert_eq!(scheduled_tasks[0].1, scheduled_for.and_utc().timestamp());
 }
 
