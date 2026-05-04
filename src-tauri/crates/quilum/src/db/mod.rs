@@ -432,9 +432,46 @@ impl Storage {
 
         Ok(slots_with_tasks)
     }
-}
 
-impl Storage {
+    /// Gets today's timetable: events + scheduled tasks for today view.
+    ///
+    /// # Arguments
+    /// * `today` - The date to get timetable for
+    ///
+    /// # Returns
+    /// * Tuple of (events, scheduled_tasks) for today
+    pub async fn get_today_timetable(
+        &self,
+        today: NaiveDate,
+    ) -> Result<(Vec<Event>, Vec<(Task, i64)>), Error> {
+        let tomorrow = today + TimeDelta::days(1);
+        
+        let events = self.get_events_for_date(today).await?;
+        let scheduled_tasks = self.get_scheduled_tasks_for_date_range(today, tomorrow).await?;
+        
+        Ok((events, scheduled_tasks))
+    }
+
+    /// Gets week's timetable: events + slots with tasks for week view.
+    /// Derives week_end as week_start + 7 days (half-open range).
+    ///
+    /// # Arguments
+    /// * `week_start` - The first day of the week
+    ///
+    /// # Returns
+    /// * Tuple of (events, slots_with_tasks) for the week
+    pub async fn get_week_timetable(
+        &self,
+        week_start: NaiveDate,
+    ) -> Result<(Vec<Event>, Vec<SlotWithTasks>), Error> {
+        let week_end = week_start + TimeDelta::days(7);
+        
+        let events = self.get_events_for_date_range(week_start, week_end).await?;
+        let slots_with_tasks = self.get_slots_with_tasks_for_date_range(week_start, week_end).await?;
+        
+        Ok((events, slots_with_tasks))
+    }
+
     /// Creates a new task record in the database.
     ///
     /// # Arguments

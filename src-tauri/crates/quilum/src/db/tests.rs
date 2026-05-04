@@ -812,3 +812,157 @@ async fn get_slots_with_tasks_slot_without_tasks() {
         "Slot should have no tasks"
     );
 }
+
+#[tokio::test]
+async fn get_today_timetable_basic() {
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
+    let today = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap();
+
+    // Create an event for today
+    let _event = storage.create_event(
+        "Today's Event".to_string(),
+        "An event today".to_string(),
+        today.and_hms_opt(9, 0, 0).unwrap(),
+        today.and_hms_opt(10, 0, 0).unwrap(),
+    ).await.expect("Failed to create event");
+
+    // Create a slot with a task for today
+    let slot = storage.create_slot(
+        today.and_hms_opt(10, 0, 0).unwrap(),
+        today.and_hms_opt(12, 0, 0).unwrap(),
+    ).await.expect("Failed to create slot");
+
+    let task = storage.create_task(
+        "Today's Task".to_string(),
+        "A task for today".to_string(),
+        task::Priority::Medium,
+        TimeDelta::hours(1),
+        today.and_hms_opt(0, 0, 0).unwrap(),
+    ).await.expect("Failed to create task");
+
+    let scheduled_for = today.and_hms_opt(10, 30, 0).unwrap();
+    storage.relate_task_to_slot(&slot.id(), &task.id(), scheduled_for)
+        .await
+        .expect("Failed to relate task to slot");
+
+    // Get today's timetable
+    let (events, scheduled_tasks) = storage
+        .get_today_timetable(today)
+        .await
+        .expect("Failed to get today timetable");
+
+    assert_eq!(events.len(), 1, "Should have 1 event");
+    assert_eq!(events[0].name(), "Today Event");
+    assert_eq!(scheduled_tasks.len(), 1, "Should have 1 scheduled task");
+    assert_eq!(scheduled_tasks[0].0.name(), "Today Task");
+    assert_eq!(scheduled_tasks[0].1, scheduled_for.and_utc().timestamp());
+}
+
+#[tokio::test]
+async fn get_today_timetable_empty() {
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
+    let today = NaiveDate::from_ymd_opt(2026, 5, 10).unwrap();
+
+    // Get today's timetable with no data
+    let (events, scheduled_tasks) = storage
+        .get_today_timetable(today)
+        .await
+        .expect("Failed to get today timetable");
+
+    assert!(events.is_empty(), "Events should be empty");
+    assert!(scheduled_tasks.is_empty(), "Scheduled tasks should be empty");
+}
+
+#[tokio::test]
+async fn get_week_timetable_basic() {
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
+    let week_start = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap();
+
+    // Event A on May 1
+    let _event_a = storage.create_event(
+        "Event A".to_string(),
+        "On May 1".to_string(),
+        week_start.and_hms_opt(10, 0, 0).unwrap(),
+        week_start.and_hms_opt(12, 0, 0).unwrap(),
+    ).await.expect("Failed to create event A");
+
+    // Slot B on May 2 with 2 tasks
+    let slot_b = storage.create_slot(
+        week_start.and_hms_opt(14, 0, 0).unwrap(),
+        week_start.and_hms_opt(18, 0, 0).unwrap(),
+    ).await.expect("Failed to create slot B");
+
+    for i in 1..=2 {
+        let task = storage.create_task(
+            format!("Task B{}", i),
+            format!("In slot B"),
+            task::Priority::Medium,
+            TimeDelta::hours(1),
+            week_start.and_hms_opt(0, 0, 0).unwrap(),
+        ).await.expect("Failed to create task");
+
+        storage.relate_task_to_slot(&slot_b.id(), &task.id(), 
+            week_start.and_hms_opt(14 + (i - 1) as u32, 0, 0).unwrap())
+            .await
+            .expect("Failed to relate task to slot B");
+    }
+
+    // Event C on May 5
+    let _event_c = storage.create_event(
+        "Event C".to_string(),
+        "On May 5".to_string(),
+        NaiveDate::from_ymd_opt(2026, 5, 5).unwrap().and_hms_opt(10, 0, 0).unwrap(),
+        NaiveDate::from_ymd_opt(2026, 5, 5).unwrap().and_hms_opt(12, 0, 0).unwrap(),
+    ).await.expect("Failed to create event C");
+
+    // Get week timetable (May 1 to May 8, exclusive end)
+    let (events, slots_with_tasks) = storage
+        .get_week_timetable(week_start)
+        .await
+        .expect("Failed to get week timetable");
+
+    assert_eq!(events.len(), 2, "Should have 2 events (A and C)");
+    assert_eq!(slots_with_tasks.len(), 1, "Should have 1 slot (B)");
+    assert_eq!(slots_with_tasks[0].tasks.len(), 2, "Slot B should have 2 tasks");
+}
+
+#[tokio::test]
+async fn get_week_timetable_excludes_next_week() {
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
+    let week_start = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap();
+
+    // Slot A on May 1 (within week)
+    let _slot_a = storage.create_slot(
+        week_start.and_hms_opt(10, 0, 0).unwrap(),
+        week_start.and_hms_opt(12, 0, 0).unwrap(),
+    ).await.expect("Failed to create slot A");
+
+    // Slot B on May 8 (next week, should be excluded)
+    let slot_b_date = NaiveDate::from_ymd_opt(2026, 5, 8).unwrap();
+    let slot_b = storage.create_slot(
+        slot_b_date.and_hms_opt(10, 0, 0).unwrap(),
+        slot_b_date.and_hms_opt(12, 0, 0).unwrap(),
+    ).await.expect("Failed to create slot B");
+
+    let task_b = storage.create_task(
+        "Task B".to_string(),
+        "In slot B (next week)".to_string(),
+        task::Priority::Medium,
+        TimeDelta::hours(1),
+        slot_b_date.and_hms_opt(0, 0, 0).unwrap(),
+    ).await.expect("Failed to create task");
+
+    storage.relate_task_to_slot(&slot_b.id(), &task_b.id(), 
+        slot_b_date.and_hms_opt(10, 0, 0).unwrap())
+        .await
+        .expect("Failed to relate task to slot B");
+
+    // Get week timetable (May 1 to May 8, exclusive end)
+    let (_, slots_with_tasks) = storage
+        .get_week_timetable(week_start)
+        .await
+        .expect("Failed to get week timetable");
+
+    assert_eq!(slots_with_tasks.len(), 1, "Should have only 1 slot (A)");
+    assert_eq!(slots_with_tasks[0].slot.id(), _slot_a.id(), "Should be slot A");
+}
