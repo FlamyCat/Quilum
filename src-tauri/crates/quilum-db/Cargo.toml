@@ -9,6 +9,7 @@ chrono.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
+directories = "6"
 
 [target.'cfg(target_os = "linux")'.dependencies.surrealdb]
 workspace = true

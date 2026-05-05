@@ -5,7 +5,6 @@ use surrealdb::types::{RecordId, SurrealValue};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize, SurrealValue)]
 pub struct Task {
-    #[serde(skip_serializing)]
     pub id: RecordId,
     pub name: String,
     pub description: String,

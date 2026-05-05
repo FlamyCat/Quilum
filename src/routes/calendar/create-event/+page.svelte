@@ -1,6 +1,6 @@
 <script lang="ts">
     import Page from "$lib/components/Page.svelte";
-    import { addEvent } from "$lib/stores/events";
+    import { create_event } from "$lib/api";
     import { goto } from "$app/navigation";
     import DateTimePicker from "$lib/components/DateTimePicker.svelte";
     import { CalendarDate, type DateValue } from "@internationalized/date";
@@ -68,18 +68,16 @@
             return;
         }
 
-        const startDay = startDateTime.getDay();
-        const dayIndex = startDay === 0 ? 6 : startDay - 1;
-
-        addEvent({
-            title: name.trim(),
-            description: description.trim() || undefined,
-            dayIndex,
-            startsAt: startDateTime,
-            endsAt: endDateTime,
+        create_event(
+            name.trim(),
+            description.trim(),
+            Math.floor(startDateTime.getTime() / 1000),
+            Math.floor(endDateTime.getTime() / 1000),
+        ).then(() => {
+            goto("/calendar");
+        }).catch((err) => {
+            error = "Ошибка при создании события: " + err;
         });
-
-        goto("/calendar");
     }
 </script>
 

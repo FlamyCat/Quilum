@@ -1,4 +1,4 @@
-use crate::{slot::Slot, focus_session::FocusSession, event::Event, blocked_app::BlockedApp, app_identifier::AppIdentifier, task::{Priority, Task}, tasklist::TaskList, task};
+use crate::{slot::Slot, focus_session::FocusSession, event::Event, blocked_app::BlockedApp, app_identifier::AppIdentifier, task::{Priority, Task}, tasklist::TaskList};
 use chrono::{NaiveDate, NaiveDateTime, TimeDelta};
 use serde::{Deserialize, Serialize};
 use surrealdb::{
@@ -6,24 +6,13 @@ use surrealdb::{
     types::RecordId,
     Error, Surreal,
 };
-use surrealdb::types::SurrealValue;
-
-
-/// Helper struct for creating tasks without the id field
-#[derive(Serialize, Deserialize, SurrealValue)]
-struct TaskCreate {
-    name: String,
-    description: String,
-    priority: Priority,
-    estimated_duration: i64,
-    deadline: i64,
-}
+use directories::ProjectDirs;
 
 /// Struct for returning slots with their scheduled tasks
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SlotWithTasks {
-    pub(crate) slot: Slot,
-    pub(crate) tasks: Vec<(Task, i64)>,
+    pub slot: Slot,
+    pub tasks: Vec<(Task, i64)>,
 }
 
 /// Storage struct that holds a handle to a SurrealDB instance
@@ -170,6 +159,14 @@ impl Storage {
         Ok(Self { db })
     }
 
+    /// Initialize the database with required schema (indexes, etc.)
+    /// Runs the init.surql script included at compile time.
+    pub async fn init(&self) -> Result<(), Error> {
+        let init_script = include_str!("../../resources/init.surql");
+        self.db.query(init_script).await?;
+        Ok(())
+    }
+
     /// Creates a new Storage instance using in-memory database mode.
     ///
     /// # Returns
@@ -177,21 +174,31 @@ impl Storage {
     pub async fn new_mem() -> Result<Self, Error> {
         let db = Surreal::new::<Mem>(()).await?;
         db.use_ns("test").use_db("test").await?;
-        Ok(Self::new(db)?)
+        let storage = Self::new(db)?;
+        storage.init().await?;
+        Ok(storage)
     }
 
     /// Creates a new Storage instance using RocksDB database mode.
-    ///
-    /// # Arguments
-    /// * `path` - File path where the RocksDB database will be stored
+    /// Uses platform-specific data directory via ProjectDirs.
     ///
     /// # Returns
     /// * The storage instance or an error
-    pub async fn new_rocksdb(path: &str) -> Result<Self, Error> {
-        let db = Surreal::new::<RocksDb>(path).await?;
-        db.use_ns("test").use_db("test").await?;
-        Ok(Self::new(db)?)
+    pub async fn new_rocksdb() -> Result<Self, Error> {
+        let proj_dirs = ProjectDirs::from("com", "quilum", "quilum")
+            .expect("Failed to get project directories");
+        let data_dir = proj_dirs.data_dir().to_path_buf();
+        std::fs::create_dir_all(&data_dir).expect("Failed to create data directory");
+        let db_path = data_dir.join("quilum.db");
+        let db = Surreal::new::<RocksDb>(db_path).await?;
+        db.use_ns("quilum").use_db("main").await?;
+        let storage = Self::new(db)?;
+        storage.init().await?;
+        Ok(storage)
     }
+
+    // new_ws() removed - use new_rocksdb() on all platforms for now
+    // TODO: Implement WebSocket connection with proper type handling
 
     /// Helper to convert RecordId to string for SQL queries
     fn record_id_to_string(id: &RecordId) -> String {

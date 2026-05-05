@@ -3,23 +3,26 @@
     import EventCard from "$lib/components/EventCard.svelte";
     import TaskCard from "$lib/components/TaskCard.svelte";
     import { ChevronLeft, ChevronRight, Circle, CalendarPlus } from "@lucide/svelte";
-    import { eventsStore, getEventsForWeek, getTasksForWeek } from "$lib/stores/events";
+    import { week_timetable, update_task, type Task } from "$lib/api";
 
     function getWeekStart(date: Date): Date {
         const d = new Date(date);
         const day = d.getDay();
         const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-        return new Date(d.setDate(diff));
+        d.setDate(diff);
+        // Normalize to midnight to ensure correct day boundaries
+        d.setHours(0, 0, 0, 0);
+        return d;
     }
 
     const today = new Date();
     let weekStart = $state(getWeekStart(today));
 
-    function getWeekOffset(): number {
-        const currentWeekStart = getWeekStart(today);
-        const diffTime = weekStart.getTime() - currentWeekStart.getTime();
-        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-        return Math.floor(diffDays / 7);
+    function formatDateISO(date: Date): string {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
     }
 
     function goToPrevWeek() {
@@ -51,7 +54,7 @@
     }
 
     function formatMonth(date: Date): string {
-        return date.toLocaleString("en-US", { month: "short" }).toLowerCase();
+        return date.toLocaleString("ru-RU", { month: "short" }).toLowerCase();
     }
 
     function isToday(date: Date): boolean {
@@ -62,27 +65,165 @@
         );
     }
 
-    let mockEvents = $derived(getEventsForWeek(getWeekOffset()));
-
-    let mockTasks = $state(getTasksForWeek(getWeekOffset()));
-
-    function getEventsForDay(dayIndex: number) {
-        return mockEvents.filter((e) => e.dayIndex === dayIndex);
+    function getKeyString(key: any): string {
+        if (typeof key === 'string') return key;
+        if (key && typeof key === 'object' && 'String' in key) return key.String;
+        return String(key);
     }
 
-    function getTasksForDay(dayIndex: number) {
-        return mockTasks.filter((t) => t.dayIndex === dayIndex);
+    interface CalendarEvent {
+        id: string;
+        title: string;
+        description?: string;
+        startsAt: Date;
+        endsAt: Date;
+        displayStart: Date | null;
+        displayEnd: Date | null;
+        startedBefore: boolean;
     }
 
-    async function saveTaskState(
-        taskId: number,
-        completed: boolean,
-    ): Promise<void> {
-        const task = mockTasks.find((t) => t.id === taskId);
-        if (task) {
-            task.completed = completed;
+    interface CalendarTask {
+        id: string;
+        title: string;
+        description?: string;
+        startsAt: Date;
+        endsAt: Date;
+        completed: boolean;
+        taskIdTable: string;
+        taskIdKey: string;
+        priority: string;
+        estimatedDuration: number;
+        deadline: number;
+    }
+
+    let events = $state<CalendarEvent[]>([]);
+    let slotsWithTasks = $state<{ slot: { starts_at: number; ends_at: number }; tasks: [any, number][] }[]>([]);
+    let loading = $state(true);
+
+    async function loadWeekData() {
+        loading = true;
+        try {
+            const weekStartISO = formatDateISO(weekStart);
+            const [weekEvents, weekSlots] = await week_timetable(weekStartISO);
+
+            events = weekEvents.map(e => ({
+                id: `${e.id.table}:${getKeyString(e.id.key)}`,
+                title: e.name,
+                description: e.description || undefined,
+                startsAt: new Date(e.starts_at * 1000),
+                endsAt: new Date(e.ends_at * 1000),
+                displayStart: null,
+                displayEnd: null,
+                startedBefore: false,
+            }));
+
+            slotsWithTasks = weekSlots.map(swt => ({
+                slot: swt.slot,
+                tasks: swt.tasks,
+            }));
+        } catch (err) {
+            console.error("Не удалось загрузить календарь недели:", err);
+        } finally {
+            loading = false;
         }
     }
+
+    function getEventsForDay(dayIndex: number): CalendarEvent[] {
+        const dayStart = weekDays[dayIndex];
+        if (!dayStart) return [];
+        const nextDay = new Date(dayStart);
+        nextDay.setDate(nextDay.getDate() + 1);
+        const dayStartTs = dayStart.getTime();
+        const nextDayTs = nextDay.getTime();
+
+        return events.filter(e => {
+            const start = e.startsAt.getTime();
+            const end = e.endsAt.getTime();
+            // Event overlaps with this day if it starts before the day ends and ends after the day starts
+            return start < nextDayTs && end > dayStartTs;
+        }).map(e => {
+            const startedBefore = e.startsAt.getTime() < dayStartTs;
+            const endsAfter = e.endsAt.getTime() >= nextDayTs;
+            
+            return {
+                ...e,
+                displayStart: startedBefore ? null : e.startsAt,
+                displayEnd: endsAfter ? null : e.endsAt,
+                startedBefore,
+            };
+        }).sort((a, b) => {
+            // Events that started before this day go to the top
+            if (a.startedBefore && !b.startedBefore) return -1;
+            if (!a.startedBefore && b.startedBefore) return 1;
+            // Otherwise sort by display start time
+            const aStart = a.displayStart?.getTime() ?? 0;
+            const bStart = b.displayStart?.getTime() ?? 0;
+            return aStart - bStart;
+        });
+    }
+
+    function getTasksForDay(dayIndex: number): CalendarTask[] {
+        const dayStart = weekDays[dayIndex];
+        if (!dayStart) return [];
+        const nextDay = new Date(dayStart);
+        nextDay.setDate(nextDay.getDate() + 1);
+        const dayStartTs = dayStart.getTime();
+        const nextDayTs = nextDay.getTime();
+
+        const tasks: CalendarTask[] = [];
+        for (const swt of slotsWithTasks) {
+            const slotStart = swt.slot.starts_at * 1000;
+            if (slotStart >= dayStartTs && slotStart < nextDayTs) {
+                for (const [task, scheduled_for] of swt.tasks) {
+                    const startTs = swt.slot.starts_at + scheduled_for * 60;
+                    tasks.push({
+                        id: `${task.id.table}:${task.id.key}`,
+                        title: task.name,
+                        description: task.description || undefined,
+                        startsAt: new Date(startTs * 1000),
+                        endsAt: new Date((startTs + task.estimated_duration) * 1000),
+                        completed: task.completed ?? false,
+                        taskIdTable: task.id.table,
+                        taskIdKey: task.id.key,
+                        priority: task.priority,
+                        estimatedDuration: task.estimated_duration,
+                        deadline: task.deadline,
+                    });
+                }
+            }
+        }
+        return tasks;
+    }
+
+    async function saveTaskState(taskId: string, completed: boolean): Promise<void> {
+        const dayTasks = slotsWithTasks.flatMap(swt =>
+            swt.tasks.map(([task, _]) => ({ task, id: `${task.id.table}:${task.id.key}` }))
+        );
+        const found = dayTasks.find(t => t.id === taskId);
+        if (!found) return;
+
+        const taskObj: Task = {
+            id: found.task.id,
+            name: found.task.name,
+            description: found.task.description,
+            priority: found.task.priority,
+            estimated_duration: found.task.estimated_duration,
+            deadline: found.task.deadline,
+            completed,
+        };
+
+        try {
+            await update_task(taskObj);
+            found.task.completed = completed;
+        } catch (err) {
+            console.error("Не удалось обновить задачу:", err);
+        }
+    }
+
+    $effect(() => {
+        const _ = weekStart;
+        loadWeekData();
+    });
 </script>
 
 <Page title="Календарь">
@@ -119,49 +260,57 @@
         </div>
     {/snippet}
     {#snippet body()}
-        <div class="grid grid-cols-1 lg:grid-cols-7 gap-4 h-full">
-            {#each weekDays as day, index}
-                {@const events = getEventsForDay(index)}
-                {@const tasks = getTasksForDay(index)}
-                <div
-                    class="flex flex-col gap-2 p-2 rounded-lg border-2 {isToday(
-                        day,
-                    )
-                        ? 'border-slate-700 dark:border-slate-400'
-                        : 'border-slate-400 dark:border-slate-600'} bg-slate-100 dark:bg-slate-800"
-                >
-                    <div class="text-center">
-                        <span
-                            class="text-lg font-semibold text-black dark:text-white"
-                            >{formatDay(day)}
-                        </span>
-                        <span
-                            class="block text-sm text-gray-500 dark:text-gray-400"
-                            >{formatMonth(day)}
-                        </span>
-                    </div>
+        {#if loading}
+            <div class="flex justify-center items-center h-32">
+                <p class="text-gray-500">Загрузка...</p>
+            </div>
+        {:else}
+            <div class="grid grid-cols-1 lg:grid-cols-7 gap-4 h-full">
+                {#each weekDays as day, index}
+                    {@const dayEvents = getEventsForDay(index)}
+                    {@const dayTasks = getTasksForDay(index)}
+                    <div
+                        class="flex flex-col gap-2 p-2 rounded-lg border-2 {isToday(
+                            day,
+                        )
+                            ? 'border-slate-700 dark:border-slate-400'
+                            : 'border-slate-400 dark:border-slate-600'} bg-slate-100 dark:bg-slate-800"
+                    >
+                        <div class="text-center">
+                            <span
+                                class="text-lg font-semibold text-black dark:text-white"
+                                >{formatDay(day)}
+                            </span>
+                            <span
+                                class="block text-sm text-gray-500 dark:text-gray-400"
+                                >{formatMonth(day)}
+                            </span>
+                        </div>
 
-                    <div class="flex flex-col gap-2">
-                        {#each events as event}
-                            <EventCard
-                                title={event.title}
-                                startTime={day}
-                                endTime={day}
-                            />
-                        {/each}
-                        {#each tasks as task}
-                            <TaskCard
-                                title={task.title}
-                                startTime={day}
-                                endTime={day}
-                                completed={task.completed}
-                                onToggle={(completed) =>
-                                    saveTaskState(task.id, completed)}
-                            />
-                        {/each}
+                        <div class="flex flex-col gap-2">
+                             {#each dayEvents as event (event.id + '-' + index)}
+                                <EventCard
+                                    title={event.title}
+                                    description={event.description}
+                                    startTime={event.displayStart}
+                                    endTime={event.displayEnd}
+                                />
+                            {/each}
+                            {#each dayTasks as task}
+                                <TaskCard
+                                    title={task.title}
+                                    description={task.description}
+                                    startTime={task.startsAt}
+                                    endTime={task.endsAt}
+                                    completed={task.completed}
+                                    onToggle={(completed) =>
+                                        saveTaskState(task.id, completed)}
+                                />
+                            {/each}
+                        </div>
                     </div>
-                </div>
-            {/each}
-        </div>
+                {/each}
+            </div>
+        {/if}
     {/snippet}
 </Page>

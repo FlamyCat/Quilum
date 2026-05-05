@@ -266,7 +266,7 @@ async fn get_scheduled_tasks_basic() {
         .create_task(
             "Test Task".to_string(),
             "A scheduled task".to_string(),
-            task::Priority::Medium,
+            Priority::Medium,
             TimeDelta::hours(1),
             slot_date.and_hms_opt(0, 0, 0).unwrap(),
         )
@@ -311,7 +311,7 @@ async fn get_scheduled_tasks_wrong_date() {
         .create_task(
             "Test Task".to_string(),
             "A scheduled task".to_string(),
-            task::Priority::Medium,
+            Priority::Medium,
             TimeDelta::hours(1),
             slot_date.and_hms_opt(0, 0, 0).unwrap(),
         )
@@ -362,7 +362,7 @@ async fn get_scheduled_tasks_multiple_in_slot() {
             .create_task(
                 format!("Task {}", i),
                 format!("Scheduled task {}", i),
-                task::Priority::Medium,
+                Priority::Medium,
                 TimeDelta::hours(1),
                 slot_date.and_hms_opt(0, 0, 0).unwrap(),
             )
@@ -414,7 +414,7 @@ async fn get_scheduled_tasks_date_range_filter() {
         .create_task(
             "Task T1".to_string(),
             "In slot A".to_string(),
-            task::Priority::Medium,
+            Priority::Medium,
             TimeDelta::hours(1),
             date1.and_hms_opt(0, 0, 0).unwrap(),
         )
@@ -444,7 +444,7 @@ async fn get_scheduled_tasks_date_range_filter() {
         .create_task(
             "Task T2".to_string(),
             "In slot B".to_string(),
-            task::Priority::Medium,
+            Priority::Medium,
             TimeDelta::hours(1),
             date2.and_hms_opt(0, 0, 0).unwrap(),
         )
@@ -511,7 +511,7 @@ async fn get_slots_with_tasks_basic() {
         .create_task(
             "Test Task".to_string(),
             "A scheduled task".to_string(),
-            task::Priority::Medium,
+            Priority::Medium,
             TimeDelta::hours(1),
             slot_date.and_hms_opt(0, 0, 0).unwrap(),
         )
@@ -566,7 +566,7 @@ async fn get_slots_with_tasks_multiple_tasks() {
             .create_task(
                 format!("Task {}", i),
                 format!("Scheduled task {}", i),
-                task::Priority::Medium,
+                Priority::Medium,
                 TimeDelta::hours(1),
                 slot_date.and_hms_opt(0, 0, 0).unwrap(),
             )
@@ -629,7 +629,7 @@ async fn get_slots_with_tasks_multiple_slots() {
             .create_task(
                 format!("Task A{}", i),
                 format!("In slot A"),
-                task::Priority::Medium,
+                Priority::Medium,
                 TimeDelta::hours(1),
                 slot_date.and_hms_opt(0, 0, 0).unwrap(),
             )
@@ -660,7 +660,7 @@ async fn get_slots_with_tasks_multiple_slots() {
         .create_task(
             "Task B1".to_string(),
             "In slot B".to_string(),
-            task::Priority::Medium,
+            Priority::Medium,
             TimeDelta::hours(1),
             slot_date.and_hms_opt(0, 0, 0).unwrap(),
         )
@@ -717,7 +717,7 @@ async fn get_slots_with_tasks_date_range_filter() {
         .create_task(
             "Task T1".to_string(),
             "In slot A".to_string(),
-            task::Priority::Medium,
+            Priority::Medium,
             TimeDelta::hours(1),
             date1.and_hms_opt(0, 0, 0).unwrap(),
         )
@@ -746,7 +746,7 @@ async fn get_slots_with_tasks_date_range_filter() {
         .create_task(
             "Task T2".to_string(),
             "In slot B".to_string(),
-            task::Priority::Medium,
+            Priority::Medium,
             TimeDelta::hours(1),
             date2.and_hms_opt(0, 0, 0).unwrap(),
         )
@@ -844,7 +844,7 @@ async fn get_today_timetable_basic() {
     let task = storage.create_task(
         "Today's Task".to_string(),
         "A task for today".to_string(),
-        task::Priority::Medium,
+        Priority::Medium,
         TimeDelta::hours(1),
         today.and_hms_opt(0, 0, 0).unwrap(),
     ).await.expect("Failed to create task");
@@ -906,7 +906,7 @@ async fn get_week_timetable_basic() {
         let task = storage.create_task(
             format!("Task B{}", i),
             format!("In slot B"),
-            task::Priority::Medium,
+            Priority::Medium,
             TimeDelta::hours(1),
             week_start.and_hms_opt(0, 0, 0).unwrap(),
         ).await.expect("Failed to create task");
@@ -958,7 +958,7 @@ async fn get_week_timetable_excludes_next_week() {
     let task_b = storage.create_task(
         "Task B".to_string(),
         "In slot B (next week)".to_string(),
-        task::Priority::Medium,
+        Priority::Medium,
         TimeDelta::hours(1),
         slot_b_date.and_hms_opt(0, 0, 0).unwrap(),
     ).await.expect("Failed to create task");

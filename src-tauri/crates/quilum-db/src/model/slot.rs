@@ -4,7 +4,6 @@ use surrealdb::types::{RecordId, SurrealValue};
 
 #[derive(Clone, Debug, Serialize, Deserialize, SurrealValue)]
 pub struct Slot {
-    #[serde(skip_serializing)]
     pub id: RecordId,
     pub starts_at: i64,
     pub ends_at: i64,

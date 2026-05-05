@@ -28,3 +28,4 @@ serde_json.workspace = true
 chrono.workspace = true
 surrealdb.workspace = true
 quilum-db.workspace = true
+tokio.workspace = true

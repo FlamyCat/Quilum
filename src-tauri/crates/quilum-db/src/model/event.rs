@@ -4,7 +4,6 @@ use surrealdb::types::{RecordId, SurrealValue};
 
 #[derive(Clone, Debug, Serialize, Deserialize, SurrealValue)]
 pub struct Event {
-    #[serde(skip_serializing)]
     pub id: RecordId,
     pub name: String,
     pub description: String,

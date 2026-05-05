@@ -4,8 +4,8 @@
     type Props = {
         title: string;
         description?: string;
-        startTime: Date;
-        endTime: Date;
+        startTime: Date | null;
+        endTime: Date | null;
         showCheckbox?: boolean;
         checked?: boolean;
         onToggle?: (checked: boolean) => Promise<void>;
@@ -25,8 +25,9 @@
         class: className = "",
     }: Props = $props();
 
-    function formatTime(date: Date): string {
-        return date.toLocaleTimeString("en-GB", {
+    function formatTime(date: Date | null): string {
+        if (date === null) return "-";
+        return date.toLocaleTimeString("ru-RU", {
             hour: "2-digit",
             minute: "2-digit",
         });

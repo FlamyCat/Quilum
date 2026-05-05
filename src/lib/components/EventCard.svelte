@@ -4,8 +4,8 @@
     type Props = {
         title: string;
         description?: string;
-        startTime: Date;
-        endTime: Date;
+        startTime: Date | null;
+        endTime: Date | null;
     };
 
     let { title, description, startTime, endTime }: Props = $props();
