@@ -42,6 +42,7 @@ mod skip_unsuitable_slots_tests {
             priority,
             estimated_duration: estimated_duration.num_seconds(),
             deadline: deadline.and_utc().timestamp(),
+            completed: false,
         }
     }
 
@@ -180,6 +181,7 @@ mod get_available_time_tests {
             priority,
             estimated_duration: estimated_duration.num_seconds(),
             deadline: deadline.and_utc().timestamp(),
+            completed: false,
         }
     }
 

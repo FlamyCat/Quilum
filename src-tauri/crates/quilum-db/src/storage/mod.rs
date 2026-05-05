@@ -613,14 +613,15 @@ impl Storage {
         estimated_duration: TimeDelta,
         deadline: NaiveDateTime,
     ) -> Result<Task, Error> {
-        let task_data = TaskCreate {
-            name,
-            description,
-            priority,
-            estimated_duration: estimated_duration.num_seconds(),
-            deadline: deadline.and_utc().timestamp(),
-        };
-        let created: Option<Task> = self.db.create("task").content(task_data).await?;
+        let data = serde_json::json!({
+            "name": name,
+            "description": description,
+            "priority": priority,
+            "estimated_duration": estimated_duration.num_seconds(),
+            "deadline": deadline.and_utc().timestamp(),
+            "completed": false
+        });
+        let created: Option<Task> = self.db.create("task").content(data).await?;
         created.ok_or_else(|| Error::query("Failed to create task".to_string(), None))
     }
 

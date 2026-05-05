@@ -12,6 +12,7 @@ pub struct Task {
     pub priority: Priority,
     pub estimated_duration: i64,
     pub deadline: i64,
+    pub completed: bool,
 }
 
 impl Task {
@@ -88,6 +89,14 @@ impl Task {
 
     pub fn set_deadline(&mut self, deadline: NaiveDateTime) {
         self.deadline = deadline.and_utc().timestamp();
+    }
+
+    pub fn completed(&self) -> bool {
+        self.completed
+    }
+
+    pub fn set_completed(&mut self, completed: bool) {
+        self.completed = completed;
     }
 }
 

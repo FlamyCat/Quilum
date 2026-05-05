@@ -48,6 +48,7 @@ fn create_task(
         priority,
         estimated_duration: duration.num_seconds(),
         deadline: deadline.and_utc().timestamp(),
+        completed: false,
     }
 }
 
