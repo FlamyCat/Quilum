@@ -2,6 +2,7 @@ let
   pkgs = import <nixpkgs> { };
 
   libraries = with pkgs; [
+    dbus
     at-spi2-atk
     atkmm
     cairo
