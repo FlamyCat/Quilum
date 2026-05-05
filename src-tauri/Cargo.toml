@@ -7,5 +7,6 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 chrono = { version = "0.4.44", features = ["serde"] }
 surrealdb = { version = "3", features = ["kv-mem", "kv-rocksdb", "protocol-ws"] }
+applock = { path = "crates/applock" }
 quilum-db = { path = "crates/quilum-db" }
 tokio = { version = "1", features = ["full"] }
