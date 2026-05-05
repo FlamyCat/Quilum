@@ -2,9 +2,7 @@ use crate::{slot::Slot, focus_session::FocusSession, event::Event, blocked_app::
 use chrono::{NaiveDate, NaiveDateTime, TimeDelta};
 use serde::{Deserialize, Serialize};
 use surrealdb::{
-    engine::local::{Db, Mem, RocksDb},
-    types::RecordId,
-    Error, Surreal,
+    Error, Surreal, engine::local::{Db, Mem, RocksDb}, types::{RecordId, SurrealValue}
 };
 use directories::ProjectDirs;
 
@@ -620,14 +618,25 @@ impl Storage {
         estimated_duration: TimeDelta,
         deadline: NaiveDateTime,
     ) -> Result<Task, Error> {
-        let data = serde_json::json!({
-            "name": name,
-            "description": description,
-            "priority": priority,
-            "estimated_duration": estimated_duration.num_seconds(),
-            "deadline": deadline.and_utc().timestamp(),
-            "completed": false
-        });
+        #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize, SurrealValue)]
+        struct TaskCreate {
+            name: String,
+            description: String,
+            priority: Priority,
+            estimated_duration: i64,
+            deadline: i64,
+            completed: bool,
+        }
+        
+        let data = TaskCreate {
+            name: name,
+            description: description,
+            priority: priority,
+            estimated_duration: estimated_duration.num_seconds(),
+            deadline: deadline.and_utc().timestamp(),
+            completed: false
+        };
+
         let created: Option<Task> = self.db.create("task").content(data).await?;
         created.ok_or_else(|| Error::query("Failed to create task".to_string(), None))
     }
