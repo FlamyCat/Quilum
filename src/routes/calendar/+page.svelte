@@ -2,8 +2,9 @@
     import Page from "$lib/components/Page.svelte";
     import EventCard from "$lib/components/EventCard.svelte";
     import TaskCard from "$lib/components/TaskCard.svelte";
-    import { ChevronLeft, ChevronRight, Circle, CalendarPlus } from "@lucide/svelte";
-    import { week_timetable, update_task, type Task } from "$lib/api";
+    import Slot from "$lib/components/Slot.svelte";
+    import { ChevronLeft, ChevronRight, Circle, CalendarPlus, CopyPlus } from "@lucide/svelte";
+    import { week_timetable, update_task, type Task, type Slot as ApiSlot, type SlotWithTasks } from "$lib/api";
 
     function getWeekStart(date: Date): Date {
         const d = new Date(date);
@@ -82,6 +83,16 @@
         startedBefore: boolean;
     }
 
+    interface CalendarSlot {
+        id: string;
+        slot: { starts_at: number; ends_at: number };
+        tasks: [Task, number][];
+        displayStart: Date;
+        displayEnd: Date;
+        startedBefore: boolean;
+        endsAfter: boolean;
+    }
+
     interface CalendarTask {
         id: string;
         title: string;
@@ -97,7 +108,7 @@
     }
 
     let events = $state<CalendarEvent[]>([]);
-    let slotsWithTasks = $state<{ slot: { starts_at: number; ends_at: number }; tasks: [any, number][] }[]>([]);
+    let slotsWithTasks = $state<SlotWithTasks[]>([]);
     let loading = $state(true);
 
     async function loadWeekData() {
@@ -162,7 +173,7 @@
         });
     }
 
-    function getTasksForDay(dayIndex: number): CalendarTask[] {
+    function getSlotsForDay(dayIndex: number): CalendarSlot[] {
         const dayStart = weekDays[dayIndex];
         if (!dayStart) return [];
         const nextDay = new Date(dayStart);
@@ -170,29 +181,34 @@
         const dayStartTs = dayStart.getTime();
         const nextDayTs = nextDay.getTime();
 
-        const tasks: CalendarTask[] = [];
-        for (const swt of slotsWithTasks) {
-            const slotStart = swt.slot.starts_at * 1000;
-            if (slotStart >= dayStartTs && slotStart < nextDayTs) {
-                for (const [task, scheduled_for] of swt.tasks) {
-                    const startTs = swt.slot.starts_at + scheduled_for * 60;
-                    tasks.push({
-                        id: `${task.id.table}:${task.id.key}`,
-                        title: task.name,
-                        description: task.description || undefined,
-                        startsAt: new Date(startTs * 1000),
-                        endsAt: new Date((startTs + task.estimated_duration) * 1000),
-                        completed: task.completed ?? false,
-                        taskIdTable: task.id.table,
-                        taskIdKey: task.id.key,
-                        priority: task.priority,
-                        estimatedDuration: task.estimated_duration,
-                        deadline: task.deadline,
-                    });
-                }
-            }
-        }
-        return tasks;
+        return slotsWithTasks.filter(swt => {
+            const slotStarts = swt.slot.starts_at * 1000;
+            const slotEnds = swt.slot.ends_at * 1000;
+            return slotStarts < nextDayTs && slotEnds > dayStartTs;
+        }).map(swt => {
+            const slotStarts = swt.slot.starts_at * 1000;
+            const slotEnds = swt.slot.ends_at * 1000;
+
+            const startedBefore = slotStarts < dayStartTs;
+            const endsAfter = slotEnds >= nextDayTs;
+
+            const displayStart = startedBefore ? dayStart : new Date(slotStarts);
+            const displayEnd = endsAfter ? new Date(nextDayTs - 1) : new Date(slotEnds);
+
+            const filteredTasks = swt.tasks.filter(([_, scheduledFor]) => {
+                return scheduledFor >= dayStartTs / 1000 && scheduledFor < nextDayTs / 1000;
+            });
+
+            return {
+                id: `${swt.slot.id?.table}:${getKeyString(swt.slot.id?.key)}`,
+                slot: swt.slot,
+                tasks: filteredTasks,
+                displayStart,
+                displayEnd,
+                startedBefore,
+                endsAfter,
+            };
+        });
     }
 
     async function saveTaskState(taskId: string, completed: boolean): Promise<void> {
@@ -236,6 +252,13 @@
                 <CalendarPlus class="w-5 h-5" />
                 <span>Создать событие</span>
             </a>
+            <a
+                href="/calendar/create-slot"
+                class="flex items-center gap-2 px-4 py-2 bg-violet-600 text-white rounded-full hover:bg-violet-700 transition-colors"
+            >
+                <CopyPlus class="w-5 h-5" />
+                <span>Создать слот</span>
+            </a>
             <button
                 onclick={goToPrevWeek}
                 class="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
@@ -268,7 +291,7 @@
             <div class="grid grid-cols-1 lg:grid-cols-7 gap-4 h-full">
                 {#each weekDays as day, index}
                     {@const dayEvents = getEventsForDay(index)}
-                    {@const dayTasks = getTasksForDay(index)}
+                    {@const daySlots = getSlotsForDay(index)}
                     <div
                         class="flex flex-col gap-2 p-2 rounded-lg border-2 {isToday(
                             day,
@@ -296,15 +319,13 @@
                                     endTime={event.displayEnd}
                                 />
                             {/each}
-                            {#each dayTasks as task}
-                                <TaskCard
-                                    title={task.title}
-                                    description={task.description}
-                                    startTime={task.startsAt}
-                                    endTime={task.endsAt}
-                                    completed={task.completed}
-                                    onToggle={(completed) =>
-                                        saveTaskState(task.id, completed)}
+                            {#each daySlots as calendarSlot (calendarSlot.id + '-' + index)}
+                                <Slot
+                                    slot={calendarSlot.slot}
+                                    tasks={calendarSlot.tasks}
+                                    displayStart={calendarSlot.displayStart}
+                                    displayEnd={calendarSlot.displayEnd}
+                                    onTaskToggle={saveTaskState}
                                 />
                             {/each}
                         </div>
