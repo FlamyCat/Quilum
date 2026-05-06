@@ -1,5 +1,6 @@
 use super::*;
 use chrono::NaiveDate;
+use surrealdb::types::RecordId;
 
 #[tokio::test]
 async fn storage_mem_creation() {
@@ -977,4 +978,681 @@ async fn get_week_timetable_excludes_next_week() {
 
     assert_eq!(slots_with_tasks.len(), 1, "Should have only 1 slot (A)");
     assert_eq!(slots_with_tasks[0].slot.id(), _slot_a.id(), "Should be slot A");
+}
+
+#[tokio::test]
+async fn task_list_crud() {
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
+
+    // Create a task list
+    let task_list = storage
+        .create_task_list("My Tasks".to_string())
+        .await
+        .expect("Failed to create task list");
+
+    assert_eq!(task_list.title, "My Tasks");
+    assert!(!format!("{}", task_list.id().table).is_empty());
+
+    // Read the task list
+    let read_list = storage
+        .read_task_list(task_list.id())
+        .await
+        .expect("Failed to read task list");
+    assert_eq!(read_list.title, "My Tasks");
+
+    // Update the task list
+    let mut updated_list = read_list;
+    updated_list.title = "Updated Tasks".to_string();
+    storage
+        .update_task_list(updated_list)
+        .await
+        .expect("Failed to update task list");
+
+    let updated_read = storage
+        .read_task_list(task_list.id())
+        .await
+        .expect("Failed to read updated task list");
+    assert_eq!(updated_read.title, "Updated Tasks");
+
+    // Delete the task list
+    storage
+        .delete_task_list(task_list.id())
+        .await
+        .expect("Failed to delete task list");
+
+    let result = storage.read_task_list(task_list.id()).await;
+    assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn relate_task_to_list() {
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
+
+    // Create a task list
+    let task_list = storage
+        .create_task_list("Work Tasks".to_string())
+        .await
+        .expect("Failed to create task list");
+
+    // Create a task
+    let task = storage
+        .create_task(
+            "Implement feature".to_string(),
+            "A task to implement".to_string(),
+            Priority::High,
+            TimeDelta::hours(2),
+            NaiveDate::from_ymd_opt(2026, 5, 1)
+                .unwrap()
+                .and_hms_opt(17, 0, 0)
+                .unwrap(),
+        )
+        .await
+        .expect("Failed to create task");
+
+    // Relate task to list
+    storage
+        .relate_task_to_list(task.id(), task_list.id())
+        .await
+        .expect("Failed to relate task to list");
+
+    // Get tasks in the list
+    let tasks = storage
+        .get_tasks_in_list(task_list.id())
+        .await
+        .expect("Failed to get tasks in list");
+
+    assert_eq!(tasks.len(), 1, "Should have 1 task");
+    assert_eq!(tasks[0].name(), "Implement feature");
+}
+
+#[tokio::test]
+async fn debug_get_tasks_in_list_v2() {
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
+
+    let list = storage.create_task_list("Test".to_string()).await.expect("Failed");
+    let task = storage.create_task(
+        "My Task".to_string(),
+        "desc".to_string(),
+        Priority::Medium,
+        TimeDelta::hours(1),
+        NaiveDate::from_ymd_opt(2026, 5, 1).unwrap().and_hms_opt(0, 0, 0).unwrap(),
+    ).await.expect("Failed");
+    
+    storage.relate_task_to_list(task.id(), list.id()).await.expect("Failed");
+
+    let sql = format!("SELECT out.* FROM belongs_to WHERE out = {}", 
+        format!("{}:{}", list.id().table, match &list.id().key { surrealdb::types::RecordIdKey::String(s) => s.as_str(), _ => "x" }));
+    println!("SQL: {}", sql);
+    
+    let mut result = storage.db.query(&sql).await.unwrap();
+    let raw: Vec<serde_json::Value> = result.take(0).unwrap_or_default();
+    println!("Raw results: {:?}", raw);
+    
+    if let Some(first) = raw.first() {
+        println!("First item: {:?}", first);
+        if let Some(out) = first.get("out") {
+            println!("out value: {:?}", out);
+            if let Some(obj) = out.as_object() {
+                println!("out keys: {:?}", obj.keys().collect::<Vec<_>>());
+            }
+        }
+    }
+
+    let tasks = storage.get_tasks_in_list(list.id()).await.expect("Failed");
+    println!("Got {} tasks", tasks.len());
+}
+
+#[tokio::test]
+async fn debug_get_tasks_in_list() {
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
+
+    // Create list
+    let list = storage.create_task_list("Test".to_string()).await.expect("Failed");
+    let list_id_str = format!("{}:{}", list.id().table, match &list.id().key {
+        surrealdb::types::RecordIdKey::String(s) => s.as_str(),
+        _ => "unknown",
+    });
+    println!("List ID: {}", list_id_str);
+
+    // Create 2 tasks and relate
+    for i in 1..=2 {
+        let task = storage.create_task(
+            format!("Task {}", i),
+            "desc".to_string(),
+            Priority::Medium,
+            TimeDelta::hours(1),
+            NaiveDate::from_ymd_opt(2026, 5, 1).unwrap().and_hms_opt(0, 0, 0).unwrap(),
+        ).await.expect("Failed");
+        
+        let task_id_str = format!("{}:{}", task.id().table, match &task.id().key {
+            surrealdb::types::RecordIdKey::String(s) => s.as_str(),
+            _ => "unknown",
+        });
+        
+        storage.relate_task_to_list(task.id(), list.id()).await.expect("Failed");
+        println!("Created task {} with id: {}", i, task_id_str);
+    }
+
+    // Query belongs_to table manually
+    let mut result = storage.db.query("SELECT * FROM belongs_to").await.unwrap();
+    let belongs: Vec<serde_json::Value> = result.take(0).unwrap_or_default();
+    println!("All belongs_to: {:?}", belongs);
+
+    // Try get_tasks_in_list
+    let tasks = storage.get_tasks_in_list(list.id()).await.expect("Failed");
+    println!("get_tasks_in_list returned: {}", tasks.len());
+}
+
+#[tokio::test]
+async fn get_all_task_lists_with_tasks() {
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
+
+    // Create list 1 with 2 tasks
+    let list1 = storage
+        .create_task_list("List 1".to_string())
+        .await
+        .expect("Failed to create list 1");
+
+    let task1a = storage
+        .create_task(
+            "Task 1A".to_string(),
+            "First task in list 1".to_string(),
+            Priority::Medium,
+            TimeDelta::hours(1),
+            NaiveDate::from_ymd_opt(2026, 5, 1)
+                .unwrap()
+                .and_hms_opt(0, 0, 0)
+                .unwrap(),
+        )
+        .await
+        .expect("Failed to create task 1A");
+    storage
+        .relate_task_to_list(task1a.id(), list1.id())
+        .await
+        .expect("Failed to relate task 1A");
+
+    let task1b = storage
+        .create_task(
+            "Task 1B".to_string(),
+            "Second task in list 1".to_string(),
+            Priority::Low,
+            TimeDelta::hours(2),
+            NaiveDate::from_ymd_opt(2026, 5, 1)
+                .unwrap()
+                .and_hms_opt(0, 0, 0)
+                .unwrap(),
+        )
+        .await
+        .expect("Failed to create task 1B");
+    storage
+        .relate_task_to_list(task1b.id(), list1.id())
+        .await
+        .expect("Failed to relate task 1B");
+
+    // Create list 2 with 1 task
+    let list2 = storage
+        .create_task_list("List 2".to_string())
+        .await
+        .expect("Failed to create list 2");
+
+    let task2a = storage
+        .create_task(
+            "Task 2A".to_string(),
+            "Only task in list 2".to_string(),
+            Priority::High,
+            TimeDelta::minutes(30),
+            NaiveDate::from_ymd_opt(2026, 5, 1)
+                .unwrap()
+                .and_hms_opt(0, 0, 0)
+                .unwrap(),
+        )
+        .await
+        .expect("Failed to create task 2A");
+    storage
+        .relate_task_to_list(task2a.id(), list2.id())
+        .await
+        .expect("Failed to relate task 2A");
+
+    // Create list 3 with no tasks
+    let _list3 = storage
+        .create_task_list("Empty List".to_string())
+        .await
+        .expect("Failed to create empty list");
+
+    // Get all task lists with tasks
+    let all_lists = storage
+        .get_all_task_lists_with_tasks()
+        .await
+        .expect("Failed to get all task lists");
+
+    assert_eq!(all_lists.len(), 3, "Should have 3 lists");
+
+    // Find list 1
+    let found_list1 = all_lists
+        .iter()
+        .find(|l| l.list.title() == "List 1")
+        .expect("List 1 not found");
+    assert_eq!(found_list1.tasks.len(), 2, "List 1 should have 2 tasks");
+
+    // Find list 2
+    let found_list2 = all_lists
+        .iter()
+        .find(|l| l.list.title() == "List 2")
+        .expect("List 2 not found");
+    assert_eq!(found_list2.tasks.len(), 1, "List 2 should have 1 task");
+
+    // Find list 3
+    let found_list3 = all_lists
+        .iter()
+        .find(|l| l.list.title() == "Empty List")
+        .expect("Empty list not found");
+    assert_eq!(found_list3.tasks.len(), 0, "Empty list should have 0 tasks");
+}
+
+#[tokio::test]
+async fn debug_relate_task_to_list() {
+    use surrealdb::types::RecordIdKey;
+
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
+
+    // Create a task list
+    let task_list = storage
+        .create_task_list("Debug List".to_string())
+        .await
+        .expect("Failed to create task list");
+    println!("Created list: {:?}", task_list.id());
+
+    // Create a task
+    let task = storage
+        .create_task(
+            "Debug Task".to_string(),
+            "Testing".to_string(),
+            Priority::Medium,
+            TimeDelta::hours(1),
+            NaiveDate::from_ymd_opt(2026, 5, 1)
+                .unwrap()
+                .and_hms_opt(0, 0, 0)
+                .unwrap(),
+        )
+        .await
+        .expect("Failed to create task");
+    println!("Created task: {:?}", task.id());
+
+    // Build the exact SQL the function uses
+    fn record_id_to_string(id: &RecordId) -> String {
+        match &id.key {
+            RecordIdKey::String(s) => format!("{}:{}", id.table, s),
+            _ => format!("{}:unknown", id.table),
+        }
+    }
+
+    let task_id_str = record_id_to_string(task.id());
+    let list_id_str = record_id_to_string(task_list.id());
+    
+    let sql = format!("RELATE {}->belongs_to->{}", task_id_str, list_id_str);
+    println!("RELATE SQL: {}", sql);
+
+    // Execute manually and check result
+    let result = storage.db.query(&sql).await;
+    println!("Query result: {:?}", result);
+
+    // Check what's actually in the belongs_to table
+    let belongs_sql = format!("SELECT * FROM belongs_to");
+    let mut result2 = storage.db.query(&belongs_sql).await.unwrap();
+    let belongs: Vec<serde_json::Value> = result2.take(0).unwrap_or_default();
+    println!("All belongs_to records: {:?}", belongs);
+}
+
+#[tokio::test]
+async fn delete_task_list_deletes_tasks() {
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
+
+    // Create a task list with tasks
+    let task_list = storage
+        .create_task_list("To Delete".to_string())
+        .await
+        .expect("Failed to create task list");
+
+    let task1 = storage
+        .create_task(
+            "Task 1".to_string(),
+            "Will be deleted".to_string(),
+            Priority::Medium,
+            TimeDelta::hours(1),
+            NaiveDate::from_ymd_opt(2026, 5, 1)
+                .unwrap()
+                .and_hms_opt(0, 0, 0)
+                .unwrap(),
+        )
+        .await
+        .expect("Failed to create task 1");
+    storage
+        .relate_task_to_list(task1.id(), task_list.id())
+        .await
+        .expect("Failed to relate task 1");
+
+    let task2 = storage
+        .create_task(
+            "Task 2".to_string(),
+            "Also will be deleted".to_string(),
+            Priority::Low,
+            TimeDelta::hours(2),
+            NaiveDate::from_ymd_opt(2026, 5, 1)
+                .unwrap()
+                .and_hms_opt(0, 0, 0)
+                .unwrap(),
+        )
+        .await
+        .expect("Failed to create task 2");
+    storage
+        .relate_task_to_list(task2.id(), task_list.id())
+        .await
+        .expect("Failed to relate task 2");
+
+    // Verify tasks exist before deletion
+    let tasks_before = storage
+        .get_tasks_in_list(task_list.id())
+        .await
+        .expect("Failed to get tasks");
+    assert_eq!(tasks_before.len(), 2, "Should have 2 tasks before delete");
+
+    // Delete the task list (should also delete tasks)
+    storage
+        .delete_task_list(task_list.id())
+        .await
+        .expect("Failed to delete task list");
+
+    // Verify list is gone
+    let result = storage.read_task_list(task_list.id()).await;
+    assert!(result.is_err(), "List should be deleted");
+
+    // Verify tasks are also gone by checking they don't appear in any list
+    let all_lists = storage
+        .get_all_task_lists_with_tasks()
+        .await
+        .expect("Failed to get all lists");
+    
+    let found_task = all_lists
+        .iter()
+        .flat_map(|l| l.tasks.iter())
+        .find(|t| t.name() == "Task 1");
+    assert!(found_task.is_none(), "Task 1 should be deleted");
+}
+
+#[tokio::test]
+async fn get_uncompleted_tasks_basic() {
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
+
+    let now = chrono::Utc::now().naive_utc();
+    let future_date = now + chrono::Duration::days(7);
+
+    // Create an uncompleted task with future deadline
+    let _task1 = storage
+        .create_task(
+            "Task 1".to_string(),
+            "Uncompleted".to_string(),
+            Priority::Medium,
+            TimeDelta::hours(1),
+            future_date,
+        )
+        .await
+        .expect("Failed to create task 1");
+
+    // Create another uncompleted task
+    let _task2 = storage
+        .create_task(
+            "Task 2".to_string(),
+            "Also uncompleted".to_string(),
+            Priority::High,
+            TimeDelta::hours(2),
+            future_date,
+        )
+        .await
+        .expect("Failed to create task 2");
+
+    let tasks = storage
+        .get_uncompleted_tasks()
+        .await
+        .expect("Failed to get uncompleted tasks");
+
+    assert_eq!(tasks.len(), 2, "Should return 2 uncompleted tasks");
+}
+
+#[tokio::test]
+async fn get_uncompleted_tasks_excludes_completed() {
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
+
+    let now = chrono::Utc::now().naive_utc();
+    let future_date = now + chrono::Duration::days(7);
+
+    // Create an uncompleted task
+    let _task1 = storage
+        .create_task(
+            "Task 1".to_string(),
+            "Uncompleted".to_string(),
+            Priority::Medium,
+            TimeDelta::hours(1),
+            future_date,
+        )
+        .await
+        .expect("Failed to create task 1");
+
+    // Create another task, then mark it as completed
+    let task2 = storage
+        .create_task(
+            "Task 2".to_string(),
+            "Will be completed".to_string(),
+            Priority::High,
+            TimeDelta::hours(2),
+            future_date,
+        )
+        .await
+        .expect("Failed to create task 2");
+
+    let mut updated_task2 = task2;
+    updated_task2.set_completed(true);
+    storage
+        .update_task(updated_task2)
+        .await
+        .expect("Failed to complete task 2");
+
+    let tasks = storage
+        .get_uncompleted_tasks()
+        .await
+        .expect("Failed to get uncompleted tasks");
+
+    assert_eq!(tasks.len(), 1, "Should return only 1 uncompleted task");
+    assert_eq!(tasks[0].name(), "Task 1");
+}
+
+#[tokio::test]
+async fn get_uncompleted_tasks_excludes_overdue() {
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
+
+    let now = chrono::Utc::now().naive_utc();
+    let future_date = now + chrono::Duration::days(7);
+    let past_date = now - chrono::Duration::days(1);
+
+    // Create an uncompleted task with future deadline
+    let _task1 = storage
+        .create_task(
+            "Task 1".to_string(),
+            "Future deadline".to_string(),
+            Priority::Medium,
+            TimeDelta::hours(1),
+            future_date,
+        )
+        .await
+        .expect("Failed to create task 1");
+
+    // Create task with past deadline (overdue)
+    let _task2 = storage
+        .create_task(
+            "Task 2".to_string(),
+            "Overdue".to_string(),
+            Priority::High,
+            TimeDelta::hours(2),
+            past_date,
+        )
+        .await
+        .expect("Failed to create task 2");
+
+    let tasks = storage
+        .get_uncompleted_tasks()
+        .await
+        .expect("Failed to get uncompleted tasks");
+
+    assert_eq!(tasks.len(), 1, "Should return only 1 task (exclude overdue)");
+    assert_eq!(tasks[0].name(), "Task 1");
+}
+
+#[tokio::test]
+async fn get_future_slots_basic() {
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
+
+    let now = chrono::Utc::now().naive_utc();
+    let future_date = (now.date() + chrono::Duration::days(1)).and_hms_opt(10, 0, 0).unwrap();
+    let further_date = (now.date() + chrono::Duration::days(2)).and_hms_opt(14, 0, 0).unwrap();
+
+    // Create a future slot
+    let _slot1 = storage
+        .create_slot(
+            future_date,
+            future_date + chrono::Duration::hours(2),
+        )
+        .await
+        .expect("Failed to create slot 1");
+
+    // Create another future slot
+    let _slot2 = storage
+        .create_slot(
+            further_date,
+            further_date + chrono::Duration::hours(2),
+        )
+        .await
+        .expect("Failed to create slot 2");
+
+    let slots = storage
+        .get_future_slots()
+        .await
+        .expect("Failed to get future slots");
+
+    assert_eq!(slots.len(), 2, "Should return 2 future slots");
+}
+
+#[tokio::test]
+async fn get_future_slots_excludes_past() {
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
+
+    let now = chrono::Utc::now().naive_utc();
+    let past_date = (now.date() - chrono::Duration::days(1)).and_hms_opt(10, 0, 0).unwrap();
+    let future_date = (now.date() + chrono::Duration::days(1)).and_hms_opt(14, 0, 0).unwrap();
+
+    // Create a past slot
+    let _slot1 = storage
+        .create_slot(
+            past_date,
+            past_date + chrono::Duration::hours(2),
+        )
+        .await
+        .expect("Failed to create slot 1");
+
+    // Create a future slot
+    let _slot2 = storage
+        .create_slot(
+            future_date,
+            future_date + chrono::Duration::hours(2),
+        )
+        .await
+        .expect("Failed to create slot 2");
+
+    let slots = storage
+        .get_future_slots()
+        .await
+        .expect("Failed to get future slots");
+
+    assert_eq!(slots.len(), 1, "Should return only 1 future slot");
+}
+
+#[tokio::test]
+async fn delete_task_slot_relations_basic() {
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
+
+    // Create tasks
+    let now = chrono::Utc::now().naive_utc();
+    let future_date = (now.date() + chrono::Duration::days(1)).and_hms_opt(10, 0, 0).unwrap();
+
+    let task1 = storage
+        .create_task(
+            "Task 1".to_string(),
+            "Test task 1".to_string(),
+            Priority::Medium,
+            TimeDelta::hours(1),
+            future_date + chrono::Duration::days(2),
+        )
+        .await
+        .expect("Failed to create task 1");
+
+    let task2 = storage
+        .create_task(
+            "Task 2".to_string(),
+            "Test task 2".to_string(),
+            Priority::High,
+            TimeDelta::hours(2),
+            future_date + chrono::Duration::days(2),
+        )
+        .await
+        .expect("Failed to create task 2");
+
+    // Delete relations for multiple tasks at once
+    storage
+        .delete_task_slot_relations(&[task1.id().clone(), task2.id().clone()])
+        .await
+        .expect("Failed to delete task slot relations");
+
+    // Both tasks should still exist (just no relations)
+    let read_task1 = storage
+        .read_task(&task1.id())
+        .await
+        .expect("Failed to read task 1");
+    assert_eq!(read_task1.name(), "Task 1");
+
+    let read_task2 = storage
+        .read_task(&task2.id())
+        .await
+        .expect("Failed to read task 2");
+    assert_eq!(read_task2.name(), "Task 2");
+}
+
+#[tokio::test]
+async fn delete_task_slot_relations_no_relations() {
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
+
+    let now = chrono::Utc::now().naive_utc();
+    let future_date = (now.date() + chrono::Duration::days(1)).and_hms_opt(10, 0, 0).unwrap();
+
+    // Create a task without any slot relation
+    let task = storage
+        .create_task(
+            "Task 1".to_string(),
+            "Test task".to_string(),
+            Priority::Medium,
+            TimeDelta::hours(1),
+            future_date + chrono::Duration::days(2),
+        )
+        .await
+        .expect("Failed to create task");
+
+    // Should not panic - just delete nothing
+    storage
+        .delete_task_slot_relations(&[task.id().clone()])
+        .await
+        .expect("Failed to delete task slot relations");
+
+    // Task should still exist
+    let read_task = storage
+        .read_task(&task.id())
+        .await
+        .expect("Failed to read task");
+    assert_eq!(read_task.name(), "Task 1");
 }

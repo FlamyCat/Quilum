@@ -197,7 +197,7 @@
 
             const filteredTasks = swt.tasks.filter(([_, scheduledFor]) => {
                 return scheduledFor >= dayStartTs / 1000 && scheduledFor < nextDayTs / 1000;
-            });
+            }).sort((a, b) => a[1] - b[1]);
 
             return {
                 id: `${swt.slot.id?.table}:${getKeyString(swt.slot.id?.key)}`,
@@ -213,7 +213,7 @@
 
     async function saveTaskState(taskId: string, completed: boolean): Promise<void> {
         const dayTasks = slotsWithTasks.flatMap(swt =>
-            swt.tasks.map(([task, _]) => ({ task, id: `${task.id.table}:${task.id.key}` }))
+            swt.tasks.map(([task, _]) => ({ task, id: `${task.id.table}:${getKeyString(task.id.key)}` }))
         );
         const found = dayTasks.find(t => t.id === taskId);
         if (!found) return;

@@ -13,6 +13,13 @@ pub struct SlotWithTasks {
     pub tasks: Vec<(Task, i64)>,
 }
 
+/// Struct for returning task lists with their tasks
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct TaskListWithTasks {
+    pub list: TaskList,
+    pub tasks: Vec<Task>,
+}
+
 /// Storage struct that holds a handle to a SurrealDB instance
 /// and exposes CRUD methods for events, tasks, and app blocking.
 pub struct Storage {
@@ -679,6 +686,39 @@ impl Storage {
         let _: Option<Task> = self.db.delete(("task", key)).await?;
         Ok(())
     }
+
+    /// Gets all uncompleted tasks that are not overdue.
+    ///
+    /// # Returns
+    /// * Vector of tasks where completed = false AND deadline > now
+    pub async fn get_uncompleted_tasks(&self) -> Result<Vec<Task>, Error> {
+        let now = chrono::Utc::now().naive_utc().and_utc().timestamp();
+        let sql = format!(
+            "SELECT * FROM task WHERE completed = false AND deadline > {}",
+            now
+        );
+        let mut result = self.db.query(sql).await?;
+        let tasks: Vec<Task> = result.take(0)?;
+        Ok(tasks)
+    }
+
+    /// Deletes task-slot relations (contains edges) for the specified tasks.
+    ///
+    /// # Arguments
+    /// * `task_ids` - Vector of task record IDs to unlink from slots
+    ///
+    /// # Returns
+    /// * Success or error
+    pub async fn delete_task_slot_relations(&self, task_ids: &[RecordId]) -> Result<(), Error> {
+        for task_id in task_ids {
+            let sql = format!(
+                "DELETE FROM contains WHERE out = {}",
+                Self::record_id_to_string(task_id)
+            );
+            self.db.query(sql).await?;
+        }
+        Ok(())
+    }
 }
 
 impl Storage {
@@ -740,6 +780,21 @@ impl Storage {
         let key = Self::record_id_key(id);
         let _: Option<Slot> = self.db.delete(("slot", key)).await?;
         Ok(())
+    }
+
+    /// Gets all future slots (slots that haven't ended yet).
+    ///
+    /// # Returns
+    /// * Vector of slots where ends_at > now
+    pub async fn get_future_slots(&self) -> Result<Vec<Slot>, Error> {
+        let now = chrono::Utc::now().naive_utc().and_utc().timestamp();
+        let sql = format!(
+            "SELECT * FROM slot WHERE ends_at > {} ORDER BY starts_at ASC",
+            now
+        );
+        let mut result = self.db.query(sql).await?;
+        let slots: Vec<Slot> = result.take(0)?;
+        Ok(slots)
     }
 }
 
@@ -890,12 +945,93 @@ impl Storage {
     /// * The tasks in the list
     pub async fn get_tasks_in_list(&self, list_id: &RecordId) -> Result<Vec<Task>, Error> {
         let sql = format!(
-            "SELECT * FROM task WHERE id IN (SELECT in FROM belongs_to WHERE out = {})",
+            "SELECT in.* FROM belongs_to WHERE out = {}",
             Self::record_id_to_string(list_id)
         );
         let mut result = self.db.query(sql).await?;
-        let tasks: Vec<Task> = result.take(0)?;
+        let raw: Vec<serde_json::Value> = result.take(0).unwrap_or_default();
+
+        let mut tasks = Vec::new();
+        for item in raw {
+            if let Some(task_value) = item.get("in") {
+                if let Some(task_obj) = task_value.as_object() {
+                    let mut task_json = serde_json::Map::new();
+                    for (k, v) in task_obj {
+                        if k == "id" {
+                            if let Some(id_str) = v.as_str() {
+                                let parts: Vec<&str> = id_str.split(':').collect();
+                                if parts.len() == 2 {
+                                    let mut id_obj = serde_json::Map::new();
+                                    id_obj.insert(
+                                        "table".to_string(),
+                                        serde_json::Value::String(parts[0].to_string()),
+                                    );
+                                    id_obj.insert(
+                                        "key".to_string(),
+                                        serde_json::json!({"String": parts[1]}),
+                                    );
+                                    task_json.insert(
+                                        "id".to_string(),
+                                        serde_json::Value::Object(id_obj),
+                                    );
+                                }
+                            }
+                        } else if k == "priority" {
+                            if let Some(priority_obj) = v.as_object() {
+                                if let Some(first_key) = priority_obj.keys().next() {
+                                    task_json.insert(
+                                        "priority".to_string(),
+                                        serde_json::Value::String(first_key.clone()),
+                                    );
+                                }
+                            }
+                        } else {
+                            task_json.insert(k.clone(), v.clone());
+                        }
+                    }
+                    let task: Task = serde_json::from_value(serde_json::Value::Object(task_json))
+                        .map_err(|e| {
+                            Error::query(format!("Failed to deserialize task: {}", e), None)
+                        })?;
+                    tasks.push(task);
+                }
+            }
+        }
         Ok(tasks)
+    }
+
+    /// Gets all task lists with their tasks.
+    ///
+    /// # Returns
+    /// * Vector of task lists with their tasks
+    pub async fn get_all_task_lists_with_tasks(&self) -> Result<Vec<TaskListWithTasks>, Error> {
+        let sql = "SELECT * FROM task_list".to_string();
+        let mut result = self.db.query(sql).await?;
+        let lists: Vec<TaskList> = result.take(0).unwrap_or_default();
+
+        let mut result_lists = Vec::new();
+        for list in lists {
+            let tasks = self.get_tasks_in_list(list.id()).await?;
+            result_lists.push(TaskListWithTasks { list, tasks });
+        }
+
+        Ok(result_lists)
+    }
+
+    /// Deletes all tasks in a task list.
+    ///
+    /// # Arguments
+    /// * `list_id` - The task list record ID
+    ///
+    /// # Returns
+    /// * Success or error
+    pub async fn delete_tasks_in_list(&self, list_id: &RecordId) -> Result<(), Error> {
+        let sql = format!(
+            "DELETE FROM task WHERE id IN (SELECT in FROM belongs_to WHERE out = {})",
+            Self::record_id_to_string(list_id)
+        );
+        self.db.query(sql).await?;
+        Ok(())
     }
 }
 

@@ -43,8 +43,8 @@
             const [events, scheduledTasks] = await today_timetable(today);
 
             const eventItems: TimelineItem[] = events.map(e => {
-                const eventStart = new Date(e.starts_at * 1000);
-                const eventEnd = new Date(e.ends_at * 1000);
+                const eventStart = new Date(e.startsAt * 1000);
+                const eventEnd = new Date(e.endsAt * 1000);
                 const todayStart = new Date();
                 todayStart.setHours(0, 0, 0, 0);
                 const todayEnd = new Date(todayStart);
@@ -137,6 +137,7 @@
                             endTime={item.end}
                             completed={item.completed}
                             onToggle={(completed) => saveTaskState(item.id, completed)}
+                            showTime={true}
                         />
                     {:else}
                         <EventCard

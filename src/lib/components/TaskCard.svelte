@@ -8,6 +8,7 @@
         endTime: Date | null;
         completed?: boolean;
         onToggle?: (completed: boolean) => Promise<void>;
+        showTime?: boolean;
     };
 
     let {
@@ -17,6 +18,7 @@
         endTime,
         completed = false,
         onToggle,
+        showTime = false,
     }: Props = $props();
 </script>
 
@@ -28,5 +30,6 @@
     showCheckbox={true}
     checked={completed}
     {onToggle}
+    {showTime}
     class="opacity-50 [&:not(.completed)]:opacity-100 [.completed_&]:opacity-50"
 />

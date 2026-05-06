@@ -41,7 +41,7 @@
     }
 </script>
 
-<div class="rounded-lg bg-violet-400 dark:bg-violet-900 border-violet-600 dark:border-violet-500 p-4 flex flex-col gap-2 border-2">
+<div class="rounded-lg bg-violet-400 dark:bg-violet-900 border-violet-600 dark:border-violet-500 p-2 flex flex-col gap-2 border-2">
     <div class="text-center font-semibold text-white dark:text-violet-100">Слот</div>
     {#if !isMultiDay}
         <div class="text-center text-white dark:text-violet-200">{formatTime(displayStart)} - {formatTime(displayEnd)}</div>
@@ -62,6 +62,7 @@
             onToggle={onTaskToggle ? async (completed) => {
                 await onTaskToggle(getTaskId(task), completed);
             } : undefined}
+            showTime={true}
         />
     {/each}
 </div>

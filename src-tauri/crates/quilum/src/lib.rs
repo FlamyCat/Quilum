@@ -8,8 +8,9 @@ use chrono::NaiveDate;
 use quilum_db::{
     event::Event,
     slot::Slot,
-    storage::{SlotWithTasks, Storage},
+    storage::{SlotWithTasks, Storage, TaskListWithTasks},
     task::Task,
+    tasklist::TaskList,
 };
 use surrealdb::types::RecordId;
 use tauri::{Manager, State};
@@ -195,6 +196,147 @@ async fn relate_task_to_slot(
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+async fn get_all_task_lists(storage: State<'_, Storage>) -> Result<Vec<TaskListWithTasks>, String> {
+    storage
+        .get_all_task_lists_with_tasks()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn create_task_list(storage: State<'_, Storage>, title: String) -> Result<TaskList, String> {
+    storage
+        .create_task_list(title)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn update_task_list(storage: State<'_, Storage>, task_list: TaskList) -> Result<(), String> {
+    storage
+        .update_task_list(task_list)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn delete_task_list(
+    storage: State<'_, Storage>,
+    id_table: String,
+    id_key: String,
+) -> Result<(), String> {
+    let id = RecordId::new(id_table.as_str(), id_key.as_str());
+    storage
+        .delete_tasks_in_list(&id)
+        .await
+        .map_err(|e| e.to_string())?;
+    storage
+        .delete_task_list(&id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn relate_task_to_list(
+    storage: State<'_, Storage>,
+    task_id_table: String,
+    task_id_key: String,
+    list_id_table: String,
+    list_id_key: String,
+) -> Result<(), String> {
+    eprintln!("Relating task to list...");
+    let task_id = RecordId::new(task_id_table.as_str(), task_id_key.as_str());
+    let list_id = RecordId::new(list_id_table.as_str(), list_id_key.as_str());
+    storage
+        .relate_task_to_list(&task_id, &list_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[derive(serde::Serialize)]
+struct SchedulerResult {
+    scheduled: usize,
+    discarded: Vec<String>,
+}
+
+#[tauri::command]
+async fn run_scheduler(storage: State<'_, Storage>) -> Result<SchedulerResult, String> {
+    use crate::scheduler::Scheduler;
+    use chrono::Utc;
+    use surrealdb::types::RecordIdKey;
+
+    let tasks = storage
+        .get_uncompleted_tasks()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if tasks.is_empty() {
+        return Ok(SchedulerResult {
+            scheduled: 0,
+            discarded: vec![],
+        });
+    }
+
+    let slots = storage
+        .get_future_slots()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if slots.is_empty() {
+        return Ok(SchedulerResult {
+            scheduled: 0,
+            discarded: tasks.iter().map(|t| {
+                let key = match &t.id().key {
+                    RecordIdKey::String(s) => s.clone(),
+                    RecordIdKey::Number(n) => n.to_string(),
+                    RecordIdKey::Uuid(u) => u.to_string(),
+                    RecordIdKey::Array(a) => format!("{:?}", a),
+                    RecordIdKey::Object(o) => format!("{:?}", o),
+                    RecordIdKey::Range(r) => format!("{:?}", r),
+                };
+                format!("{}:{}", t.id().table, key)
+            }).collect(),
+        });
+    }
+
+    let task_ids: Vec<RecordId> = tasks.iter().map(|t| t.id().clone()).collect();
+    storage
+        .delete_task_slot_relations(&task_ids)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let now = Utc::now().naive_utc();
+
+    let scheduler = Scheduler::new(&tasks, &slots, now, &storage);
+    let plan = scheduler
+        .schedule_and_commit()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let scheduled_count = plan.tasks().len();
+    let discarded_ids: Vec<String> = plan
+        .discarded_tasks()
+        .iter()
+        .map(|id| {
+            let key = match &id.key {
+                RecordIdKey::String(s) => s.clone(),
+                RecordIdKey::Number(n) => n.to_string(),
+                RecordIdKey::Uuid(u) => u.to_string(),
+                RecordIdKey::Array(a) => format!("{:?}", a),
+                RecordIdKey::Object(o) => format!("{:?}", o),
+                RecordIdKey::Range(r) => format!("{:?}", r),
+            };
+            format!("{}:{}", id.table, key)
+        })
+        .collect();
+
+    Ok(SchedulerResult {
+        scheduled: scheduled_count,
+        discarded: discarded_ids,
+    })
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -216,6 +358,12 @@ pub fn run() {
             update_task,
             delete_task,
             relate_task_to_slot,
+            get_all_task_lists,
+            create_task_list,
+            update_task_list,
+            delete_task_list,
+            relate_task_to_list,
+            run_scheduler,
         ])
         .setup(|app| {
             let storage = tauri::async_runtime::block_on(Storage::new_rocksdb())
