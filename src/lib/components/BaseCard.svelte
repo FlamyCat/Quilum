@@ -11,6 +11,7 @@
         onToggle?: (checked: boolean) => Promise<void>;
         children?: Snippet;
         class?: string;
+        showTime?: boolean;
     };
 
     let {
@@ -23,6 +24,7 @@
         onToggle,
         children,
         class: className = "",
+        showTime = false,
     }: Props = $props();
 
     function formatTime(date: Date | null): string {
@@ -58,7 +60,7 @@
 
 {#snippet titleAndDescription()}
     <div class="h-full flex-1 flex flex-col min-w-0 justify-evenly">
-        <h3 class="font-semibold text-black dark:text-white">
+        <h3 class="font-semibold text-black dark:text-white truncate">
             <span class="strikethrough">{title}</span>
         </h3>
         {#if description}
@@ -73,12 +75,14 @@
 {/snippet}
 
 {#snippet time()}
-    <div
-        class="font-light flex flex-col h-full justify-evenly text-gray-500 dark:text-gray-400"
-    >
-        <span>{formatTime(startTime)}</span>
-        <span>{formatTime(endTime)}</span>
-    </div>
+    {#if showTime}
+        <div
+            class="font-light flex flex-col h-full justify-evenly text-gray-500 dark:text-gray-400"
+        >
+            <span>{formatTime(startTime)}</span>
+            <span>{formatTime(endTime)}</span>
+        </div>
+    {/if}
 {/snippet}
 
 <div

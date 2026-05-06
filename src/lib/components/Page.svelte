@@ -11,7 +11,7 @@
     let { title, header, body }: Props = $props();
 </script>
 
-<div class="flex flex-col gap-4 size-full">
+<div class="flex flex-col gap-4 h-full">
     <header class="flex items-end py-4 justify-between">
         <PageTitle {title} />
         {#if header}
@@ -21,7 +21,7 @@
         {/if}
     </header>
 
-    <div class="flex-1 p-8 rounded-2xl bg-slate-50 dark:bg-slate-900 size-full">
+    <div class="flex-1 p-8 rounded-2xl bg-slate-50 dark:bg-slate-900 overflow-y-auto">
         {@render body()}
     </div>
 </div>
