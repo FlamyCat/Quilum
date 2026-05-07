@@ -9,6 +9,7 @@
         completed?: boolean;
         onToggle?: (completed: boolean) => Promise<void>;
         showTime?: boolean;
+        href?: string;
     };
 
     let {
@@ -19,6 +20,7 @@
         completed = false,
         onToggle,
         showTime = false,
+        href,
     }: Props = $props();
 </script>
 
@@ -31,5 +33,6 @@
     checked={completed}
     {onToggle}
     {showTime}
-    class="opacity-50 [&:not(.completed)]:opacity-100 [.completed_&]:opacity-50"
+    {href}
+    class="opacity-50 [&:not(.completed)]:opacity-100 in-[.completed]:opacity-50"
 />

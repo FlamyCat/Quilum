@@ -1660,6 +1660,128 @@ async fn delete_task_slot_relations_no_relations() {
 }
 
 #[tokio::test]
+async fn delete_task_cleans_up_slot_relations() {
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
+
+    let now = chrono::Utc::now().naive_utc();
+    let future_date = (now.date() + chrono::Duration::days(1)).and_hms_opt(10, 0, 0).unwrap();
+
+    // Create a task
+    let task = storage
+        .create_task(
+            "Task to Delete".to_string(),
+            "Test task".to_string(),
+            Priority::Medium,
+            TimeDelta::hours(1),
+            future_date + chrono::Duration::days(2),
+        )
+        .await
+        .expect("Failed to create task");
+
+    // Create a slot
+    let slot = storage
+        .create_slot(
+            future_date,
+            future_date + chrono::Duration::hours(2),
+        )
+        .await
+        .expect("Failed to create slot");
+
+    // Relate task to slot
+    storage
+        .relate_task_to_slot(&slot.id(), &task.id(), future_date)
+        .await
+        .expect("Failed to relate task to slot");
+
+    // Delete the task - this should clean up the relation without errors
+    storage
+        .delete_task(task.id())
+        .await
+        .expect("Failed to delete task");
+
+    // Verify task is deleted
+    let result = storage.read_task(task.id()).await;
+    assert!(result.is_err(), "Task should be deleted");
+
+    // Verify slot still exists
+    let slot_check = storage.read_slot(slot.id()).await;
+    assert!(slot_check.is_ok(), "Slot should still exist");
+}
+
+#[tokio::test]
+async fn delete_slot_cleans_up_contains_relations() {
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
+
+    let now = chrono::Utc::now().naive_utc();
+    let future_date = (now.date() + chrono::Duration::days(1)).and_hms_opt(10, 0, 0).unwrap();
+
+    // Create tasks
+    let task1 = storage
+        .create_task(
+            "Task 1".to_string(),
+            "Test task 1".to_string(),
+            Priority::Medium,
+            TimeDelta::hours(1),
+            future_date + chrono::Duration::days(2),
+        )
+        .await
+        .expect("Failed to create task 1");
+
+    let task2 = storage
+        .create_task(
+            "Task 2".to_string(),
+            "Test task 2".to_string(),
+            Priority::High,
+            TimeDelta::hours(2),
+            future_date + chrono::Duration::days(2),
+        )
+        .await
+        .expect("Failed to create task 2");
+
+    // Create a slot
+    let slot = storage
+        .create_slot(
+            future_date,
+            future_date + chrono::Duration::hours(4),
+        )
+        .await
+        .expect("Failed to create slot");
+
+    // Relate both tasks to slot
+    storage
+        .relate_task_to_slot(&slot.id(), &task1.id(), future_date)
+        .await
+        .expect("Failed to relate task 1 to slot");
+    storage
+        .relate_task_to_slot(&slot.id(), &task2.id(), future_date + chrono::Duration::hours(1))
+        .await
+        .expect("Failed to relate task 2 to slot");
+
+    // Delete the slot - this should clean up relations without errors
+    storage
+        .delete_slot(slot.id())
+        .await
+        .expect("Failed to delete slot");
+
+    // Verify slot is deleted
+    let result = storage.read_slot(slot.id()).await;
+    assert!(result.is_err(), "Slot should be deleted");
+
+    // Verify tasks still exist
+    let read_task1 = storage
+        .read_task(task1.id())
+        .await
+        .expect("Failed to read task 1");
+    assert_eq!(read_task1.name(), "Task 1");
+
+    let read_task2 = storage
+        .read_task(task2.id())
+        .await
+        .expect("Failed to read task 2");
+    assert_eq!(read_task2.name(), "Task 2");
+}
+
+#[tokio::test]
 async fn blocked_apps_get_empty() {
     let storage = Storage::new_mem().await.expect("Failed to create storage");
 

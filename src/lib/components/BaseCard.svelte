@@ -12,6 +12,7 @@
         children?: Snippet;
         class?: string;
         showTime?: boolean;
+        href?: string;
     };
 
     let {
@@ -25,6 +26,7 @@
         children,
         class: className = "",
         showTime = false,
+        href,
     }: Props = $props();
 
     function formatTime(date: Date | null): string {
@@ -61,7 +63,11 @@
 {#snippet titleAndDescription()}
     <div class="h-full flex-1 flex flex-col min-w-0 justify-evenly">
         <h3 class="font-semibold text-black dark:text-white truncate">
-            <span class="strikethrough">{title}</span>
+            {#if href}
+                <a href={href} class="cursor-pointer strikethrough">{title}</a>
+            {:else}
+                <span class="strikethrough">{title}</span>
+            {/if}
         </h3>
         {#if description}
             <p class="text-gray-500 dark:text-gray-400 truncate">

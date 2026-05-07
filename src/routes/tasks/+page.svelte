@@ -8,6 +8,7 @@
         delete_task_list,
         update_task,
         run_scheduler,
+        getKeyString,
         type TaskListWithTasks,
         type Task,
     } from "$lib/api";
@@ -24,13 +25,6 @@
     let scheduling = $state(false);
     let notification = $state<{ message: string; type: "success" | "info" } | null>(null);
     let notificationVisible = $state(false);
-
-    function getKeyString(key: any): string {
-        if (typeof key === "string") return key;
-        if (key && typeof key === "object" && "String" in key)
-            return key.String;
-        return String(key);
-    }
 
     async function loadTaskLists() {
         loading = true;
@@ -247,7 +241,6 @@
                                     onkeydown={(e) =>
                                         handleTitleKeydown(e, listId)}
                                     class="flex-1 px-2 py-1 text-sm font-semibold bg-white dark:bg-slate-700 border border-slate-400 dark:border-slate-500 rounded text-black dark:text-white"
-                                    autofocus
                                 />
                             {:else}
                                 <button
@@ -291,6 +284,8 @@
                                     completed={task.completed ?? false}
                                     onToggle={(completed) =>
                                         handleTaskToggle(taskId, completed)}
+                                    href={"/tasks/edit?id=" + taskId}
+                                    showTime={false}
                                 />
                             {/each}
                             {#if listTasks.length === 0}

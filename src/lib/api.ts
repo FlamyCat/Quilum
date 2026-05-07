@@ -39,6 +39,13 @@ export interface TaskListWithTasks {
   tasks: Task[];
 }
 
+export function getKeyString(key: unknown): string {
+  if (typeof key === "string") return key;
+  if (key && typeof key === "object" && "String" in key)
+    return (key as { String: string }).String;
+  return String(key);
+}
+
 export async function today_timetable(
   today: string,
 ): Promise<[Event[], [Task, number][]]> {
@@ -69,7 +76,7 @@ export async function read_event(
   id_table: string,
   id_key: string,
 ): Promise<Event> {
-  return await invoke("read_event", { id_table, id_key });
+  return await invoke("read_event", { idTable: id_table, idKey: id_key });
 }
 
 export async function update_event(event: Event): Promise<void> {
@@ -80,7 +87,7 @@ export async function delete_event(
   id_table: string,
   id_key: string,
 ): Promise<void> {
-  return await invoke("delete_event", { id_table, id_key });
+  return await invoke("delete_event", { idTable: id_table, idKey: id_key });
 }
 
 export async function create_slot(
@@ -94,7 +101,7 @@ export async function read_slot(
   id_table: string,
   id_key: string,
 ): Promise<Slot> {
-  return await invoke("read_slot", { id_table, id_key });
+  return await invoke("read_slot", { idTable: id_table, idKey: id_key });
 }
 
 export async function update_slot(slot: Slot): Promise<void> {
@@ -105,7 +112,7 @@ export async function delete_slot(
   id_table: string,
   id_key: string,
 ): Promise<void> {
-  return await invoke("delete_slot", { id_table, id_key });
+  return await invoke("delete_slot", { idTable: id_table, idKey: id_key });
 }
 
 export async function create_task(
@@ -128,7 +135,7 @@ export async function read_task(
   id_table: string,
   id_key: string,
 ): Promise<Task> {
-  return await invoke("read_task", { id_table, id_key });
+  return await invoke("read_task", { idTable: id_table, idKey: id_key });
 }
 
 export async function update_task(task: Task): Promise<void> {
@@ -139,7 +146,7 @@ export async function delete_task(
   id_table: string,
   id_key: string,
 ): Promise<void> {
-  return await invoke("delete_task", { id_table, id_key });
+  return await invoke("delete_task", { idTable: id_table, idKey: id_key });
 }
 
 export async function relate_task_to_slot(
