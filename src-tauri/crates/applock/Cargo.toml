@@ -9,3 +9,17 @@ serde_json.workspace = true
 chrono.workspace = true
 surrealdb.workspace = true
 quilum-db.workspace = true
+plist = "1"
+dirs = "6"
+lnk = "0.6"
+regex = "1"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.56", features = [
+    "Win32_UI_Shell",
+    "Win32_Foundation",
+    "Win32_System_Com",
+] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+desktop-edit = "0.1.1"

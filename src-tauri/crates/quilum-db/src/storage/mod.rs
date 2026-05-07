@@ -37,20 +37,16 @@ impl Storage {
     /// # Returns
     /// * The created blocked app record
     pub async fn add_blocked_app(&self, identifier: AppIdentifier, display_name: &str) -> Result<BlockedApp, Error> {
-        let id_str = match &identifier {
+        let id_str = match identifier {
             AppIdentifier::Path(p) => p.to_string_lossy().to_string(),
-            AppIdentifier::BundleId(s) => s.clone(),
+            AppIdentifier::BundleId(s) => s,
         };
-        let sql = format!(
-            "CREATE blocked_app CONTENT {{ identifier: '{}', display_name: '{}' }}",
-            id_str.replace('\'', "''"),
-            display_name.replace('\'', "''")
-        );
-        let mut result = self.db.query(sql).await?;
-        let value: Option<serde_json::Value> = result.take(0)?;
-        let app: BlockedApp = serde_json::from_value(value.ok_or_else(|| Error::query("Failed to create blocked app".to_string(), None))?)
-            .map_err(|e| Error::query(format!("Deserialization error: {}", e), None))?;
-        Ok(app)
+        let data = serde_json::json!({
+            "identifier": id_str,
+            "display_name": display_name
+        });
+        let created: Option<BlockedApp> = self.db.create("blocked_app").content(data).await?;
+        created.ok_or_else(|| Error::query("Failed to create blocked app".to_string(), None))
     }
 
     /// Removes an app from the blocked apps list.
@@ -80,9 +76,55 @@ impl Storage {
     pub async fn get_blocked_apps(&self) -> Result<Vec<BlockedApp>, Error> {
         let sql = "SELECT * FROM blocked_app".to_string();
         let mut result = self.db.query(sql).await?;
-        let values: Vec<serde_json::Value> = result.take(0).unwrap_or_default();
-        let apps: Vec<BlockedApp> = values.into_iter().filter_map(|v| serde_json::from_value(v).ok()).collect();
+        let apps: Vec<BlockedApp> = result.take(0).unwrap_or_default();
         Ok(apps)
+    }
+
+    /// Upserts (creates or updates) a blocked app.
+    ///
+    /// # Arguments
+    /// * `identifier` - The app identifier (path or bundle ID)
+    /// * `display_name` - The display name of the app
+    ///
+    /// # Returns
+    /// * The upserted blocked app record
+    pub async fn upsert_blocked_app(&self, identifier: AppIdentifier, display_name: &str) -> Result<BlockedApp, Error> {
+        let id_str = match &identifier {
+            AppIdentifier::Path(p) => p.to_string_lossy().to_string(),
+            AppIdentifier::BundleId(s) => s.clone(),
+        };
+
+        // First check if record exists by querying
+        let apps = self.get_blocked_apps().await?;
+        let existing = apps.iter().find(|app| app.identifier == id_str);
+
+        if let Some(existing_app) = existing {
+            // Record exists - update it using query builder
+            let key = Self::record_id_key(&existing_app.id);
+            let data = serde_json::json!({
+                "identifier": id_str,
+                "display_name": display_name
+            });
+            let updated: Option<BlockedApp> = self.db.update(("blocked_app", key)).content(data).await?;
+            return updated.ok_or_else(|| Error::query("Failed to update blocked app".to_string(), None));
+        } else {
+            // Record doesn't exist - create new one using query builder
+            let data = serde_json::json!({
+                "identifier": id_str,
+                "display_name": display_name
+            });
+            let created: Option<BlockedApp> = self.db.create("blocked_app").content(data).await?;
+            return created.ok_or_else(|| Error::query("Failed to create blocked app".to_string(), None));
+        }
+    }
+
+    /// Deletes all blocked apps (clears the table).
+    ///
+    /// # Returns
+    /// * Success or error
+    pub async fn delete_all_blocked_apps(&self) -> Result<(), Error> {
+        self.db.query("DELETE FROM blocked_app").await?;
+        Ok(())
     }
 }
 
