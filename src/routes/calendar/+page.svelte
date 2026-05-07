@@ -258,21 +258,21 @@ function getWeekStart(date: Date): Date {
                 class="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                 aria-label="Previous week"
             >
-                <ChevronLeft class="w-5 h-5" />
+                <ChevronLeft class="w-5 h-5 text-black dark:text-white" />
             </button>
             <button
                 onclick={goToCurrentWeek}
                 class="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                 aria-label="Current week"
             >
-                <Circle class="w-5 h-5" />
+                <Circle class="w-5 h-5 text-black dark:text-white" />
             </button>
             <button
                 onclick={goToNextWeek}
                 class="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                 aria-label="Next week"
             >
-                <ChevronRight class="w-5 h-5" />
+                <ChevronRight class="w-5 h-5 text-black dark:text-white" />
             </button>
         </div>
     {/snippet}

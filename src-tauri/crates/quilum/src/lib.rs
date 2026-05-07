@@ -3,6 +3,7 @@
 mod db;
 mod model;
 mod scheduler;
+mod commands;
 
 use chrono::NaiveDate;
 use quilum_db::{
@@ -364,6 +365,10 @@ pub fn run() {
             delete_task_list,
             relate_task_to_list,
             run_scheduler,
+            commands::app_blocking::get_installed_apps,
+            commands::app_blocking::get_blocked_apps,
+            commands::app_blocking::update_blocked_apps,
+            commands::app_blocking::is_blocking_active,
         ])
         .setup(|app| {
             let storage = tauri::async_runtime::block_on(Storage::new_rocksdb())

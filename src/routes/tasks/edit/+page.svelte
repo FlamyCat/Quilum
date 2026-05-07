@@ -6,6 +6,7 @@
     import { CalendarDate, type DateValue } from "@internationalized/date";
     import { onMount } from "svelte";
     import type { Task } from "$lib/api";
+    import * as Select from "$lib/components/ui/select/index.js";
 
     let name = $state("");
     let description = $state("");
@@ -180,15 +181,16 @@
                     >
                         Приоритет *
                     </label>
-                    <select
-                        id="priority"
-                        bind:value={priority}
-                        class="px-4 py-2 rounded-lg border border-slate-400 dark:border-slate-600 bg-white dark:bg-slate-800 text-black dark:text-white"
-                    >
-                        <option value="Low">Низкий</option>
-                        <option value="Medium">Средний</option>
-                        <option value="High">Высокий</option>
-                    </select>
+                    <Select.Root type="single" bind:value={priority as any}>
+                        <Select.Trigger class="w-full px-4 py-2 rounded-lg border border-slate-400 dark:border-slate-600 bg-white dark:bg-slate-800 text-black dark:text-white">
+                            {#if priority === "Low"}Низкий{:else if priority === "Medium"}Средний{:else if priority === "High"}Высокий{:else}Выберите приоритет{/if}
+                        </Select.Trigger>
+                        <Select.Content>
+                            <Select.Item value="Low">Низкий</Select.Item>
+                            <Select.Item value="Medium">Средний</Select.Item>
+                            <Select.Item value="High">Высокий</Select.Item>
+                        </Select.Content>
+                    </Select.Root>
                 </div>
 
                 <div class="flex flex-col gap-2">
