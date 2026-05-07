@@ -1,6 +1,6 @@
 <script lang="ts">
     import Page from "$lib/components/Page.svelte";
-    import { create_task, relate_task_to_list } from "$lib/api";
+    import { create_task, relate_task_to_list, getKeyString } from "$lib/api";
     import { goto } from "$app/navigation";
     import DateTimePicker from "$lib/components/DateTimePicker.svelte";
     import { CalendarDate, type DateValue } from "@internationalized/date";
@@ -29,12 +29,6 @@
 
     let startPopoverOpen = $state(false);
     let errorMessage = $state("");
-
-    function getKeyString(key: any): string {
-        if (typeof key === 'string') return key;
-        if (key && typeof key === 'object' && 'String' in key) return key.String;
-        return String(key);
-    }
 
     function getListIdFromUrl(): { table: string; key: string } | null {
         const params = new URLSearchParams(pageState.url.search);

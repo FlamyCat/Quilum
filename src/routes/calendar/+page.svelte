@@ -4,9 +4,9 @@
     import TaskCard from "$lib/components/TaskCard.svelte";
     import Slot from "$lib/components/Slot.svelte";
     import { ChevronLeft, ChevronRight, Circle, CalendarPlus, CopyPlus } from "@lucide/svelte";
-    import { week_timetable, update_task, type Task, type Slot as ApiSlot, type SlotWithTasks } from "$lib/api";
+    import { week_timetable, update_task, getKeyString, type Task, type Slot as ApiSlot, type SlotWithTasks } from "$lib/api";
 
-    function getWeekStart(date: Date): Date {
+function getWeekStart(date: Date): Date {
         const d = new Date(date);
         const day = d.getDay();
         const diff = d.getDate() - day + (day === 0 ? -6 : 1);
@@ -64,12 +64,6 @@
             date.getMonth() === today.getMonth() &&
             date.getFullYear() === today.getFullYear()
         );
-    }
-
-    function getKeyString(key: any): string {
-        if (typeof key === 'string') return key;
-        if (key && typeof key === 'object' && 'String' in key) return key.String;
-        return String(key);
     }
 
     interface CalendarEvent {
@@ -317,6 +311,7 @@
                                     description={event.description}
                                     startTime={event.displayStart}
                                     endTime={event.displayEnd}
+                                    href={"/calendar/edit-event?id=" + event.id}
                                 />
                             {/each}
                             {#each daySlots as calendarSlot (calendarSlot.id + '-' + index)}
@@ -326,6 +321,7 @@
                                     displayStart={calendarSlot.displayStart}
                                     displayEnd={calendarSlot.displayEnd}
                                     onTaskToggle={saveTaskState}
+                                    href={"/calendar/edit-slot?id=" + calendarSlot.id}
                                 />
                             {/each}
                         </div>

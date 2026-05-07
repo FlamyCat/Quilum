@@ -2,7 +2,7 @@
     import Page from "$lib/components/Page.svelte";
     import EventCard from "$lib/components/EventCard.svelte";
     import TaskCard from "$lib/components/TaskCard.svelte";
-    import { today_timetable, update_task, type Task } from "$lib/api";
+    import { today_timetable, update_task, getKeyString, type Task } from "$lib/api";
 
     function getTodayISO(): string {
         const now = new Date();
@@ -27,12 +27,6 @@
         deadline?: number;
     }
 
-    function getKeyString(key: any): string {
-        if (typeof key === 'string') return key;
-        if (key && typeof key === 'object' && 'String' in key) return key.String;
-        return String(key);
-    }
-
     let items: TimelineItem[] = $state([]);
     let loading = $state(true);
 
@@ -43,8 +37,8 @@
             const [events, scheduledTasks] = await today_timetable(today);
 
             const eventItems: TimelineItem[] = events.map(e => {
-                const eventStart = new Date(e.startsAt * 1000);
-                const eventEnd = new Date(e.endsAt * 1000);
+                const eventStart = new Date(e.starts_at * 1000);
+                const eventEnd = new Date(e.ends_at * 1000);
                 const todayStart = new Date();
                 todayStart.setHours(0, 0, 0, 0);
                 const todayEnd = new Date(todayStart);
@@ -138,6 +132,7 @@
                             completed={item.completed}
                             onToggle={(completed) => saveTaskState(item.id, completed)}
                             showTime={true}
+                            href={"/tasks/edit?id=" + item.id}
                         />
                     {:else}
                         <EventCard
@@ -145,6 +140,7 @@
                             description={item.description}
                             startTime={item.start}
                             endTime={item.end}
+                            href={"/calendar/edit-event?id=" + item.id}
                         />
                     {/if}
                 {/each}

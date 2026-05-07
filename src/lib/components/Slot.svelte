@@ -1,5 +1,6 @@
 <script lang="ts">
     import type { Task } from "$lib/api";
+    import { getKeyString } from "$lib/api";
     import TaskCard from "./TaskCard.svelte";
 
     type Props = {
@@ -10,9 +11,10 @@
         displayEnd: Date;
         startedBefore?: boolean;
         endsAfter?: boolean;
+        href?: string;
     };
 
-    let { slot, tasks, onTaskToggle, displayStart, displayEnd }: Props = $props();
+    let { slot, tasks, onTaskToggle, displayStart, displayEnd, href }: Props = $props();
 
     let isMultiDay = $derived(
         displayStart.getDate() !== displayEnd.getDate() ||
@@ -30,19 +32,17 @@
         return date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
     }
 
-    function getKeyString(key: any): string {
-        if (typeof key === 'string') return key;
-        if (key && typeof key === 'object' && 'String' in key) return key.String;
-        return String(key);
-    }
-
     function getTaskId(task: Task): string {
         return `${task.id.table}:${getKeyString(task.id.key)}`;
     }
 </script>
 
 <div class="rounded-lg bg-violet-400 dark:bg-violet-900 border-violet-600 dark:border-violet-500 p-2 flex flex-col gap-2 border-2">
-    <div class="text-center font-semibold text-white dark:text-violet-100">Слот</div>
+    {#if href}
+        <a href={href} class="text-center font-semibold text-white dark:text-violet-100 cursor-pointer">Слот</a>
+    {:else}
+        <div class="text-center font-semibold text-white dark:text-violet-100">Слот</div>
+    {/if}
     {#if !isMultiDay}
         <div class="text-center text-white dark:text-violet-200">{formatTime(displayStart)} - {formatTime(displayEnd)}</div>
     {:else}
@@ -63,6 +63,7 @@
                 await onTaskToggle(getTaskId(task), completed);
             } : undefined}
             showTime={true}
+            href={"/tasks/edit?id=" + task.id.table + ":" + getKeyString(task.id.key)}
         />
     {/each}
 </div>

@@ -1,25 +1,12 @@
 <script lang="ts">
     import Page from "$lib/components/Page.svelte";
-    import { ArrowLeft, AlertTriangle } from "@lucide/svelte";
-    import { get_all_task_lists, type Task } from "$lib/api";
+    import { ArrowLeft, TriangleAlert } from "@lucide/svelte";
+    import { get_all_task_lists, getKeyString, type Task } from "$lib/api";
     import { page as pageState } from "$app/state";
     import { onMount } from "svelte";
 
-    interface TaskListItem {
-        list: { id: { table: string; key: string }; title: string };
-        tasks: Task[];
-    }
-
-    let taskLists = $state<TaskListItem[]>([]);
     let loading = $state(true);
     let discardedTasks = $state<Task[]>([]);
-
-    function getKeyString(key: any): string {
-        if (typeof key === "string") return key;
-        if (key && typeof key === "object" && "String" in key)
-            return key.String;
-        return String(key);
-    }
 
     onMount(async () => {
         const discardedParam = pageState.url.searchParams.get("discarded");
@@ -33,7 +20,6 @@
 
         try {
             const lists = await get_all_task_lists();
-            taskLists = lists;
 
             const found: Task[] = [];
             for (const listItem of lists) {
@@ -73,7 +59,7 @@
         {:else}
             <div class="max-w-2xl mx-auto">
                 <div class="flex items-center gap-3 mb-6 p-4 bg-amber-100 dark:bg-amber-900 rounded-lg">
-                    <AlertTriangle class="w-6 h-6 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                    <TriangleAlert class="w-6 h-6 text-amber-600 dark:text-amber-400 shrink-0" />
                     <h2 class="text-lg font-semibold text-amber-800 dark:text-amber-200">
                         Не все задачи удалось запланировать
                     </h2>
