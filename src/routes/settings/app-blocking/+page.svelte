@@ -99,12 +99,12 @@
                             class="w-full text-left p-3 rounded-lg border transition-colors flex items-center justify-between {isBlocked(
                                 app.identifier,
                             )
-                                ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                                : 'hover:bg-slate-100 dark:hover:bg-slate-800'}"
+                                ? 'bg-red-50 dark:bg-red-900/20 dark:hover:bg-red-800/30 border-red-200 dark:border-red-800'
+                                : 'hover:bg-slate-100 dark:hover:bg-slate-700 dark:bg-slate-800 dark:border-slate-500'}"
                             onclick={() =>
                                 toggleApp(app.identifier, app.display_name)}
                         >
-                            <span>{app.display_name}</span>
+                            <span class="dark:text-white">{app.display_name}</span>
                             {#if isBlocked(app.identifier)}
                                 <span class="text-red-500 text-sm"
                                     >Заблокировано</span
