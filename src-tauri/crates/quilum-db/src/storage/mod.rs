@@ -32,16 +32,9 @@ pub struct TaskListWithTasks {
 
 /// Storage struct that holds a handle to a SurrealDB instance
 /// and exposes CRUD methods for events, tasks, and app blocking.
+#[derive(Clone)]
 pub struct Storage {
     db: Surreal<Db>,
-}
-
-impl Clone for Storage {
-    fn clone(&self) -> Self {
-        Self {
-            db: self.db.clone(),
-        }
-    }
 }
 
 // App blocking methods
