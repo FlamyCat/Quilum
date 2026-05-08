@@ -1,9 +1,9 @@
 #![allow(dead_code)]
 
+mod commands;
 mod db;
 mod model;
 mod scheduler;
-mod commands;
 
 use chrono::NaiveDate;
 use quilum_db::{
@@ -287,17 +287,20 @@ async fn run_scheduler(storage: State<'_, Storage>) -> Result<SchedulerResult, S
     if slots.is_empty() {
         return Ok(SchedulerResult {
             scheduled: 0,
-            discarded: tasks.iter().map(|t| {
-                let key = match &t.id().key {
-                    RecordIdKey::String(s) => s.clone(),
-                    RecordIdKey::Number(n) => n.to_string(),
-                    RecordIdKey::Uuid(u) => u.to_string(),
-                    RecordIdKey::Array(a) => format!("{:?}", a),
-                    RecordIdKey::Object(o) => format!("{:?}", o),
-                    RecordIdKey::Range(r) => format!("{:?}", r),
-                };
-                format!("{}:{}", t.id().table, key)
-            }).collect(),
+            discarded: tasks
+                .iter()
+                .map(|t| {
+                    let key = match &t.id().key {
+                        RecordIdKey::String(s) => s.clone(),
+                        RecordIdKey::Number(n) => n.to_string(),
+                        RecordIdKey::Uuid(u) => u.to_string(),
+                        RecordIdKey::Array(a) => format!("{:?}", a),
+                        RecordIdKey::Object(o) => format!("{:?}", o),
+                        RecordIdKey::Range(r) => format!("{:?}", r),
+                    };
+                    format!("{}:{}", t.id().table, key)
+                })
+                .collect(),
         });
     }
 
@@ -369,11 +372,16 @@ pub fn run() {
             commands::app_blocking::get_blocked_apps,
             commands::app_blocking::update_blocked_apps,
             commands::app_blocking::is_blocking_active,
+            commands::session::start_focus_session,
+            commands::session::end_focus_session,
         ])
         .setup(|app| {
             let storage = tauri::async_runtime::block_on(Storage::new_rocksdb())
                 .expect("Failed to initialize database");
             app.manage(storage);
+
+            commands::session::check_and_restore_session(app.state::<Storage>().inner());
+
             Ok(())
         })
         .run(tauri::generate_context!())

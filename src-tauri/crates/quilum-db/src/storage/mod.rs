@@ -1,10 +1,20 @@
-use crate::{slot::Slot, focus_session::FocusSession, event::Event, blocked_app::BlockedApp, app_identifier::AppIdentifier, task::{Priority, Task}, tasklist::TaskList};
+use crate::{
+    app_identifier::AppIdentifier,
+    blocked_app::BlockedApp,
+    event::Event,
+    focus_session::FocusSession,
+    slot::Slot,
+    task::{Priority, Task},
+    tasklist::TaskList,
+};
 use chrono::{NaiveDate, NaiveDateTime, TimeDelta};
+use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 use surrealdb::{
-    Error, Surreal, engine::local::{Db, Mem, RocksDb}, types::{RecordId, SurrealValue}
+    Error, Surreal,
+    engine::local::{Db, Mem, RocksDb},
+    types::{RecordId, SurrealValue},
 };
-use directories::ProjectDirs;
 
 /// Struct for returning slots with their scheduled tasks
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -26,6 +36,14 @@ pub struct Storage {
     db: Surreal<Db>,
 }
 
+impl Clone for Storage {
+    fn clone(&self) -> Self {
+        Self {
+            db: self.db.clone(),
+        }
+    }
+}
+
 // App blocking methods
 impl Storage {
     /// Adds an app to the blocked apps list.
@@ -36,7 +54,11 @@ impl Storage {
     ///
     /// # Returns
     /// * The created blocked app record
-    pub async fn add_blocked_app(&self, identifier: AppIdentifier, display_name: &str) -> Result<BlockedApp, Error> {
+    pub async fn add_blocked_app(
+        &self,
+        identifier: AppIdentifier,
+        display_name: &str,
+    ) -> Result<BlockedApp, Error> {
         let id_str = match identifier {
             AppIdentifier::Path(p) => p.to_string_lossy().to_string(),
             AppIdentifier::BundleId(s) => s,
@@ -88,7 +110,11 @@ impl Storage {
     ///
     /// # Returns
     /// * The upserted blocked app record
-    pub async fn upsert_blocked_app(&self, identifier: AppIdentifier, display_name: &str) -> Result<BlockedApp, Error> {
+    pub async fn upsert_blocked_app(
+        &self,
+        identifier: AppIdentifier,
+        display_name: &str,
+    ) -> Result<BlockedApp, Error> {
         let id_str = match &identifier {
             AppIdentifier::Path(p) => p.to_string_lossy().to_string(),
             AppIdentifier::BundleId(s) => s.clone(),
@@ -105,8 +131,10 @@ impl Storage {
                 "identifier": id_str,
                 "display_name": display_name
             });
-            let updated: Option<BlockedApp> = self.db.update(("blocked_app", key)).content(data).await?;
-            return updated.ok_or_else(|| Error::query("Failed to update blocked app".to_string(), None));
+            let updated: Option<BlockedApp> =
+                self.db.update(("blocked_app", key)).content(data).await?;
+            return updated
+                .ok_or_else(|| Error::query("Failed to update blocked app".to_string(), None));
         } else {
             // Record doesn't exist - create new one using query builder
             let data = serde_json::json!({
@@ -114,7 +142,8 @@ impl Storage {
                 "display_name": display_name
             });
             let created: Option<BlockedApp> = self.db.create("blocked_app").content(data).await?;
-            return created.ok_or_else(|| Error::query("Failed to create blocked app".to_string(), None));
+            return created
+                .ok_or_else(|| Error::query("Failed to create blocked app".to_string(), None));
         }
     }
 
@@ -139,7 +168,12 @@ impl Storage {
     ///
     /// # Returns
     /// * The created focus session
-    pub async fn start_session(&self, start: NaiveDateTime, end: NaiveDateTime, task_id: Option<RecordId>) -> Result<FocusSession, Error> {
+    pub async fn start_session(
+        &self,
+        start: NaiveDateTime,
+        end: NaiveDateTime,
+        task_id: Option<RecordId>,
+    ) -> Result<FocusSession, Error> {
         let task_id_str = match task_id {
             Some(ref id) => Self::record_id_to_string(id),
             None => "NONE".to_string(),
@@ -152,8 +186,11 @@ impl Storage {
         );
         let mut result = self.db.query(sql).await?;
         let value: Option<serde_json::Value> = result.take(0)?;
-        let session: FocusSession = serde_json::from_value(value.ok_or_else(|| Error::query("Failed to create focus session".to_string(), None))?)
-            .map_err(|e| Error::query(format!("Deserialization error: {}", e), None))?;
+        let session: FocusSession = serde_json::from_value(
+            value
+                .ok_or_else(|| Error::query("Failed to create focus session".to_string(), None))?,
+        )
+        .map_err(|e| Error::query(format!("Deserialization error: {}", e), None))?;
         Ok(session)
     }
 
@@ -446,8 +483,8 @@ impl Storage {
                     }
                     let task: Task = serde_json::from_value(serde_json::Value::Object(task_json))
                         .map_err(|e| {
-                            Error::query(format!("Failed to deserialize task: {}", e), None)
-                        })?;
+                        Error::query(format!("Failed to deserialize task: {}", e), None)
+                    })?;
                     scheduled_tasks.push((task, sf));
                 }
             }
@@ -540,65 +577,65 @@ impl Storage {
             // === Parse tasks ===
             let tasks: Vec<(Task, i64)> = if let serde_json::Value::Array(arr) = tasks_value {
                 arr.into_iter()
-                   .filter_map(|task_item| {
-                       // task_item = {"out": {...}, "scheduled_for": 123...}
+                    .filter_map(|task_item| {
+                        // task_item = {"out": {...}, "scheduled_for": 123...}
 
-                       // Extract scheduled_for from top level
-                       let scheduled_for =
-                           task_item.get("scheduled_for").and_then(|v| v.as_i64())?;
+                        // Extract scheduled_for from top level
+                        let scheduled_for =
+                            task_item.get("scheduled_for").and_then(|v| v.as_i64())?;
 
-                       // Extract "out" object which contains task data
-                       let out_value = task_item.get("out").cloned()?;
-                       let out_obj = if let serde_json::Value::Object(obj) = out_value {
-                           obj
-                       } else {
-                           return None;
-                       };
+                        // Extract "out" object which contains task data
+                        let out_value = task_item.get("out").cloned()?;
+                        let out_obj = if let serde_json::Value::Object(obj) = out_value {
+                            obj
+                        } else {
+                            return None;
+                        };
 
-                       // Convert the task object to proper JSON, handling id field
-                       let mut task_json = serde_json::Map::new();
-                       for (k, v) in &out_obj {
-                           if k == "id" {
-                               // id is a string like "task:xxx", convert to object format for RecordId
-                               if let Some(id_str) = v.as_str() {
-                                   let parts: Vec<&str> = id_str.split(':').collect();
-                                   if parts.len() == 2 {
-                                       let mut id_obj = serde_json::Map::new();
-                                       id_obj.insert(
-                                           "table".to_string(),
-                                           serde_json::Value::String(parts[0].to_string()),
-                                       );
-                                       id_obj.insert(
-                                           "key".to_string(),
-                                           serde_json::json!({"String": parts[1]}),
-                                       );
-                                       task_json.insert(
-                                           "id".to_string(),
-                                           serde_json::Value::Object(id_obj),
-                                       );
-                                   }
-                               }
-                           } else if k == "priority" {
-                               // Handle priority enum - extract the variant name
-                               if let Some(priority_obj) = v.as_object() {
-                                   if let Some(first_key) = priority_obj.keys().next() {
-                                       task_json.insert(
-                                           "priority".to_string(),
-                                           serde_json::Value::String(first_key.clone()),
-                                       );
-                                   }
-                               }
-                           } else {
-                               task_json.insert(k.clone(), v.clone());
-                           }
-                       }
+                        // Convert the task object to proper JSON, handling id field
+                        let mut task_json = serde_json::Map::new();
+                        for (k, v) in &out_obj {
+                            if k == "id" {
+                                // id is a string like "task:xxx", convert to object format for RecordId
+                                if let Some(id_str) = v.as_str() {
+                                    let parts: Vec<&str> = id_str.split(':').collect();
+                                    if parts.len() == 2 {
+                                        let mut id_obj = serde_json::Map::new();
+                                        id_obj.insert(
+                                            "table".to_string(),
+                                            serde_json::Value::String(parts[0].to_string()),
+                                        );
+                                        id_obj.insert(
+                                            "key".to_string(),
+                                            serde_json::json!({"String": parts[1]}),
+                                        );
+                                        task_json.insert(
+                                            "id".to_string(),
+                                            serde_json::Value::Object(id_obj),
+                                        );
+                                    }
+                                }
+                            } else if k == "priority" {
+                                // Handle priority enum - extract the variant name
+                                if let Some(priority_obj) = v.as_object() {
+                                    if let Some(first_key) = priority_obj.keys().next() {
+                                        task_json.insert(
+                                            "priority".to_string(),
+                                            serde_json::Value::String(first_key.clone()),
+                                        );
+                                    }
+                                }
+                            } else {
+                                task_json.insert(k.clone(), v.clone());
+                            }
+                        }
 
-                       let task: Task =
-                           serde_json::from_value(serde_json::Value::Object(task_json)).ok()?;
+                        let task: Task =
+                            serde_json::from_value(serde_json::Value::Object(task_json)).ok()?;
 
-                       Some((task, scheduled_for))
-                   })
-                   .collect()
+                        Some((task, scheduled_for))
+                    })
+                    .collect()
             } else {
                 vec![]
             };
@@ -623,7 +660,9 @@ impl Storage {
         let tomorrow = today + TimeDelta::days(1);
 
         let events = self.get_events_for_date(today).await?;
-        let scheduled_tasks = self.get_scheduled_tasks_for_date_range(today, tomorrow).await?;
+        let scheduled_tasks = self
+            .get_scheduled_tasks_for_date_range(today, tomorrow)
+            .await?;
 
         Ok((events, scheduled_tasks))
     }
@@ -643,7 +682,9 @@ impl Storage {
         let week_end = week_start + TimeDelta::days(7);
 
         let events = self.get_events_for_date_range(week_start, week_end).await?;
-        let slots_with_tasks = self.get_slots_with_tasks_for_date_range(week_start, week_end).await?;
+        let slots_with_tasks = self
+            .get_slots_with_tasks_for_date_range(week_start, week_end)
+            .await?;
 
         Ok((events, slots_with_tasks))
     }
@@ -676,14 +717,14 @@ impl Storage {
             deadline: i64,
             completed: bool,
         }
-        
+
         let data = TaskCreate {
             name: name,
             description: description,
             priority: priority,
             estimated_duration: estimated_duration.num_seconds(),
             deadline: deadline.and_utc().timestamp(),
-            completed: false
+            completed: false,
         };
 
         let created: Option<Task> = self.db.create("task").content(data).await?;
@@ -1040,8 +1081,8 @@ impl Storage {
                     }
                     let task: Task = serde_json::from_value(serde_json::Value::Object(task_json))
                         .map_err(|e| {
-                            Error::query(format!("Failed to deserialize task: {}", e), None)
-                        })?;
+                        Error::query(format!("Failed to deserialize task: {}", e), None)
+                    })?;
                     tasks.push(task);
                 }
             }
