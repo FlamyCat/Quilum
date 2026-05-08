@@ -11,7 +11,6 @@ use desktop_edit::Desktop;
 
 use crate::{app_list::types::AppInfo, model::AppIdentifier};
 
-#[cfg(target_os = "linux")]
 pub fn get_installed_apps() -> Vec<AppInfo> {
     let mut apps = Vec::new();
     let app_dirs = get_application_dirs();
@@ -29,7 +28,6 @@ pub fn get_installed_apps() -> Vec<AppInfo> {
     apps
 }
 
-#[cfg(target_os = "linux")]
 fn get_application_dirs() -> Vec<String> {
     let mut dirs = Vec::new();
 
@@ -58,22 +56,21 @@ fn get_application_dirs() -> Vec<String> {
     dirs
 }
 
-#[cfg(target_os = "linux")]
 fn scan_directory(dir: &str, apps: &mut Vec<AppInfo>) {
     let Ok(entries) = fs::read_dir(dir) else {
         return;
     };
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.is_file() && path.extension().is_some_and(|ext| ext == "desktop") {
-            if let Some(app_info) = parse_desktop_file(&path) {
-                apps.push(app_info);
-            }
+        if path.is_file()
+            && path.extension().is_some_and(|ext| ext == "desktop")
+            && let Some(app_info) = parse_desktop_file(&path)
+        {
+            apps.push(app_info);
         }
     }
 }
 
-#[cfg(target_os = "linux")]
 fn parse_desktop_file(path: &Path) -> Option<AppInfo> {
     let content = fs::read_to_string(path).ok()?;
 
@@ -89,17 +86,17 @@ fn parse_desktop_file(path: &Path) -> Option<AppInfo> {
     }
 
     // Skip if NoDisplay is true
-    if let Some(no_display) = group.get("NoDisplay") {
-        if no_display == "true" {
-            return None;
-        }
+    if let Some(no_display) = group.get("NoDisplay")
+        && no_display == "true"
+    {
+        return None;
     }
 
     // Skip if Hidden is true
-    if let Some(hidden) = group.get("Hidden") {
-        if hidden == "true" {
-            return None;
-        }
+    if let Some(hidden) = group.get("Hidden")
+        && hidden == "true"
+    {
+        return None;
     }
 
     // Get Name (try localized version first, fallback to non-localized)
@@ -113,7 +110,6 @@ fn parse_desktop_file(path: &Path) -> Option<AppInfo> {
     Some(AppInfo::new(AppIdentifier::Path(binary_path), name))
 }
 
-#[cfg(target_os = "linux")]
 fn extract_binary_from_exec(exec_cmd: &str) -> Option<PathBuf> {
     let tokens = tokenize_exec(exec_cmd)?;
     if tokens.is_empty() {
@@ -129,14 +125,13 @@ fn extract_binary_from_exec(exec_cmd: &str) -> Option<PathBuf> {
     if exe_name == "env" {
         if tokens.len() >= 2 {
             let second_token = tokens.get(1)?;
-            if second_token.contains('=') {
-                if let Some(value) = second_token.split('=').nth(1) {
-                    if !value.is_empty() {
-                        let resolved = resolve_path_or_return(value);
-                        if resolved.is_some() {
-                            return resolved;
-                        }
-                    }
+            if second_token.contains('=')
+                && let Some(value) = second_token.split('=').nth(1)
+                && !value.is_empty()
+            {
+                let resolved = try_to_resolve_path(value);
+                if resolved.is_some() {
+                    return resolved;
                 }
             }
         }
@@ -155,13 +150,12 @@ fn extract_binary_from_exec(exec_cmd: &str) -> Option<PathBuf> {
             if first_token.contains('/') {
                 Some(PathBuf::from(first_token))
             } else {
-                resolve_path_or_return(first_token)
+                try_to_resolve_path(first_token)
             }
         }
     }
 }
 
-#[cfg(target_os = "linux")]
 fn tokenize_exec(exec_cmd: &str) -> Option<Vec<String>> {
     let mut result = Vec::new();
     let mut current = String::new();
@@ -217,7 +211,7 @@ fn tokenize_exec(exec_cmd: &str) -> Option<Vec<String>> {
 
     // Бранные слова здесь ни при чем. Это все допустимые коды подстановки в
     // значении ключа Exec файла Desktop (в том числе устаревшие).
-    // Подробнее - см. спецификацию 
+    // Подробнее - см. спецификацию
     // (https://specifications.freedesktop.org/desktop-entry/latest/exec-variables.html)
     // Дата обращения - 7 мая 2026.
     let field_code_regex = Regex::new(r"%[fFuUcCkVdDnNvVm]").ok()?;
@@ -227,14 +221,10 @@ fn tokenize_exec(exec_cmd: &str) -> Option<Vec<String>> {
     }
 
     result.retain(|t| !t.is_empty());
-    if result.is_empty() {
-        None
-    } else {
-        Some(result)
-    }
+
+    (!result.is_empty()).then_some(result)
 }
 
-#[cfg(target_os = "linux")]
 fn extract_flatpak_binary(tokens: &[String]) -> Option<PathBuf> {
     if tokens.len() < 2 || tokens[1] != "run" {
         return None;
@@ -278,15 +268,11 @@ fn extract_flatpak_binary(tokens: &[String]) -> Option<PathBuf> {
         "/var/lib/flatpak/app/{}/current/active/files/bin/{}",
         app_id, command
     );
+
     let path = PathBuf::from(binary_path);
-    if path.exists() { 
-        Some(path) 
-    } else { 
-        None 
-    }
+    path.exists().then_some(path)
 }
 
-#[cfg(target_os = "linux")]
 fn extract_java_binary(tokens: &[String]) -> Option<PathBuf> {
     let mut i = 0;
     while i < tokens.len() {
@@ -295,7 +281,7 @@ fn extract_java_binary(tokens: &[String]) -> Option<PathBuf> {
             if jar_path.starts_with('/') {
                 return Some(PathBuf::from(jar_path));
             } else {
-                return resolve_path_or_return(jar_path);
+                return try_to_resolve_path(jar_path);
             }
         }
         i += 1;
@@ -304,7 +290,6 @@ fn extract_java_binary(tokens: &[String]) -> Option<PathBuf> {
     None
 }
 
-#[cfg(target_os = "linux")]
 fn extract_python_binary(tokens: &[String]) -> Option<PathBuf> {
     let mut i = 1;
     while i < tokens.len() {
@@ -315,32 +300,27 @@ fn extract_python_binary(tokens: &[String]) -> Option<PathBuf> {
             }
             i += 1;
         } else {
-            let script_path = if token.starts_with('/') {
-                PathBuf::from(token)
-            } else {
-                resolve_path_or_return(token)?
-            };
-            return Some(script_path);
+            let script_path = PathBuf::from(token);
+            
+            return script_path
+                .is_absolute()
+                .then_some(script_path)
+                .or_else(|| try_to_resolve_path(token));
         }
     }
     None
 }
 
-#[cfg(target_os = "linux")]
 fn extract_script_binary(tokens: &[String], _interpreter: &[&str]) -> Option<PathBuf> {
     if tokens.len() < 2 {
         return None;
     }
 
     let script_token = &tokens[1];
-    if script_token.starts_with('/') {
-        Some(PathBuf::from(script_token))
-    } else {
-        resolve_path_or_return(script_token)
-    }
+    let canonical_path = super::try_to_canonicalize(script_token);
+    canonical_path.or(try_to_resolve_path(script_token))
 }
 
-#[cfg(target_os = "linux")]
 fn extract_shell_binary(tokens: &[String]) -> Option<PathBuf> {
     if tokens.len() < 2 {
         return None;
@@ -354,14 +334,14 @@ fn extract_shell_binary(tokens: &[String]) -> Option<PathBuf> {
     if second_token.starts_with('/') {
         Some(PathBuf::from(second_token))
     } else {
-        resolve_path_or_return(second_token)
+        try_to_resolve_path(second_token)
     }
 }
 
-#[cfg(target_os = "linux")]
-fn resolve_path_or_return(cmd: &str) -> Option<PathBuf> {
-    if cmd.contains('/') {
-        return Some(PathBuf::from(cmd));
+fn try_to_resolve_path(cmd: &str) -> Option<PathBuf> {
+    let canonical_path = super::try_to_canonicalize(cmd);
+    if canonical_path.is_some() {
+        return canonical_path;
     }
 
     let path_env = env::var_os("PATH")?;
