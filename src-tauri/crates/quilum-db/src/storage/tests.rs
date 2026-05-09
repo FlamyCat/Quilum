@@ -1935,3 +1935,126 @@ async fn blocked_apps_old_add_method() {
     let apps = storage.get_blocked_apps().await.expect("Failed to get blocked apps");
     assert_eq!(apps.len(), 1, "Should have 1 blocked app");
 }
+
+#[tokio::test]
+async fn get_next_scheduled_task_basic() {
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
+
+    let slot_date = NaiveDate::from_ymd_opt(2028, 5, 1).unwrap();
+
+    let slot = storage
+        .create_slot(
+            slot_date.and_hms_opt(10, 0, 0).unwrap(),
+            slot_date.and_hms_opt(12, 0, 0).unwrap(),
+        )
+        .await
+        .expect("Failed to create slot");
+
+    let task1 = storage
+        .create_task(
+            "Task 1".to_string(),
+            "First task".to_string(),
+            Priority::Medium,
+            TimeDelta::hours(1),
+            slot_date.and_hms_opt(0, 0, 0).unwrap(),
+        )
+        .await
+        .expect("Failed to create task 1");
+
+    let task2 = storage
+        .create_task(
+            "Task 2".to_string(),
+            "Second task".to_string(),
+            Priority::High,
+            TimeDelta::hours(2),
+            slot_date.and_hms_opt(0, 0, 0).unwrap(),
+        )
+        .await
+        .expect("Failed to create task 2");
+
+    storage
+        .relate_task_to_slot(
+            &slot.id(),
+            &task1.id(),
+            slot_date.and_hms_opt(11, 0, 0).unwrap(),
+        )
+        .await
+        .expect("Failed to relate task 1 to slot");
+
+    storage
+        .relate_task_to_slot(
+            &slot.id(),
+            &task2.id(),
+            slot_date.and_hms_opt(10, 0, 0).unwrap(),
+        )
+        .await
+        .expect("Failed to relate task 2 to slot");
+
+    let result = storage
+        .get_next_scheduled_task()
+        .await
+        .expect("Failed to get next scheduled task");
+
+    assert!(result.is_some(), "Should return a task");
+    let (task, scheduled_for) = result.unwrap();
+
+    assert_eq!(task.name(), "Task 2", "Should return earliest scheduled task");
+    assert_eq!(
+        scheduled_for,
+        slot_date.and_hms_opt(10, 0, 0).unwrap().and_utc().timestamp()
+    );
+}
+
+#[tokio::test]
+async fn get_next_scheduled_task_empty() {
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
+
+    let result = storage
+        .get_next_scheduled_task()
+        .await
+        .expect("Failed to get next scheduled task");
+
+    assert!(result.is_none(), "Should return None when no scheduled tasks");
+}
+
+#[tokio::test]
+async fn get_next_scheduled_task_past_only() {
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
+
+    let slot_date = NaiveDate::from_ymd_opt(2024, 5, 1).unwrap();
+
+    let slot = storage
+        .create_slot(
+            slot_date.and_hms_opt(10, 0, 0).unwrap(),
+            slot_date.and_hms_opt(12, 0, 0).unwrap(),
+        )
+        .await
+        .expect("Failed to create slot");
+
+    let task = storage
+        .create_task(
+            "Past Task".to_string(),
+            "Already passed".to_string(),
+            Priority::Medium,
+            TimeDelta::hours(1),
+            slot_date.and_hms_opt(0, 0, 0).unwrap(),
+        )
+        .await
+        .expect("Failed to create task");
+
+    storage
+        .relate_task_to_slot(
+            &slot.id(),
+            &task.id(),
+            slot_date.and_hms_opt(10, 0, 0).unwrap(),
+        )
+        .await
+        .expect("Failed to relate task to slot");
+
+    let result = storage
+        .get_next_scheduled_task()
+        .await
+        .expect("Failed to get next scheduled task");
+
+    assert!(result.is_none(), "Should return None when only past tasks exist");
+}

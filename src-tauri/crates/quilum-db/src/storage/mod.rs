@@ -485,6 +485,74 @@ impl Storage {
         Ok(scheduled_tasks)
     }
 
+    /// Gets the next scheduled task that hasn't started yet.
+    /// Returns the task and its scheduled_for timestamp.
+    ///
+    /// # Returns
+    /// * Option containing (Task, scheduled_for_timestamp) if found
+    pub async fn get_next_scheduled_task(&self) -> Result<Option<(Task, i64)>, Error> {
+        let now = chrono::Utc::now().timestamp();
+        let sql = format!(
+            "SELECT scheduled_for, out.* AS task FROM ONLY contains \
+             WHERE scheduled_for > {} \
+             ORDER BY scheduled_for \
+             LIMIT 1",
+            now
+        );
+        let mut result = self.db.query(sql).await?;
+        let value: Option<serde_json::Value> = result.take(0).unwrap_or_default();
+
+        let Some(item) = value else {
+            return Ok(None);
+        };
+
+        let scheduled_for = item
+            .get("scheduled_for")
+            .and_then(|v| v.as_i64())
+            .ok_or_else(|| Error::query("Missing scheduled_for".to_string(), None))?;
+
+        let task_value = item
+            .get("task")
+            .ok_or_else(|| Error::query("Missing task".to_string(), None))?;
+
+        let mut task_json = serde_json::Map::new();
+        if let Some(obj) = task_value.as_object() {
+            for (k, v) in obj {
+                if k == "id" {
+                    if let Some(id_str) = v.as_str() {
+                        let parts: Vec<&str> = id_str.split(':').collect();
+                        if parts.len() == 2 {
+                            let mut id_obj = serde_json::Map::new();
+                            id_obj.insert(
+                                "table".to_string(),
+                                serde_json::Value::String(parts[0].to_string()),
+                            );
+                            id_obj
+                                .insert("key".to_string(), serde_json::json!({"String": parts[1]}));
+                            task_json.insert("id".to_string(), serde_json::Value::Object(id_obj));
+                        }
+                    }
+                } else if k == "priority" {
+                    if let Some(priority_obj) = v.as_object()
+                        && let Some(first_key) = priority_obj.keys().next()
+                    {
+                        task_json.insert(
+                            "priority".to_string(),
+                            serde_json::Value::String(first_key.clone()),
+                        );
+                    }
+                } else {
+                    task_json.insert(k.clone(), v.clone());
+                }
+            }
+        }
+
+        let task: Task = serde_json::from_value(serde_json::Value::Object(task_json))
+            .map_err(|e| Error::query(format!("Failed to deserialize task: {}", e), None))?;
+
+        Ok(Some((task, scheduled_for)))
+    }
+
     /// Gets all slots within a date range along with their scheduled tasks.
     /// Returns ALL slots (including empty ones) grouped with their tasks.
     ///
