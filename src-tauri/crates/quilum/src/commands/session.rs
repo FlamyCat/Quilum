@@ -4,7 +4,7 @@ use tauri::State;
 use tokio::{sync::Mutex, task::JoinHandle};
 
 use crate::db::Storage;
-use applock::{BlockingSession, app_list::AppInfo, start_polling};
+use applock::{app_list::AppInfo, start_polling, BlockingSession};
 
 pub struct BlockingState {
     pub session: BlockingSession,
@@ -109,45 +109,74 @@ pub async fn end_focus_session() -> Result<(), String> {
     end_focus_session_internal().await
 }
 
-pub fn check_and_restore_session(storage: &Storage) {
-    let rt = tokio::runtime::Handle::current();
-    rt.block_on(async {
-        if let Ok(Some(session)) = storage.get_active_session().await
-            && let Some(end) = DateTime::from_timestamp(session.end_time, 0)
-            && end > Utc::now()
-            && let Ok(blocked) = storage.get_blocked_apps().await
-        {
-            let blocked_info = blocked_apps_to_info(blocked);
+pub fn check_and_restore_session(storage: Storage) {
+    tauri::async_runtime::spawn(async move {
+        let state = blocking_state();
+        let mut guard = state.lock().await;
+        stop_blocking(&mut guard).await;
+        drop(guard);
 
-            let state = blocking_state();
-            let mut guard = state.lock().await;
-            stop_blocking(&mut guard).await;
+        let Ok(Some((task, scheduled_for))) = storage.get_next_scheduled_task().await else {
+            return;
+        };
 
-            let bs_session = BlockingSession::new();
-            bs_session.start(blocked_info, end);
+        let Ok(blocked) = storage.get_blocked_apps().await else {
+            return;
+        };
 
-            let blocked_set = bs_session.blocked_apps();
-            let stop_flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
-            let poll_interval = Duration::from_millis(300);
+        let blocked_info = blocked_apps_to_info(blocked.clone());
+        let now = Utc::now().timestamp();
+        let end_timestamp = scheduled_for + task.estimated_duration;
 
-            let handle = start_polling(blocked_set, poll_interval, stop_flag.clone());
-            let end_time_for_task = end;
+        if scheduled_for <= now && now <= end_timestamp {
+            let end = DateTime::from_timestamp(end_timestamp, 0).unwrap_or_default();
+            start_blocking(blocked_info, end, storage.clone());
+        } else if scheduled_for > now {
+            let start_time = DateTime::from_timestamp(scheduled_for, 0).unwrap_or_default();
+            let end = DateTime::from_timestamp(end_timestamp, 0).unwrap_or_default();
 
-            *guard = Some(BlockingState {
-                session: bs_session,
-                polling_handle: Some(handle),
-                stop_flag,
-                _storage: storage.clone(),
-            });
+            let blocked_info_clone = blocked_apps_to_info(blocked);
+            let storage_clone = storage.clone();
 
-            drop(guard);
-
-            let _ = tauri::async_runtime::spawn(async move {
-                let now = Utc::now();
-                let sleep_duration = (end_time_for_task - now).to_std().unwrap_or_default();
+            tauri::async_runtime::spawn(async move {
+                let sleep_duration = (start_time - Utc::now()).to_std().unwrap_or_default();
                 tokio::time::sleep(sleep_duration).await;
-                let _ = end_focus_session_internal().await;
+                start_blocking(blocked_info_clone, end, storage_clone);
             });
         }
+    });
+}
+
+fn start_blocking(apps: Vec<AppInfo>, end_time: DateTime<Utc>, storage: Storage) {
+    tauri::async_runtime::spawn(async move {
+        let state = blocking_state();
+        let mut guard = state.lock().await;
+        stop_blocking(&mut guard).await;
+
+        let bs_session = BlockingSession::new();
+        bs_session.start(apps, end_time);
+
+        let blocked_set = bs_session.blocked_apps();
+        let stop_flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let poll_interval = Duration::from_millis(300);
+
+        let handle = start_polling(blocked_set, poll_interval, stop_flag.clone());
+        let end_time_for_task = end_time;
+
+        *guard = Some(BlockingState {
+            session: bs_session,
+            polling_handle: Some(handle),
+            stop_flag,
+            _storage: storage,
+        });
+
+        drop(guard);
+
+        let _ = tauri::async_runtime::spawn(async move {
+            let now = Utc::now();
+            let sleep_duration = (end_time_for_task - now).to_std().unwrap_or_default();
+            tokio::time::sleep(sleep_duration).await;
+            let _ = end_focus_session_internal().await;
+        });
     });
 }

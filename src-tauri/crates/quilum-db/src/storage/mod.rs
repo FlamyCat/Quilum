@@ -485,8 +485,12 @@ impl Storage {
         Ok(scheduled_tasks)
     }
 
-    /// Gets the next scheduled task that hasn't started yet.
+    /// Gets the next scheduled task that hasn't ended yet.
     /// Returns the task and its scheduled_for timestamp.
+    ///
+    /// This returns tasks that are either:
+    /// - Currently in progress (scheduled_for <= now <= scheduled_for + duration)
+    /// - Scheduled to start in the future (scheduled_for > now)
     ///
     /// # Returns
     /// * Option containing (Task, scheduled_for_timestamp) if found
@@ -494,7 +498,7 @@ impl Storage {
         let now = chrono::Utc::now().timestamp();
         let sql = format!(
             "SELECT scheduled_for, out.* AS task FROM ONLY contains \
-             WHERE scheduled_for > {} \
+             WHERE scheduled_for + out.estimated_duration >= {} \
              ORDER BY scheduled_for \
              LIMIT 1",
             now
@@ -549,6 +553,10 @@ impl Storage {
 
         let task: Task = serde_json::from_value(serde_json::Value::Object(task_json))
             .map_err(|e| Error::query(format!("Failed to deserialize task: {}", e), None))?;
+
+        if scheduled_for + task.estimated_duration <= now {
+            return Ok(None);
+        }
 
         Ok(Some((task, scheduled_for)))
     }

@@ -30,7 +30,7 @@ impl ProcessPoller {
                 ProcessRefreshKind::nothing()
                     .without_tasks()
                     .with_cmd(UpdateKind::Always)
-                    .with_exe(UpdateKind::Always)
+                    .with_exe(UpdateKind::Always),
             ),
         );
         Self {
@@ -49,16 +49,25 @@ impl ProcessPoller {
         let mut killed = 0;
         for (_pid, process) in sys.processes() {
             let exe_path = get_exe_path(process);
-            let exe_name = process.name().to_string_lossy().to_lowercase();
 
             for blocked_app in blocked.iter() {
                 let matches = match blocked_app {
                     AppIdentifier::Path(blocked_path) => {
-                        let blocked_str = blocked_path.to_string_lossy().to_lowercase();
-                        let exe_str = exe_path.to_string_lossy().to_lowercase();
-                        exe_str.ends_with(&blocked_str)
-                            || exe_str.contains(&blocked_str)
-                            || exe_name == blocked_str
+                        // let blocked_str = blocked_path.to_string_lossy().to_lowercase();
+                        // let exe_str = exe_path.to_string_lossy().to_lowercase();
+                        // exe_str.ends_with(&blocked_str)
+                        //     || exe_str.contains(&blocked_str)
+                        //     || exe_name == blocked_str
+                        let Some(blocked_file_name) = blocked_path.file_name() else {
+                            continue;
+                        };
+
+                        let Some(process_file_name) = exe_path.file_name() else {
+                            continue;
+                        };
+
+                        let file_names_match = process_file_name == blocked_file_name;
+                        file_names_match
                     }
                     AppIdentifier::BundleId(_) => false,
                 };

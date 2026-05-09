@@ -15,6 +15,7 @@ use quilum_db::{
 };
 use surrealdb::types::RecordId;
 use tauri::{Manager, State};
+use crate::commands::session::check_and_restore_session;
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -165,7 +166,9 @@ async fn read_task(
 
 #[tauri::command]
 async fn update_task(storage: State<'_, Storage>, task: Task) -> Result<(), String> {
-    storage.update_task(task).await.map_err(|e| e.to_string())
+    let result = storage.update_task(task).await.map_err(|e| e.to_string());
+    check_and_restore_session(storage.inner().clone());
+    result
 }
 
 #[tauri::command]
@@ -215,10 +218,12 @@ async fn create_task_list(storage: State<'_, Storage>, title: String) -> Result<
 
 #[tauri::command]
 async fn update_task_list(storage: State<'_, Storage>, task_list: TaskList) -> Result<(), String> {
-    storage
+    let result = storage
         .update_task_list(task_list)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string());
+    check_and_restore_session(storage.inner().clone());
+    result
 }
 
 #[tauri::command]
@@ -318,6 +323,8 @@ async fn run_scheduler(storage: State<'_, Storage>) -> Result<SchedulerResult, S
         .await
         .map_err(|e| e.to_string())?;
 
+    check_and_restore_session(storage.inner().clone());
+
     let scheduled_count = plan.tasks().len();
     let discarded_ids: Vec<String> = plan
         .discarded_tasks()
@@ -378,9 +385,9 @@ pub fn run() {
         .setup(|app| {
             let storage = tauri::async_runtime::block_on(Storage::new_rocksdb())
                 .expect("Failed to initialize database");
-            app.manage(storage);
+            app.manage(storage.clone());
 
-            commands::session::check_and_restore_session(app.state::<Storage>().inner());
+            commands::session::check_and_restore_session(storage);
 
             Ok(())
         })
