@@ -3,10 +3,23 @@
     import EventCard from "$lib/components/EventCard.svelte";
     import TaskCard from "$lib/components/TaskCard.svelte";
     import Slot from "$lib/components/Slot.svelte";
-    import { ChevronLeft, ChevronRight, Circle, CalendarPlus, CopyPlus } from "@lucide/svelte";
-    import { week_timetable, update_task, getKeyString, type Task, type Slot as ApiSlot, type SlotWithTasks } from "$lib/api";
+    import {
+        ChevronLeft,
+        ChevronRight,
+        Circle,
+        CalendarPlus,
+        CopyPlus,
+    } from "@lucide/svelte";
+    import {
+        week_timetable,
+        update_task,
+        getKeyString,
+        type Task,
+        type Slot as ApiSlot,
+        type SlotWithTasks,
+    } from "$lib/api";
 
-function getWeekStart(date: Date): Date {
+    function getWeekStart(date: Date): Date {
         const d = new Date(date);
         const day = d.getDay();
         const diff = d.getDate() - day + (day === 0 ? -6 : 1);
@@ -21,8 +34,8 @@ function getWeekStart(date: Date): Date {
 
     function formatDateISO(date: Date): string {
         const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
         return `${year}-${month}-${day}`;
     }
 
@@ -67,17 +80,18 @@ function getWeekStart(date: Date): Date {
     }
 
     interface CalendarEvent {
+        type: "event";
         id: string;
         title: string;
         description?: string;
-        startsAt: Date;
-        endsAt: Date;
         displayStart: Date | null;
         displayEnd: Date | null;
         startedBefore: boolean;
+        href: string;
     }
 
     interface CalendarSlot {
+        type: "slot";
         id: string;
         slot: { starts_at: number; ends_at: number };
         tasks: [Task, number][];
@@ -85,21 +99,10 @@ function getWeekStart(date: Date): Date {
         displayEnd: Date;
         startedBefore: boolean;
         endsAfter: boolean;
+        href: string;
     }
 
-    interface CalendarTask {
-        id: string;
-        title: string;
-        description?: string;
-        startsAt: Date;
-        endsAt: Date;
-        completed: boolean;
-        taskIdTable: string;
-        taskIdKey: string;
-        priority: string;
-        estimatedDuration: number;
-        deadline: number;
-    }
+    type CalendarDayItem = CalendarEvent | CalendarSlot;
 
     let events = $state<CalendarEvent[]>([]);
     let slotsWithTasks = $state<SlotWithTasks[]>([]);
@@ -111,18 +114,18 @@ function getWeekStart(date: Date): Date {
             const weekStartISO = formatDateISO(weekStart);
             const [weekEvents, weekSlots] = await week_timetable(weekStartISO);
 
-            events = weekEvents.map(e => ({
+            events = weekEvents.map((e) => ({
+                type: "event" as const,
                 id: `${e.id.table}:${getKeyString(e.id.key)}`,
                 title: e.name,
                 description: e.description || undefined,
-                startsAt: new Date(e.starts_at * 1000),
-                endsAt: new Date(e.ends_at * 1000),
-                displayStart: null,
-                displayEnd: null,
+                displayStart: new Date(e.starts_at * 1000),
+                displayEnd: new Date(e.ends_at * 1000),
                 startedBefore: false,
+                href: `/calendar/edit-event?id=${e.id.table}:${getKeyString(e.id.key)}`,
             }));
 
-            slotsWithTasks = weekSlots.map(swt => ({
+            slotsWithTasks = weekSlots.map((swt) => ({
                 slot: swt.slot,
                 tasks: swt.tasks,
             }));
@@ -133,7 +136,7 @@ function getWeekStart(date: Date): Date {
         }
     }
 
-    function getEventsForDay(dayIndex: number): CalendarEvent[] {
+    function getDayItems(dayIndex: number): CalendarDayItem[] {
         const dayStart = weekDays[dayIndex];
         if (!dayStart) return [];
         const nextDay = new Date(dayStart);
@@ -141,75 +144,100 @@ function getWeekStart(date: Date): Date {
         const dayStartTs = dayStart.getTime();
         const nextDayTs = nextDay.getTime();
 
-        return events.filter(e => {
-            const start = e.startsAt.getTime();
-            const end = e.endsAt.getTime();
-            // Event overlaps with this day if it starts before the day ends and ends after the day starts
-            return start < nextDayTs && end > dayStartTs;
-        }).map(e => {
-            const startedBefore = e.startsAt.getTime() < dayStartTs;
-            const endsAfter = e.endsAt.getTime() >= nextDayTs;
-            
-            return {
-                ...e,
-                displayStart: startedBefore ? null : e.startsAt,
-                displayEnd: endsAfter ? null : e.endsAt,
-                startedBefore,
-            };
-        }).sort((a, b) => {
-            // Events that started before this day go to the top
+        const dayEvents: CalendarEvent[] = events
+            .filter((e) => e.displayStart !== null && e.displayEnd !== null)
+            .filter((e) => {
+                const start = e.displayStart!.getTime();
+                const end = e.displayEnd!.getTime();
+                return start < nextDayTs && end > dayStartTs;
+            })
+            .map((e) => {
+                const startedBefore = e.displayStart!.getTime() < dayStartTs;
+                const endsAfter = e.displayEnd!.getTime() >= nextDayTs;
+
+                return {
+                    ...e,
+                    displayStart: startedBefore ? null : e.displayStart,
+                    displayEnd: endsAfter ? null : e.displayEnd,
+                    startedBefore,
+                };
+            });
+
+        const daySlots: CalendarSlot[] = slotsWithTasks
+            .filter((swt) => {
+                const slotStarts = swt.slot.starts_at * 1000;
+                const slotEnds = swt.slot.ends_at * 1000;
+                return slotStarts < nextDayTs && slotEnds > dayStartTs;
+            })
+            .map((swt) => {
+                const slotStarts = swt.slot.starts_at * 1000;
+                const slotEnds = swt.slot.ends_at * 1000;
+
+                const startedBefore = slotStarts < dayStartTs;
+                const endsAfter = slotEnds >= nextDayTs;
+
+                const displayStart = startedBefore
+                    ? dayStart
+                    : new Date(slotStarts);
+                const displayEnd = endsAfter
+                    ? new Date(nextDayTs - 1)
+                    : new Date(slotEnds);
+
+                const filteredTasks = swt.tasks
+                    .filter(([_, scheduledFor]) => {
+                        return (
+                            scheduledFor >= dayStartTs / 1000 &&
+                            scheduledFor < nextDayTs / 1000
+                        );
+                    })
+                    .sort((a, b) => {
+                        const aStart = a[1];
+                        const bStart = b[1];
+                        const aEnd = aStart + (a[0].estimated_duration || 0);
+                        const bEnd = bStart + (b[0].estimated_duration || 0);
+                        const startDiff = aStart - bStart;
+                        return startDiff !== 0 ? startDiff : aEnd - bEnd;
+                    });
+
+                return {
+                    type: "slot" as const,
+                    id: `${swt.slot.id?.table}:${getKeyString(swt.slot.id?.key)}`,
+                    slot: swt.slot,
+                    tasks: filteredTasks,
+                    displayStart,
+                    displayEnd,
+                    startedBefore,
+                    endsAfter,
+                    href: `/calendar/edit-slot?id=${swt.slot.id?.table}:${getKeyString(swt.slot.id?.key)}`,
+                };
+            });
+
+        return [...dayEvents, ...daySlots].sort((a, b) => {
             if (a.startedBefore && !b.startedBefore) return -1;
             if (!a.startedBefore && b.startedBefore) return 1;
-            // Otherwise sort by display start time
+
             const aStart = a.displayStart?.getTime() ?? 0;
             const bStart = b.displayStart?.getTime() ?? 0;
-            return aStart - bStart;
+            const startDiff = aStart - bStart;
+            if (startDiff !== 0) return startDiff;
+
+            const aEnd = a.displayEnd?.getTime() ?? 0;
+            const bEnd = b.displayEnd?.getTime() ?? 0;
+            return aEnd - bEnd;
         });
     }
 
-    function getSlotsForDay(dayIndex: number): CalendarSlot[] {
-        const dayStart = weekDays[dayIndex];
-        if (!dayStart) return [];
-        const nextDay = new Date(dayStart);
-        nextDay.setDate(nextDay.getDate() + 1);
-        const dayStartTs = dayStart.getTime();
-        const nextDayTs = nextDay.getTime();
-
-        return slotsWithTasks.filter(swt => {
-            const slotStarts = swt.slot.starts_at * 1000;
-            const slotEnds = swt.slot.ends_at * 1000;
-            return slotStarts < nextDayTs && slotEnds > dayStartTs;
-        }).map(swt => {
-            const slotStarts = swt.slot.starts_at * 1000;
-            const slotEnds = swt.slot.ends_at * 1000;
-
-            const startedBefore = slotStarts < dayStartTs;
-            const endsAfter = slotEnds >= nextDayTs;
-
-            const displayStart = startedBefore ? dayStart : new Date(slotStarts);
-            const displayEnd = endsAfter ? new Date(nextDayTs - 1) : new Date(slotEnds);
-
-            const filteredTasks = swt.tasks.filter(([_, scheduledFor]) => {
-                return scheduledFor >= dayStartTs / 1000 && scheduledFor < nextDayTs / 1000;
-            }).sort((a, b) => a[1] - b[1]);
-
-            return {
-                id: `${swt.slot.id?.table}:${getKeyString(swt.slot.id?.key)}`,
-                slot: swt.slot,
-                tasks: filteredTasks,
-                displayStart,
-                displayEnd,
-                startedBefore,
-                endsAfter,
-            };
-        });
-    }
-
-    async function saveTaskState(taskId: string, completed: boolean): Promise<void> {
-        const dayTasks = slotsWithTasks.flatMap(swt =>
-            swt.tasks.map(([task, _]) => ({ task, id: `${task.id.table}:${getKeyString(task.id.key)}` }))
+    async function saveTaskState(
+        taskId: string,
+        completed: boolean,
+    ): Promise<void> {
+        const dayTasks = slotsWithTasks.flatMap((swt) =>
+            swt.tasks.map(([task, _]) => ({
+                task,
+                id: `${task.id.table}:${getKeyString(task.id.key)}`,
+            })),
         );
-        const found = dayTasks.find(t => t.id === taskId);
+        const found = dayTasks.find((t) => t.id === taskId);
         if (!found) return;
 
         const taskObj: Task = {
@@ -284,8 +312,7 @@ function getWeekStart(date: Date): Date {
         {:else}
             <div class="grid grid-cols-1 lg:grid-cols-7 gap-4 h-full">
                 {#each weekDays as day, index}
-                    {@const dayEvents = getEventsForDay(index)}
-                    {@const daySlots = getSlotsForDay(index)}
+                    {@const dayItems = getDayItems(index)}
                     <div
                         class="flex flex-col gap-2 p-2 rounded-lg border-2 {isToday(
                             day,
@@ -305,24 +332,25 @@ function getWeekStart(date: Date): Date {
                         </div>
 
                         <div class="flex flex-col gap-2">
-                             {#each dayEvents as event (event.id + '-' + index)}
-                                <EventCard
-                                    title={event.title}
-                                    description={event.description}
-                                    startTime={event.displayStart}
-                                    endTime={event.displayEnd}
-                                    href={"/calendar/edit-event?id=" + event.id}
-                                />
-                            {/each}
-                            {#each daySlots as calendarSlot (calendarSlot.id + '-' + index)}
-                                <Slot
-                                    slot={calendarSlot.slot}
-                                    tasks={calendarSlot.tasks}
-                                    displayStart={calendarSlot.displayStart}
-                                    displayEnd={calendarSlot.displayEnd}
-                                    onTaskToggle={saveTaskState}
-                                    href={"/calendar/edit-slot?id=" + calendarSlot.id}
-                                />
+                            {#each dayItems as item (item.id + "-" + index)}
+                                {#if item.type === "event"}
+                                    <EventCard
+                                        title={item.title}
+                                        description={item.description}
+                                        startTime={item.displayStart}
+                                        endTime={item.displayEnd}
+                                        href={item.href}
+                                    />
+                                {:else}
+                                    <Slot
+                                        slot={item.slot}
+                                        tasks={item.tasks}
+                                        displayStart={item.displayStart}
+                                        displayEnd={item.displayEnd}
+                                        onTaskToggle={saveTaskState}
+                                        href={item.href}
+                                    />
+                                {/if}
                             {/each}
                         </div>
                     </div>
