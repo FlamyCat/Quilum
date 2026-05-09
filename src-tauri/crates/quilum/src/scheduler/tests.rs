@@ -1,11 +1,8 @@
-use crate::{
-    db::Storage,
-    scheduler::Scheduler,
-};
 use crate::model::{
     slot::Slot,
     task::{Priority, Task},
 };
+use crate::{db::Storage, scheduler::Scheduler};
 use chrono::{NaiveDateTime, TimeDelta};
 use std::collections::BTreeSet;
 use test_helpers::{create_date, create_date_time};
@@ -200,10 +197,7 @@ async fn overdue_tasks_are_not_scheduled() {
 
     let first_planned_task = plan.tasks().first().expect("Should have a task");
     assert_eq!(first_planned_task.0, task_1.id().clone());
-    assert_eq!(
-        first_planned_task.2,
-        create_date_time(2025, 6, 1, 15, 00)
-    );
+    assert_eq!(first_planned_task.2, create_date_time(2025, 6, 1, 15, 00));
 
     assert_eq!(
         plan.discarded_tasks().len(),

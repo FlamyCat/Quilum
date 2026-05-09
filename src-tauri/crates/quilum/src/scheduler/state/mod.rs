@@ -1,6 +1,4 @@
-use crate::{
-    model::{plan::Plan, slot::Slot, task::Task},
-};
+use crate::model::{plan::Plan, slot::Slot, task::Task};
 use chrono::{NaiveDateTime, TimeDelta};
 use std::{
     cmp,
@@ -65,11 +63,7 @@ impl<'a> State<'a> {
     /// Создает начальный вариант состояния на основе списка задач, слотов и
     /// текущего момента времени.
     ///
-    pub(super) fn new(
-        tasks: &'a [Task],
-        slots: VecDeque<&'a Slot>,
-        now: NaiveDateTime,
-    ) -> Self {
+    pub(super) fn new(tasks: &'a [Task], slots: VecDeque<&'a Slot>, now: NaiveDateTime) -> Self {
         let table = Self::construct_duration_table(tasks);
 
         Self {
@@ -235,9 +229,7 @@ impl<'a> State<'a> {
 
     /// Метод строит таблицу, которая группирует задачи по отведенному на них времени.
     ///
-    fn construct_duration_table(
-        tasks: &'a [Task],
-    ) -> BTreeMap<TimeDelta, BTreeSet<TaskRef<'a>>> {
+    fn construct_duration_table(tasks: &'a [Task]) -> BTreeMap<TimeDelta, BTreeSet<TaskRef<'a>>> {
         tasks.iter().fold(BTreeMap::new(), |mut table, task| {
             let task_ref = TaskRef::new(task);
             table

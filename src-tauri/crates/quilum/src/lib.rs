@@ -5,6 +5,7 @@ mod db;
 mod model;
 mod scheduler;
 
+use crate::commands::session::check_and_restore_session;
 use chrono::NaiveDate;
 use quilum_db::{
     event::Event,
@@ -15,7 +16,6 @@ use quilum_db::{
 };
 use surrealdb::types::RecordId;
 use tauri::{Manager, State};
-use crate::commands::session::check_and_restore_session;
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -165,9 +165,9 @@ async fn read_task(
 }
 
 #[tauri::command]
-async fn update_task(storage: State<'_, Storage>, task: Task) -> Result<(), String> {
+async fn update_task(storage: State<'_, Storage>, app_handle: tauri::AppHandle, task: Task) -> Result<(), String> {
     let result = storage.update_task(task).await.map_err(|e| e.to_string());
-    check_and_restore_session(storage.inner().clone());
+    check_and_restore_session(storage.inner().clone(), app_handle.clone());
     result
 }
 
@@ -217,12 +217,12 @@ async fn create_task_list(storage: State<'_, Storage>, title: String) -> Result<
 }
 
 #[tauri::command]
-async fn update_task_list(storage: State<'_, Storage>, task_list: TaskList) -> Result<(), String> {
+async fn update_task_list(storage: State<'_, Storage>, app_handle: tauri::AppHandle, task_list: TaskList) -> Result<(), String> {
     let result = storage
         .update_task_list(task_list)
         .await
         .map_err(|e| e.to_string());
-    check_and_restore_session(storage.inner().clone());
+    check_and_restore_session(storage.inner().clone(), app_handle.clone());
     result
 }
 
@@ -267,7 +267,7 @@ struct SchedulerResult {
 }
 
 #[tauri::command]
-async fn run_scheduler(storage: State<'_, Storage>) -> Result<SchedulerResult, String> {
+async fn run_scheduler(storage: State<'_, Storage>, app_handle: tauri::AppHandle) -> Result<SchedulerResult, String> {
     use crate::scheduler::Scheduler;
     use chrono::Utc;
     use surrealdb::types::RecordIdKey;
@@ -323,7 +323,7 @@ async fn run_scheduler(storage: State<'_, Storage>) -> Result<SchedulerResult, S
         .await
         .map_err(|e| e.to_string())?;
 
-    check_and_restore_session(storage.inner().clone());
+    check_and_restore_session(storage.inner().clone(), app_handle.clone());
 
     let scheduled_count = plan.tasks().len();
     let discarded_ids: Vec<String> = plan
@@ -351,6 +351,7 @@ async fn run_scheduler(storage: State<'_, Storage>) -> Result<SchedulerResult, S
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             greet,
@@ -387,7 +388,7 @@ pub fn run() {
                 .expect("Failed to initialize database");
             app.manage(storage.clone());
 
-            commands::session::check_and_restore_session(storage);
+            commands::session::check_and_restore_session(storage, app.handle().clone());
 
             Ok(())
         })

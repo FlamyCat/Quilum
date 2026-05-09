@@ -30,3 +30,4 @@ surrealdb.workspace = true
 quilum-db.workspace = true
 applock.workspace = true
 tokio.workspace = true
+tauri-plugin-notification = "2"

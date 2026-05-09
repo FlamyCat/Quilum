@@ -13,7 +13,12 @@ pub(crate) struct Scheduler<'a> {
 }
 
 impl<'a> Scheduler<'a> {
-    pub fn new(tasks: &'a [Task], upcoming_slots: &'a [Slot], now: NaiveDateTime, storage: &'a Storage) -> Self {
+    pub fn new(
+        tasks: &'a [Task],
+        upcoming_slots: &'a [Slot],
+        now: NaiveDateTime,
+        storage: &'a Storage,
+    ) -> Self {
         Self {
             tasks,
             upcoming_slots,
@@ -22,7 +27,11 @@ impl<'a> Scheduler<'a> {
         }
     }
 
-    pub fn new_with_local_datetime(tasks: &'a [Task], upcoming_slots: &'a [Slot], storage: &'a Storage) -> Self {
+    pub fn new_with_local_datetime(
+        tasks: &'a [Task],
+        upcoming_slots: &'a [Slot],
+        storage: &'a Storage,
+    ) -> Self {
         Self::new(tasks, upcoming_slots, Local::now().naive_local(), storage)
     }
 
@@ -77,7 +86,9 @@ impl<'a> Scheduler<'a> {
         let plan = self.schedule();
 
         for (task_id, slot_id, scheduled_for) in plan.tasks() {
-            self.storage.relate_task_to_slot(slot_id, task_id, *scheduled_for).await?;
+            self.storage
+                .relate_task_to_slot(slot_id, task_id, *scheduled_for)
+                .await?;
         }
 
         Ok(plan)

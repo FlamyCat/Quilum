@@ -24,8 +24,8 @@ mod skip_unsuitable_slots_tests {
         slot::Slot,
         task::{Priority, Task},
     };
-    use crate::scheduler::state::tests::test_helpers::{create_date, create_date_time};
     use crate::scheduler::state::State;
+    use crate::scheduler::state::tests::test_helpers::{create_date, create_date_time};
     use chrono::TimeDelta;
     use std::collections::VecDeque;
 
@@ -163,8 +163,8 @@ mod get_available_time_tests {
         slot::Slot,
         task::{Priority, Task},
     };
-    use crate::scheduler::state::tests::test_helpers::{create_date, create_date_time};
     use crate::scheduler::state::State;
+    use crate::scheduler::state::tests::test_helpers::{create_date, create_date_time};
     use chrono::TimeDelta;
     use std::collections::VecDeque;
 
@@ -249,7 +249,11 @@ mod get_available_time_tests {
             .expect("В таблице должна остаться задача");
 
         assert_eq!(state.slots().len(), 1);
-        let first_slot = state.slots().front().copied().expect("Слот должен остаться");
+        let first_slot = state
+            .slots()
+            .front()
+            .copied()
+            .expect("Слот должен остаться");
         let expected_available_time = first_slot.ends_at() - now;
         assert_eq!(actual_available_time, expected_available_time);
         assert!(actual_available_time >= task.task().estimated_duration());
@@ -282,7 +286,11 @@ mod get_available_time_tests {
             .expect("В таблице должна остаться задача");
 
         assert_eq!(state.slots().len(), 1);
-        let first_slot = state.slots().front().copied().expect("Слот должен остаться");
+        let first_slot = state
+            .slots()
+            .front()
+            .copied()
+            .expect("Слот должен остаться");
         let expected_available_time = first_slot.ends_at() - first_slot.starts_at();
         assert_eq!(actual_available_time, expected_available_time);
         assert!(actual_available_time >= task.task().estimated_duration());
