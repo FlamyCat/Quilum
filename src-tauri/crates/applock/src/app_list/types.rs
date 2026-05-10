@@ -9,6 +9,9 @@ pub struct AppInfo {
 
 impl AppInfo {
     pub fn new(identifier: AppIdentifier, display_name: String) -> Self {
-        Self { identifier, display_name }
+        Self {
+            identifier,
+            display_name,
+        }
     }
 }

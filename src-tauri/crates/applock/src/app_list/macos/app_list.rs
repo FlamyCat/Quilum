@@ -61,7 +61,10 @@ fn parse_app_bundle(app_path: &Path) -> Option<AppInfo> {
     }
 
     let dir_name = app_path.file_name()?.to_string_lossy().to_string();
-    let display_name = dir_name.strip_suffix(".app").unwrap_or(&dir_name).to_string();
+    let display_name = dir_name
+        .strip_suffix(".app")
+        .unwrap_or(&dir_name)
+        .to_string();
 
     Some(AppInfo::new(
         AppIdentifier::BundleId(display_name.clone()),
@@ -92,7 +95,10 @@ fn parse_info_plist(info_plist_path: &Path, app_path: &Path) -> Option<AppInfo> 
         .map(|s| s.to_string())
         .unwrap_or_else(|| {
             let dir_name = app_path.file_name().unwrap().to_string_lossy().to_string();
-            dir_name.strip_suffix(".app").unwrap_or(&dir_name).to_string()
+            dir_name
+                .strip_suffix(".app")
+                .unwrap_or(&dir_name)
+                .to_string()
         });
 
     Some(AppInfo::new(

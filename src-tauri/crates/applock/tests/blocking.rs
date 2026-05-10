@@ -1,5 +1,9 @@
 use std::{
-    collections::HashSet, process::Command, sync::{Arc, RwLock}, thread, time::Duration
+    collections::HashSet,
+    process::Command,
+    sync::{Arc, RwLock},
+    thread,
+    time::Duration,
 };
 use sysinfo::{System, UpdateKind};
 

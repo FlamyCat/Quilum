@@ -24,7 +24,9 @@ impl Task {
     }
 
     pub fn deadline_datetime(&self) -> NaiveDateTime {
-        DateTime::from_timestamp(self.deadline, 0).unwrap_or_default().naive_utc()
+        DateTime::from_timestamp(self.deadline, 0)
+            .unwrap_or_default()
+            .naive_utc()
     }
 }
 
@@ -67,7 +69,9 @@ impl Task {
     }
 
     pub fn deadline_as_datetime(&self) -> NaiveDateTime {
-        DateTime::from_timestamp(self.deadline, 0).unwrap_or_default().naive_utc()
+        DateTime::from_timestamp(self.deadline, 0)
+            .unwrap_or_default()
+            .naive_utc()
     }
 
     pub fn set_name(&mut self, name: String) {
@@ -99,7 +103,9 @@ impl Task {
     }
 }
 
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Default, Serialize, Deserialize, SurrealValue)]
+#[derive(
+    Copy, Clone, Debug, Hash, Eq, PartialEq, Default, Serialize, Deserialize, SurrealValue,
+)]
 pub enum Priority {
     Low,
     #[default]

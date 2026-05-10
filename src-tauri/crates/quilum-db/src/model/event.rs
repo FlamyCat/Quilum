@@ -25,11 +25,15 @@ impl Event {
     }
 
     pub fn starts_at(&self) -> NaiveDateTime {
-        DateTime::from_timestamp(self.starts_at, 0).unwrap_or_default().naive_utc()
+        DateTime::from_timestamp(self.starts_at, 0)
+            .unwrap_or_default()
+            .naive_utc()
     }
 
     pub fn ends_at(&self) -> NaiveDateTime {
-        DateTime::from_timestamp(self.ends_at, 0).unwrap_or_default().naive_utc()
+        DateTime::from_timestamp(self.ends_at, 0)
+            .unwrap_or_default()
+            .naive_utc()
     }
 
     pub fn set_name(&mut self, name: String) {

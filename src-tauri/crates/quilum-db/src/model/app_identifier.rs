@@ -1,14 +1,14 @@
-use std::hash::{Hash, Hasher};
-use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use serde::{Deserializer, Serializer};
+use std::hash::{Hash, Hasher};
+use std::path::PathBuf;
 
 /// Platform-specific application identifier for blocking.
 /// Serializes/deserializes to/from string for SurrealDB compatibility.
 #[derive(Debug, Clone)]
 pub enum AppIdentifier {
-    Path(PathBuf),       // Windows/Linux: full exe path
-    BundleId(String),    // macOS: immutable bundle ID
+    Path(PathBuf),    // Windows/Linux: full exe path
+    BundleId(String), // macOS: immutable bundle ID
 }
 
 impl Serialize for AppIdentifier {

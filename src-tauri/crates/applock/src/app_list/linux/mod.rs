@@ -301,7 +301,7 @@ fn extract_python_binary(tokens: &[String]) -> Option<PathBuf> {
             i += 1;
         } else {
             let script_path = PathBuf::from(token);
-            
+
             return script_path
                 .is_absolute()
                 .then_some(script_path)

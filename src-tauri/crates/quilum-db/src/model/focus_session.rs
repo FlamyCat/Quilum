@@ -1,17 +1,21 @@
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, NaiveDateTime};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FocusSession {
     pub id: surrealdb::types::RecordId,
-    pub start_time: i64,  // Unix timestamp (seconds)
-    pub end_time: i64,    // Unix timestamp (seconds)
+    pub start_time: i64, // Unix timestamp (seconds)
+    pub end_time: i64,   // Unix timestamp (seconds)
     pub task_id: Option<surrealdb::types::RecordId>,
 }
 
 impl FocusSession {
     /// Create a new FocusSession with NaiveDateTime values
-    pub fn new(start: NaiveDateTime, end: NaiveDateTime, task_id: Option<surrealdb::types::RecordId>) -> Self {
+    pub fn new(
+        start: NaiveDateTime,
+        end: NaiveDateTime,
+        task_id: Option<surrealdb::types::RecordId>,
+    ) -> Self {
         Self {
             id: surrealdb::types::RecordId::new("focus_session", "temp"),
             start_time: start.and_utc().timestamp(),

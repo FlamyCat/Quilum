@@ -1,8 +1,8 @@
 use super::*;
-use chrono::NaiveDate;
-use surrealdb::types::RecordId;
-use std::path::PathBuf;
 use crate::app_identifier::AppIdentifier;
+use chrono::NaiveDate;
+use std::path::PathBuf;
+use surrealdb::types::RecordId;
 
 #[tokio::test]
 async fn storage_mem_creation() {
@@ -831,30 +831,40 @@ async fn get_today_timetable_basic() {
     let today = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap();
 
     // Create an event for today
-    let _event = storage.create_event(
-        "Today's Event".to_string(),
-        "An event today".to_string(),
-        today.and_hms_opt(9, 0, 0).unwrap(),
-        today.and_hms_opt(10, 0, 0).unwrap(),
-    ).await.expect("Failed to create event");
+    let _event = storage
+        .create_event(
+            "Today's Event".to_string(),
+            "An event today".to_string(),
+            today.and_hms_opt(9, 0, 0).unwrap(),
+            today.and_hms_opt(10, 0, 0).unwrap(),
+        )
+        .await
+        .expect("Failed to create event");
 
     // Create a slot with a task for today
-    let slot = storage.create_slot(
-        today.and_hms_opt(10, 0, 0).unwrap(),
-        today.and_hms_opt(12, 0, 0).unwrap(),
-    ).await.expect("Failed to create slot");
+    let slot = storage
+        .create_slot(
+            today.and_hms_opt(10, 0, 0).unwrap(),
+            today.and_hms_opt(12, 0, 0).unwrap(),
+        )
+        .await
+        .expect("Failed to create slot");
 
-    let task = storage.create_task(
-        "Today's Task".to_string(),
-        "A task for today".to_string(),
-        Priority::Medium,
-        TimeDelta::hours(1),
-        today.and_hms_opt(0, 0, 0).unwrap(),
-    ).await.expect("Failed to create task");
+    let task = storage
+        .create_task(
+            "Today's Task".to_string(),
+            "A task for today".to_string(),
+            Priority::Medium,
+            TimeDelta::hours(1),
+            today.and_hms_opt(0, 0, 0).unwrap(),
+        )
+        .await
+        .expect("Failed to create task");
     assert_eq!(task.completed, false);
 
     let scheduled_for = today.and_hms_opt(10, 30, 0).unwrap();
-    storage.relate_task_to_slot(&slot.id(), &task.id(), scheduled_for)
+    storage
+        .relate_task_to_slot(&slot.id(), &task.id(), scheduled_for)
         .await
         .expect("Failed to relate task to slot");
 
@@ -883,7 +893,10 @@ async fn get_today_timetable_empty() {
         .expect("Failed to get today timetable");
 
     assert!(events.is_empty(), "Events should be empty");
-    assert!(scheduled_tasks.is_empty(), "Scheduled tasks should be empty");
+    assert!(
+        scheduled_tasks.is_empty(),
+        "Scheduled tasks should be empty"
+    );
 }
 
 #[tokio::test]
@@ -892,42 +905,64 @@ async fn get_week_timetable_basic() {
     let week_start = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap();
 
     // Event A on May 1
-    let _event_a = storage.create_event(
-        "Event A".to_string(),
-        "On May 1".to_string(),
-        week_start.and_hms_opt(10, 0, 0).unwrap(),
-        week_start.and_hms_opt(12, 0, 0).unwrap(),
-    ).await.expect("Failed to create event A");
+    let _event_a = storage
+        .create_event(
+            "Event A".to_string(),
+            "On May 1".to_string(),
+            week_start.and_hms_opt(10, 0, 0).unwrap(),
+            week_start.and_hms_opt(12, 0, 0).unwrap(),
+        )
+        .await
+        .expect("Failed to create event A");
 
     // Slot B on May 2 with 2 tasks
-    let slot_b = storage.create_slot(
-        week_start.and_hms_opt(14, 0, 0).unwrap(),
-        week_start.and_hms_opt(18, 0, 0).unwrap(),
-    ).await.expect("Failed to create slot B");
+    let slot_b = storage
+        .create_slot(
+            week_start.and_hms_opt(14, 0, 0).unwrap(),
+            week_start.and_hms_opt(18, 0, 0).unwrap(),
+        )
+        .await
+        .expect("Failed to create slot B");
 
     for i in 1..=2 {
-        let task = storage.create_task(
-            format!("Task B{}", i),
-            format!("In slot B"),
-            Priority::Medium,
-            TimeDelta::hours(1),
-            week_start.and_hms_opt(0, 0, 0).unwrap(),
-        ).await.expect("Failed to create task");
+        let task = storage
+            .create_task(
+                format!("Task B{}", i),
+                format!("In slot B"),
+                Priority::Medium,
+                TimeDelta::hours(1),
+                week_start.and_hms_opt(0, 0, 0).unwrap(),
+            )
+            .await
+            .expect("Failed to create task");
         assert_eq!(task.completed, false);
 
-        storage.relate_task_to_slot(&slot_b.id(), &task.id(), 
-            week_start.and_hms_opt(14 + (i - 1) as u32, 0, 0).unwrap())
+        storage
+            .relate_task_to_slot(
+                &slot_b.id(),
+                &task.id(),
+                week_start.and_hms_opt(14 + (i - 1) as u32, 0, 0).unwrap(),
+            )
             .await
             .expect("Failed to relate task to slot B");
     }
 
     // Event C on May 5
-    let _event_c = storage.create_event(
-        "Event C".to_string(),
-        "On May 5".to_string(),
-        NaiveDate::from_ymd_opt(2026, 5, 5).unwrap().and_hms_opt(10, 0, 0).unwrap(),
-        NaiveDate::from_ymd_opt(2026, 5, 5).unwrap().and_hms_opt(12, 0, 0).unwrap(),
-    ).await.expect("Failed to create event C");
+    let _event_c = storage
+        .create_event(
+            "Event C".to_string(),
+            "On May 5".to_string(),
+            NaiveDate::from_ymd_opt(2026, 5, 5)
+                .unwrap()
+                .and_hms_opt(10, 0, 0)
+                .unwrap(),
+            NaiveDate::from_ymd_opt(2026, 5, 5)
+                .unwrap()
+                .and_hms_opt(12, 0, 0)
+                .unwrap(),
+        )
+        .await
+        .expect("Failed to create event C");
 
     // Get week timetable (May 1 to May 8, exclusive end)
     let (events, slots_with_tasks) = storage
@@ -937,7 +972,11 @@ async fn get_week_timetable_basic() {
 
     assert_eq!(events.len(), 2, "Should have 2 events (A and C)");
     assert_eq!(slots_with_tasks.len(), 1, "Should have 1 slot (B)");
-    assert_eq!(slots_with_tasks[0].tasks.len(), 2, "Slot B should have 2 tasks");
+    assert_eq!(
+        slots_with_tasks[0].tasks.len(),
+        2,
+        "Slot B should have 2 tasks"
+    );
 }
 
 #[tokio::test]
@@ -946,29 +985,42 @@ async fn get_week_timetable_excludes_next_week() {
     let week_start = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap();
 
     // Slot A on May 1 (within week)
-    let _slot_a = storage.create_slot(
-        week_start.and_hms_opt(10, 0, 0).unwrap(),
-        week_start.and_hms_opt(12, 0, 0).unwrap(),
-    ).await.expect("Failed to create slot A");
+    let _slot_a = storage
+        .create_slot(
+            week_start.and_hms_opt(10, 0, 0).unwrap(),
+            week_start.and_hms_opt(12, 0, 0).unwrap(),
+        )
+        .await
+        .expect("Failed to create slot A");
 
     // Slot B on May 8 (next week, should be excluded)
     let slot_b_date = NaiveDate::from_ymd_opt(2026, 5, 8).unwrap();
-    let slot_b = storage.create_slot(
-        slot_b_date.and_hms_opt(10, 0, 0).unwrap(),
-        slot_b_date.and_hms_opt(12, 0, 0).unwrap(),
-    ).await.expect("Failed to create slot B");
+    let slot_b = storage
+        .create_slot(
+            slot_b_date.and_hms_opt(10, 0, 0).unwrap(),
+            slot_b_date.and_hms_opt(12, 0, 0).unwrap(),
+        )
+        .await
+        .expect("Failed to create slot B");
 
-    let task_b = storage.create_task(
-        "Task B".to_string(),
-        "In slot B (next week)".to_string(),
-        Priority::Medium,
-        TimeDelta::hours(1),
-        slot_b_date.and_hms_opt(0, 0, 0).unwrap(),
-    ).await.expect("Failed to create task");
+    let task_b = storage
+        .create_task(
+            "Task B".to_string(),
+            "In slot B (next week)".to_string(),
+            Priority::Medium,
+            TimeDelta::hours(1),
+            slot_b_date.and_hms_opt(0, 0, 0).unwrap(),
+        )
+        .await
+        .expect("Failed to create task");
     assert_eq!(task_b.completed, false);
 
-    storage.relate_task_to_slot(&slot_b.id(), &task_b.id(), 
-        slot_b_date.and_hms_opt(10, 0, 0).unwrap())
+    storage
+        .relate_task_to_slot(
+            &slot_b.id(),
+            &task_b.id(),
+            slot_b_date.and_hms_opt(10, 0, 0).unwrap(),
+        )
         .await
         .expect("Failed to relate task to slot B");
 
@@ -979,7 +1031,11 @@ async fn get_week_timetable_excludes_next_week() {
         .expect("Failed to get week timetable");
 
     assert_eq!(slots_with_tasks.len(), 1, "Should have only 1 slot (A)");
-    assert_eq!(slots_with_tasks[0].slot.id(), _slot_a.id(), "Should be slot A");
+    assert_eq!(
+        slots_with_tasks[0].slot.id(),
+        _slot_a.id(),
+        "Should be slot A"
+    );
 }
 
 #[tokio::test]
@@ -1071,19 +1127,40 @@ async fn relate_task_to_list() {
 async fn debug_get_tasks_in_list_v2() {
     let storage = Storage::new_mem().await.expect("Failed to create storage");
 
-    let list = storage.create_task_list("Test".to_string()).await.expect("Failed");
-    let task = storage.create_task(
-        "My Task".to_string(),
-        "desc".to_string(),
-        Priority::Medium,
-        TimeDelta::hours(1),
-        NaiveDate::from_ymd_opt(2026, 5, 1).unwrap().and_hms_opt(0, 0, 0).unwrap(),
-    ).await.expect("Failed");
+    let list = storage
+        .create_task_list("Test".to_string())
+        .await
+        .expect("Failed");
+    let task = storage
+        .create_task(
+            "My Task".to_string(),
+            "desc".to_string(),
+            Priority::Medium,
+            TimeDelta::hours(1),
+            NaiveDate::from_ymd_opt(2026, 5, 1)
+                .unwrap()
+                .and_hms_opt(0, 0, 0)
+                .unwrap(),
+        )
+        .await
+        .expect("Failed");
 
-    storage.relate_task_to_list(task.id(), list.id()).await.expect("Failed");
+    storage
+        .relate_task_to_list(task.id(), list.id())
+        .await
+        .expect("Failed");
 
-    let sql = format!("SELECT out.* FROM belongs_to WHERE out = {}",
-        format!("{}:{}", list.id().table, match &list.id().key { surrealdb::types::RecordIdKey::String(s) => s.as_str(), _ => "x" }));
+    let sql = format!(
+        "SELECT out.* FROM belongs_to WHERE out = {}",
+        format!(
+            "{}:{}",
+            list.id().table,
+            match &list.id().key {
+                surrealdb::types::RecordIdKey::String(s) => s.as_str(),
+                _ => "x",
+            }
+        )
+    );
     println!("SQL: {}", sql);
 
     let mut result = storage.db.query(&sql).await.unwrap();
@@ -1109,29 +1186,49 @@ async fn debug_get_tasks_in_list() {
     let storage = Storage::new_mem().await.expect("Failed to create storage");
 
     // Create list
-    let list = storage.create_task_list("Test".to_string()).await.expect("Failed");
-    let list_id_str = format!("{}:{}", list.id().table, match &list.id().key {
-        surrealdb::types::RecordIdKey::String(s) => s.as_str(),
-        _ => "unknown",
-    });
+    let list = storage
+        .create_task_list("Test".to_string())
+        .await
+        .expect("Failed");
+    let list_id_str = format!(
+        "{}:{}",
+        list.id().table,
+        match &list.id().key {
+            surrealdb::types::RecordIdKey::String(s) => s.as_str(),
+            _ => "unknown",
+        }
+    );
     println!("List ID: {}", list_id_str);
 
     // Create 2 tasks and relate
     for i in 1..=2 {
-        let task = storage.create_task(
-            format!("Task {}", i),
-            "desc".to_string(),
-            Priority::Medium,
-            TimeDelta::hours(1),
-            NaiveDate::from_ymd_opt(2026, 5, 1).unwrap().and_hms_opt(0, 0, 0).unwrap(),
-        ).await.expect("Failed");
+        let task = storage
+            .create_task(
+                format!("Task {}", i),
+                "desc".to_string(),
+                Priority::Medium,
+                TimeDelta::hours(1),
+                NaiveDate::from_ymd_opt(2026, 5, 1)
+                    .unwrap()
+                    .and_hms_opt(0, 0, 0)
+                    .unwrap(),
+            )
+            .await
+            .expect("Failed");
 
-        let task_id_str = format!("{}:{}", task.id().table, match &task.id().key {
-            surrealdb::types::RecordIdKey::String(s) => s.as_str(),
-            _ => "unknown",
-        });
+        let task_id_str = format!(
+            "{}:{}",
+            task.id().table,
+            match &task.id().key {
+                surrealdb::types::RecordIdKey::String(s) => s.as_str(),
+                _ => "unknown",
+            }
+        );
 
-        storage.relate_task_to_list(task.id(), list.id()).await.expect("Failed");
+        storage
+            .relate_task_to_list(task.id(), list.id())
+            .await
+            .expect("Failed");
         println!("Created task {} with id: {}", i, task_id_str);
     }
 
@@ -1504,7 +1601,11 @@ async fn get_uncompleted_tasks_excludes_overdue() {
         .await
         .expect("Failed to get uncompleted tasks");
 
-    assert_eq!(tasks.len(), 1, "Should return only 1 task (exclude overdue)");
+    assert_eq!(
+        tasks.len(),
+        1,
+        "Should return only 1 task (exclude overdue)"
+    );
     assert_eq!(tasks[0].name(), "Task 1");
 }
 
@@ -1513,24 +1614,22 @@ async fn get_future_slots_basic() {
     let storage = Storage::new_mem().await.expect("Failed to create storage");
 
     let now = chrono::Utc::now().naive_utc();
-    let future_date = (now.date() + chrono::Duration::days(1)).and_hms_opt(10, 0, 0).unwrap();
-    let further_date = (now.date() + chrono::Duration::days(2)).and_hms_opt(14, 0, 0).unwrap();
+    let future_date = (now.date() + chrono::Duration::days(1))
+        .and_hms_opt(10, 0, 0)
+        .unwrap();
+    let further_date = (now.date() + chrono::Duration::days(2))
+        .and_hms_opt(14, 0, 0)
+        .unwrap();
 
     // Create a future slot
     let _slot1 = storage
-        .create_slot(
-            future_date,
-            future_date + chrono::Duration::hours(2),
-        )
+        .create_slot(future_date, future_date + chrono::Duration::hours(2))
         .await
         .expect("Failed to create slot 1");
 
     // Create another future slot
     let _slot2 = storage
-        .create_slot(
-            further_date,
-            further_date + chrono::Duration::hours(2),
-        )
+        .create_slot(further_date, further_date + chrono::Duration::hours(2))
         .await
         .expect("Failed to create slot 2");
 
@@ -1547,24 +1646,22 @@ async fn get_future_slots_excludes_past() {
     let storage = Storage::new_mem().await.expect("Failed to create storage");
 
     let now = chrono::Utc::now().naive_utc();
-    let past_date = (now.date() - chrono::Duration::days(1)).and_hms_opt(10, 0, 0).unwrap();
-    let future_date = (now.date() + chrono::Duration::days(1)).and_hms_opt(14, 0, 0).unwrap();
+    let past_date = (now.date() - chrono::Duration::days(1))
+        .and_hms_opt(10, 0, 0)
+        .unwrap();
+    let future_date = (now.date() + chrono::Duration::days(1))
+        .and_hms_opt(14, 0, 0)
+        .unwrap();
 
     // Create a past slot
     let _slot1 = storage
-        .create_slot(
-            past_date,
-            past_date + chrono::Duration::hours(2),
-        )
+        .create_slot(past_date, past_date + chrono::Duration::hours(2))
         .await
         .expect("Failed to create slot 1");
 
     // Create a future slot
     let _slot2 = storage
-        .create_slot(
-            future_date,
-            future_date + chrono::Duration::hours(2),
-        )
+        .create_slot(future_date, future_date + chrono::Duration::hours(2))
         .await
         .expect("Failed to create slot 2");
 
@@ -1582,7 +1679,9 @@ async fn delete_task_slot_relations_basic() {
 
     // Create tasks
     let now = chrono::Utc::now().naive_utc();
-    let future_date = (now.date() + chrono::Duration::days(1)).and_hms_opt(10, 0, 0).unwrap();
+    let future_date = (now.date() + chrono::Duration::days(1))
+        .and_hms_opt(10, 0, 0)
+        .unwrap();
 
     let task1 = storage
         .create_task(
@@ -1631,7 +1730,9 @@ async fn delete_task_slot_relations_no_relations() {
     let storage = Storage::new_mem().await.expect("Failed to create storage");
 
     let now = chrono::Utc::now().naive_utc();
-    let future_date = (now.date() + chrono::Duration::days(1)).and_hms_opt(10, 0, 0).unwrap();
+    let future_date = (now.date() + chrono::Duration::days(1))
+        .and_hms_opt(10, 0, 0)
+        .unwrap();
 
     // Create a task without any slot relation
     let task = storage
@@ -1664,7 +1765,9 @@ async fn delete_task_cleans_up_slot_relations() {
     let storage = Storage::new_mem().await.expect("Failed to create storage");
 
     let now = chrono::Utc::now().naive_utc();
-    let future_date = (now.date() + chrono::Duration::days(1)).and_hms_opt(10, 0, 0).unwrap();
+    let future_date = (now.date() + chrono::Duration::days(1))
+        .and_hms_opt(10, 0, 0)
+        .unwrap();
 
     // Create a task
     let task = storage
@@ -1680,10 +1783,7 @@ async fn delete_task_cleans_up_slot_relations() {
 
     // Create a slot
     let slot = storage
-        .create_slot(
-            future_date,
-            future_date + chrono::Duration::hours(2),
-        )
+        .create_slot(future_date, future_date + chrono::Duration::hours(2))
         .await
         .expect("Failed to create slot");
 
@@ -1713,7 +1813,9 @@ async fn delete_slot_cleans_up_contains_relations() {
     let storage = Storage::new_mem().await.expect("Failed to create storage");
 
     let now = chrono::Utc::now().naive_utc();
-    let future_date = (now.date() + chrono::Duration::days(1)).and_hms_opt(10, 0, 0).unwrap();
+    let future_date = (now.date() + chrono::Duration::days(1))
+        .and_hms_opt(10, 0, 0)
+        .unwrap();
 
     // Create tasks
     let task1 = storage
@@ -1740,10 +1842,7 @@ async fn delete_slot_cleans_up_contains_relations() {
 
     // Create a slot
     let slot = storage
-        .create_slot(
-            future_date,
-            future_date + chrono::Duration::hours(4),
-        )
+        .create_slot(future_date, future_date + chrono::Duration::hours(4))
         .await
         .expect("Failed to create slot");
 
@@ -1753,7 +1852,11 @@ async fn delete_slot_cleans_up_contains_relations() {
         .await
         .expect("Failed to relate task 1 to slot");
     storage
-        .relate_task_to_slot(&slot.id(), &task2.id(), future_date + chrono::Duration::hours(1))
+        .relate_task_to_slot(
+            &slot.id(),
+            &task2.id(),
+            future_date + chrono::Duration::hours(1),
+        )
         .await
         .expect("Failed to relate task 2 to slot");
 
@@ -1785,8 +1888,14 @@ async fn delete_slot_cleans_up_contains_relations() {
 async fn blocked_apps_get_empty() {
     let storage = Storage::new_mem().await.expect("Failed to create storage");
 
-    let apps = storage.get_blocked_apps().await.expect("Failed to get blocked apps");
-    assert!(apps.is_empty(), "Should return empty list when no apps are blocked");
+    let apps = storage
+        .get_blocked_apps()
+        .await
+        .expect("Failed to get blocked apps");
+    assert!(
+        apps.is_empty(),
+        "Should return empty list when no apps are blocked"
+    );
 }
 
 #[tokio::test]
@@ -1803,7 +1912,10 @@ async fn blocked_apps_add_and_get() {
 
     assert_eq!(app.display_name, "Firefox");
 
-    let apps = storage.get_blocked_apps().await.expect("Failed to get blocked apps");
+    let apps = storage
+        .get_blocked_apps()
+        .await
+        .expect("Failed to get blocked apps");
     assert_eq!(apps.len(), 1, "Should have 1 blocked app");
     assert_eq!(apps[0].display_name, "Firefox");
 }
@@ -1836,7 +1948,10 @@ async fn blocked_apps_add_multiple() {
         .await
         .expect("Failed to add Spotify");
 
-    let apps = storage.get_blocked_apps().await.expect("Failed to get blocked apps");
+    let apps = storage
+        .get_blocked_apps()
+        .await
+        .expect("Failed to get blocked apps");
     assert_eq!(apps.len(), 3, "Should have 3 blocked apps");
 }
 
@@ -1860,9 +1975,15 @@ async fn blocked_apps_upsert_updates_existing() {
         .await
         .expect("Failed to update Firefox");
 
-    let apps = storage.get_blocked_apps().await.expect("Failed to get blocked apps");
+    let apps = storage
+        .get_blocked_apps()
+        .await
+        .expect("Failed to get blocked apps");
     assert_eq!(apps.len(), 1, "Should still have 1 app (not 2)");
-    assert_eq!(apps[0].display_name, "Firefox Updated", "Name should be updated");
+    assert_eq!(
+        apps[0].display_name, "Firefox Updated",
+        "Name should be updated"
+    );
 }
 
 #[tokio::test]
@@ -1890,7 +2011,10 @@ async fn blocked_apps_delete_all() {
         .await
         .expect("Failed to delete all blocked apps");
 
-    let apps = storage.get_blocked_apps().await.expect("Failed to get blocked apps");
+    let apps = storage
+        .get_blocked_apps()
+        .await
+        .expect("Failed to get blocked apps");
     assert!(apps.is_empty(), "Should be empty after delete all");
 }
 
@@ -1914,8 +2038,15 @@ async fn blocked_apps_path_and_bundle_id() {
         .await
         .expect("Failed to add bundle ID app");
 
-    let apps = storage.get_blocked_apps().await.expect("Failed to get blocked apps");
-    assert_eq!(apps.len(), 2, "Should have 2 apps with different identifier types");
+    let apps = storage
+        .get_blocked_apps()
+        .await
+        .expect("Failed to get blocked apps");
+    assert_eq!(
+        apps.len(),
+        2,
+        "Should have 2 apps with different identifier types"
+    );
 }
 
 #[tokio::test]
@@ -1932,7 +2063,10 @@ async fn blocked_apps_old_add_method() {
 
     assert_eq!(app.display_name, "Firefox");
 
-    let apps = storage.get_blocked_apps().await.expect("Failed to get blocked apps");
+    let apps = storage
+        .get_blocked_apps()
+        .await
+        .expect("Failed to get blocked apps");
     assert_eq!(apps.len(), 1, "Should have 1 blocked app");
 }
 
@@ -1998,10 +2132,18 @@ async fn get_next_scheduled_task_basic() {
     assert!(result.is_some(), "Should return a task");
     let (task, scheduled_for) = result.unwrap();
 
-    assert_eq!(task.name(), "Task 2", "Should return earliest scheduled task");
+    assert_eq!(
+        task.name(),
+        "Task 2",
+        "Should return earliest scheduled task"
+    );
     assert_eq!(
         scheduled_for,
-        slot_date.and_hms_opt(10, 0, 0).unwrap().and_utc().timestamp()
+        slot_date
+            .and_hms_opt(10, 0, 0)
+            .unwrap()
+            .and_utc()
+            .timestamp()
     );
 }
 
@@ -2014,7 +2156,10 @@ async fn get_next_scheduled_task_empty() {
         .await
         .expect("Failed to get next scheduled task");
 
-    assert!(result.is_none(), "Should return None when no scheduled tasks");
+    assert!(
+        result.is_none(),
+        "Should return None when no scheduled tasks"
+    );
 }
 
 #[tokio::test]
@@ -2056,5 +2201,8 @@ async fn get_next_scheduled_task_past_only() {
         .await
         .expect("Failed to get next scheduled task");
 
-    assert!(result.is_none(), "Should return None when only past tasks exist");
+    assert!(
+        result.is_none(),
+        "Should return None when only past tasks exist"
+    );
 }

@@ -45,8 +45,5 @@ fn parse_lnk_shortcut(lnk_path: &PathBuf) -> Option<AppInfo> {
         .unwrap_or("Unknown")
         .to_string();
 
-    Some(AppInfo::new(
-        AppIdentifier::Path(target_path),
-        display_name,
-    ))
+    Some(AppInfo::new(AppIdentifier::Path(target_path), display_name))
 }

@@ -17,12 +17,24 @@ impl Plan {
         }
     }
 
-    pub fn add_task(&mut self, task_id: RecordId, slot_id: RecordId, scheduled_for: NaiveDateTime, priority: u64) {
+    pub fn add_task(
+        &mut self,
+        task_id: RecordId,
+        slot_id: RecordId,
+        scheduled_for: NaiveDateTime,
+        priority: u64,
+    ) {
         self.scheduled.push((task_id, slot_id, scheduled_for));
         self.score += priority;
     }
 
-    pub fn with_task(mut self, task_id: RecordId, slot_id: RecordId, scheduled_for: NaiveDateTime, priority: u64) -> Self {
+    pub fn with_task(
+        mut self,
+        task_id: RecordId,
+        slot_id: RecordId,
+        scheduled_for: NaiveDateTime,
+        priority: u64,
+    ) -> Self {
         self.scheduled.push((task_id, slot_id, scheduled_for));
 
         Self {

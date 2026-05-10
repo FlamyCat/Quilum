@@ -1,5 +1,6 @@
 use std::{
     collections::HashSet,
+    path::PathBuf,
     sync::{Arc, Mutex, RwLock},
     time::Duration,
 };
@@ -13,7 +14,7 @@ fn get_exe_path(process: &sysinfo::Process) -> std::path::PathBuf {
     process
         .exe()
         .map(|p| p.to_path_buf())
-        .unwrap_or_else(|| std::path::PathBuf::from(process.name()))
+        .unwrap_or_else(|| PathBuf::from(process.name()))
 }
 
 #[cfg(any(windows, target_os = "linux"))]
@@ -53,11 +54,6 @@ impl ProcessPoller {
             for blocked_app in blocked.iter() {
                 let matches = match blocked_app {
                     AppIdentifier::Path(blocked_path) => {
-                        // let blocked_str = blocked_path.to_string_lossy().to_lowercase();
-                        // let exe_str = exe_path.to_string_lossy().to_lowercase();
-                        // exe_str.ends_with(&blocked_str)
-                        //     || exe_str.contains(&blocked_str)
-                        //     || exe_name == blocked_str
                         let Some(blocked_file_name) = blocked_path.file_name() else {
                             continue;
                         };

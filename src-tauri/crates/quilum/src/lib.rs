@@ -165,7 +165,11 @@ async fn read_task(
 }
 
 #[tauri::command]
-async fn update_task(storage: State<'_, Storage>, app_handle: tauri::AppHandle, task: Task) -> Result<(), String> {
+async fn update_task(
+    storage: State<'_, Storage>,
+    app_handle: tauri::AppHandle,
+    task: Task,
+) -> Result<(), String> {
     let result = storage.update_task(task).await.map_err(|e| e.to_string());
     check_and_restore_session(storage.inner().clone(), app_handle.clone());
     result
@@ -217,7 +221,11 @@ async fn create_task_list(storage: State<'_, Storage>, title: String) -> Result<
 }
 
 #[tauri::command]
-async fn update_task_list(storage: State<'_, Storage>, app_handle: tauri::AppHandle, task_list: TaskList) -> Result<(), String> {
+async fn update_task_list(
+    storage: State<'_, Storage>,
+    app_handle: tauri::AppHandle,
+    task_list: TaskList,
+) -> Result<(), String> {
     let result = storage
         .update_task_list(task_list)
         .await
@@ -267,7 +275,10 @@ struct SchedulerResult {
 }
 
 #[tauri::command]
-async fn run_scheduler(storage: State<'_, Storage>, app_handle: tauri::AppHandle) -> Result<SchedulerResult, String> {
+async fn run_scheduler(
+    storage: State<'_, Storage>,
+    app_handle: tauri::AppHandle,
+) -> Result<SchedulerResult, String> {
     use crate::scheduler::Scheduler;
     use chrono::Utc;
     use surrealdb::types::RecordIdKey;

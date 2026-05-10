@@ -65,7 +65,11 @@ async fn end_focus_session_internal(app_handle: tauri::AppHandle) -> Result<(), 
 }
 
 #[tauri::command]
-pub async fn start_focus_session(storage: State<'_, Storage>, app_handle: tauri::AppHandle, end_time: i64) -> Result<(), String> {
+pub async fn start_focus_session(
+    storage: State<'_, Storage>,
+    app_handle: tauri::AppHandle,
+    end_time: i64,
+) -> Result<(), String> {
     let end_time = DateTime::from_timestamp(end_time, 0).ok_or("Invalid end time")?;
     let now = Utc::now();
 
@@ -142,7 +146,14 @@ pub fn check_and_restore_session(storage: Storage, app_handle: tauri::AppHandle)
 
         if scheduled_for <= now && now <= end_timestamp {
             let end = DateTime::from_timestamp(end_timestamp, 0).unwrap_or_default();
-            start_blocking(blocked_info, end, storage.clone(), app_handle, task_name, task_duration);
+            start_blocking(
+                blocked_info,
+                end,
+                storage.clone(),
+                app_handle,
+                task_name,
+                task_duration,
+            );
         } else if scheduled_for > now {
             let start_time = DateTime::from_timestamp(scheduled_for, 0).unwrap_or_default();
             let end = DateTime::from_timestamp(end_timestamp, 0).unwrap_or_default();

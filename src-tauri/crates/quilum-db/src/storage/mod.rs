@@ -833,12 +833,12 @@ impl Storage {
     ///
     /// # Returns
     /// * Success or error
-pub async fn delete_task(&self, id: &RecordId) -> Result<(), Error> {
-    self.delete_task_slot_relations(&[id.clone()]).await?;
-    let key = Self::record_id_key(id);
-    let _: Option<Task> = self.db.delete(("task", key)).await?;
-    Ok(())
-}
+    pub async fn delete_task(&self, id: &RecordId) -> Result<(), Error> {
+        self.delete_task_slot_relations(&[id.clone()]).await?;
+        let key = Self::record_id_key(id);
+        let _: Option<Task> = self.db.delete(("task", key)).await?;
+        Ok(())
+    }
 
     /// Gets all uncompleted tasks that are not overdue.
     ///
@@ -929,17 +929,17 @@ impl Storage {
     ///
     /// # Returns
     /// * Success or error
-pub async fn delete_slot(&self, id: &RecordId) -> Result<(), Error> {
-    let sql = format!(
-        "DELETE FROM contains WHERE out = {}",
-        Self::record_id_to_string(id)
-    );
-    self.db.query(sql).await?;
-    
-    let key = Self::record_id_key(id);
-    let _: Option<Slot> = self.db.delete(("slot", key)).await?;
-    Ok(())
-}
+    pub async fn delete_slot(&self, id: &RecordId) -> Result<(), Error> {
+        let sql = format!(
+            "DELETE FROM contains WHERE out = {}",
+            Self::record_id_to_string(id)
+        );
+        self.db.query(sql).await?;
+
+        let key = Self::record_id_key(id);
+        let _: Option<Slot> = self.db.delete(("slot", key)).await?;
+        Ok(())
+    }
 
     /// Gets all future slots (slots that haven't ended yet).
     ///

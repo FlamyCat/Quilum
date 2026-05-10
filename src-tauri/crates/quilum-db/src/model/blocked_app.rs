@@ -1,6 +1,6 @@
+use crate::app_identifier::AppIdentifier;
 use serde::{Deserialize, Serialize};
 use surrealdb::types::SurrealValue;
-use crate::app_identifier::AppIdentifier;
 
 #[derive(Debug, Clone, Serialize, Deserialize, SurrealValue)]
 pub struct BlockedApp {
