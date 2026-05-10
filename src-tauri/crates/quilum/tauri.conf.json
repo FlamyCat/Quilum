@@ -2,12 +2,12 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "quilum",
   "version": "0.1.0",
-  "identifier": "com.quilum.app",
+  "identifier": "com.flamycat.quilum",
   "build": {
     "beforeDevCommand": "bun dev",
     "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "bun run build",
-    "frontendDist": "../build"
+    "frontendDist": "../../../build"
   },
   "app": {
     "windows": [
