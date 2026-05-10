@@ -18,11 +18,6 @@ use surrealdb::types::RecordId;
 use tauri::{Manager, State};
 
 #[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
-
-#[tauri::command]
 async fn today_timetable(
     storage: State<'_, Storage>,
     today: String,
@@ -365,7 +360,6 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
-            greet,
             today_timetable,
             week_timetable,
             create_event,

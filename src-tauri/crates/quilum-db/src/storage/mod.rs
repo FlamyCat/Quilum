@@ -274,9 +274,6 @@ impl Storage {
         Ok(storage)
     }
 
-    // new_ws() removed - use new_rocksdb() on all platforms for now
-    // TODO: Implement WebSocket connection with proper type handling
-
     /// Helper to convert RecordId to string for SQL queries
     fn record_id_to_string(id: &RecordId) -> String {
         match &id.key {
