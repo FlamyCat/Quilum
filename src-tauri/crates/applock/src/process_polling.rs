@@ -9,7 +9,6 @@ use tokio::task::JoinHandle;
 
 use crate::model::AppIdentifier;
 
-#[cfg(any(windows, target_os = "linux"))]
 fn get_exe_path(process: &sysinfo::Process) -> std::path::PathBuf {
     process
         .exe()
@@ -17,13 +16,11 @@ fn get_exe_path(process: &sysinfo::Process) -> std::path::PathBuf {
         .unwrap_or_else(|| PathBuf::from(process.name()))
 }
 
-#[cfg(any(windows, target_os = "linux"))]
 pub struct ProcessPoller {
     sys: Mutex<System>,
     blocked: Arc<RwLock<HashSet<AppIdentifier>>>,
 }
 
-#[cfg(any(windows, target_os = "linux"))]
 impl ProcessPoller {
     pub fn new(blocked: Arc<RwLock<HashSet<AppIdentifier>>>) -> Self {
         let sys = System::new_with_specifics(

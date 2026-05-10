@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::app_list::types::AppInfo;
 use crate::model::AppIdentifier;
@@ -66,8 +66,13 @@ fn parse_app_bundle(app_path: &Path) -> Option<AppInfo> {
         .unwrap_or(&dir_name)
         .to_string();
 
+    let executable_path = app_path.join("Contents/MacOS").join(&display_name);
+    if !executable_path.exists() {
+        return None;
+    }
+
     Some(AppInfo::new(
-        AppIdentifier::BundleId(display_name.clone()),
+        AppIdentifier::Path(executable_path),
         display_name,
     ))
 }
@@ -77,11 +82,11 @@ fn parse_info_plist(info_plist_path: &Path, app_path: &Path) -> Option<AppInfo> 
     let plist_data = fs::read(info_plist_path).ok()?;
     let plist_value: plist::Value = plist::from_bytes(&plist_data).ok()?;
 
-    let bundle_id = plist_value
+    let executable_name = plist_value
         .as_dictionary()?
-        .get("CFBundleIdentifier")?
-        .as_string()?
-        .to_string();
+        .get("CFBundleExecutable")
+        .and_then(|v| v.as_string())
+        .map(|s| s.to_string());
 
     let display_name = plist_value
         .as_dictionary()?
@@ -101,8 +106,30 @@ fn parse_info_plist(info_plist_path: &Path, app_path: &Path) -> Option<AppInfo> 
                 .to_string()
         });
 
-    Some(AppInfo::new(
-        AppIdentifier::BundleId(bundle_id),
-        display_name,
-    ))
+    let exe_name = executable_name.unwrap_or_else(|| {
+        app_path
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .strip_suffix(".app")
+            .unwrap()
+            .to_string()
+    });
+
+    let executable_path = app_path.join("Contents/MacOS").join(&exe_name);
+    if !executable_path.exists() {
+        let fallback_path = app_path.join("Contents/MacOS").join(&display_name);
+        if !fallback_path.exists() {
+            return None;
+        }
+        Some(AppInfo::new(
+            AppIdentifier::Path(fallback_path),
+            display_name,
+        ))
+    } else {
+        Some(AppInfo::new(
+            AppIdentifier::Path(executable_path),
+            display_name,
+        ))
+    }
 }
