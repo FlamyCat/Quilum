@@ -77,7 +77,6 @@ impl ProcessPoller {
     }
 }
 
-#[cfg(any(windows, target_os = "linux"))]
 pub fn start_polling(
     blocked: Arc<RwLock<HashSet<AppIdentifier>>>,
     poll_interval: Duration,
