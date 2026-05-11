@@ -9,7 +9,6 @@ fn get_start_menu_paths() -> Vec<PathBuf> {
     use windows::Win32::UI::Shell::{
         FOLDERID_CommonStartMenu, FOLDERID_StartMenu, SHGetKnownFolderPath,
     };
-    use windows::Win32::Foundation::PWSTR;
     use windows::core::GUID;
 
     let mut paths = Vec::new();
