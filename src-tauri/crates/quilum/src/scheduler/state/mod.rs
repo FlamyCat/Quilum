@@ -1,11 +1,50 @@
-use crate::model::{
-    plan::Plan,
-    slot::Slot,
-    task::{ScheduledTask, Task},
-};
+use crate::model::{plan::Plan, slot::Slot, task::Task};
 use chrono::{NaiveDateTime, TimeDelta};
-use std::cmp;
-use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::{
+    cmp,
+    collections::{BTreeMap, BTreeSet, VecDeque},
+};
+use surrealdb::types::RecordId;
+
+/// Обертка вокруг &Task, которая реализует `Ord` для использования в `BTreeSet`.
+#[derive(Clone, Copy, Debug)]
+pub(super) struct TaskRef<'a> {
+    task: &'a Task,
+}
+
+impl<'a> TaskRef<'a> {
+    pub fn new(task: &'a Task) -> Self {
+        Self { task }
+    }
+
+    pub fn record_id(&self) -> &RecordId {
+        &self.task.id()
+    }
+
+    pub fn task(&self) -> &Task {
+        self.task
+    }
+}
+
+impl<'a> PartialEq for TaskRef<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.task == other.task
+    }
+}
+
+impl<'a> Eq for TaskRef<'a> {}
+
+impl<'a> PartialOrd for TaskRef<'a> {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<'a> Ord for TaskRef<'a> {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+        self.task.cmp(other.task)
+    }
+}
 
 /// Структура, описывающая состояние
 /// (еще не запланированные задачи, текущий план, оставшиеся слоты)
@@ -13,10 +52,11 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 ///
 #[derive(Clone, Debug)]
 pub(super) struct State<'a> {
-    table: BTreeMap<TimeDelta, BTreeSet<&'a Task>>,
-    plan: Plan<'a>,
+    table: BTreeMap<TimeDelta, BTreeSet<TaskRef<'a>>>,
+    plan: Plan,
     slots: VecDeque<&'a Slot>,
     now: NaiveDateTime,
+    current_slot: Option<&'a Slot>,
 }
 
 impl<'a> State<'a> {
@@ -31,53 +71,73 @@ impl<'a> State<'a> {
             plan: Plan::new(),
             slots,
             now,
+            current_slot: None,
         }
     }
 
     pub(super) fn discard_remaining_tasks(&mut self) {
-        let remaining_tasks = self.table.values().flatten().copied();
+        let remaining_tasks = self
+            .table
+            .values()
+            .flatten()
+            .map(|tr| tr.record_id().clone());
 
         self.plan.discard_tasks(remaining_tasks);
     }
 
-    /// Функция создает следующую фазу состояния, где задача ``task`` добавлена в план.
+    /// Функция создает следующую фазу состояния, где задача `task` добавлена в план.
     ///
     /// Функция не проверяет, возможно ли добавить задачу в план.
     /// Перед ее вызовом необходимо убедиться, что в слоте достаточно времени, чтобы задача могла
     /// быть запланирована.
     ///
-    pub(super) fn create_next_state(&self, task: &'a Task) -> Self {
-        let scheduled_task = ScheduledTask::new(task, self.now);
+    pub(super) fn create_next_state(&self, task_ref: TaskRef<'a>) -> Self {
+        let task = task_ref.task();
+        let priority = u64::from(*task.priority());
 
         let mut table = self.table.clone();
         table
             .get_mut(&task.estimated_duration())
             .expect("Задача должна быть представлена в таблице")
-            .remove(task);
+            .remove(&task_ref);
 
-        let plan = self.plan.clone().with_task(scheduled_task);
+        let current_slot = self.current_slot.expect("Current slot should be set");
+        let plan = self.plan.clone().with_task(
+            task_ref.record_id().clone(),
+            current_slot.id().clone(),
+            self.now,
+            priority,
+        );
 
         Self {
             plan,
             table,
             now: self.now + task.estimated_duration(),
             slots: self.slots.clone(),
+            current_slot: self.current_slot,
         }
     }
 
-    pub(super) fn next_from_duration(&self, duration: TimeDelta) -> Self {
+    pub(super) fn next_from_duration(&mut self, duration: TimeDelta) -> Self {
         let mut next = self.clone();
 
-        let task = next
+        let task_ref = next
             .table
             .get_mut(&duration)
             .expect("Строка по ключу duration должна существовать")
             .pop_last()
             .expect("Строка не может быть пустой");
 
-        let scheduled_task = ScheduledTask::new(task, self.now);
+        let task = task_ref.task();
+        let priority = u64::from(*task.priority());
+        let current_slot = self.current_slot.expect("Current slot should be set");
 
-        next.plan.add_task(scheduled_task);
+        next.plan.add_task(
+            task_ref.record_id().clone(),
+            current_slot.id().clone(),
+            self.now,
+            priority,
+        );
 
         next.now += duration;
 
@@ -104,6 +164,7 @@ impl<'a> State<'a> {
 
         self.slots.front().copied().map(|slot| {
             self.now = cmp::max(self.now, slot.starts_at());
+            self.current_slot = Some(slot);
 
             slot.ends_at() - self.now
         })
@@ -120,11 +181,12 @@ impl<'a> State<'a> {
             .copied()
             .position(|slot| {
                 // slot.ends_at() - latest >= min_duration
-                let applicable_tasks = self.table.values().flatten().copied().filter(|&task| {
+                let applicable_tasks = self.table.values().flatten().copied().filter(|task_ref| {
+                    let task = task_ref.task();
                     let latest = cmp::max(self.now, slot.starts_at());
                     let available_time = slot.ends_at() - latest;
                     task.estimated_duration() <= available_time
-                        && task.deadline() >= latest + task.estimated_duration()
+                        && task.deadline_as_datetime() >= latest + task.estimated_duration()
                 });
 
                 applicable_tasks.count() > 0
@@ -148,13 +210,17 @@ impl<'a> State<'a> {
     ///
     pub(super) fn discard_overdue_tasks(&mut self) {
         self.table.values_mut().for_each(|task_set| {
-            let overdue_tasks: BTreeSet<&Task> = task_set
+            let overdue_tasks: BTreeSet<TaskRef<'a>> = task_set
                 .iter()
-                .filter(|&&task| task.deadline() < self.now + task.estimated_duration())
+                .filter(|task_ref| {
+                    let task = task_ref.task();
+                    task.deadline_as_datetime() < self.now + task.estimated_duration()
+                })
                 .copied()
                 .collect();
 
-            self.plan.discard_tasks(overdue_tasks.iter().copied());
+            self.plan
+                .discard_tasks(overdue_tasks.iter().map(|tr| tr.record_id().clone()));
             *task_set = task_set.difference(&overdue_tasks).copied().collect()
         });
 
@@ -163,29 +229,30 @@ impl<'a> State<'a> {
 
     /// Метод строит таблицу, которая группирует задачи по отведенному на них времени.
     ///
-    fn construct_duration_table(tasks: &'a [Task]) -> BTreeMap<TimeDelta, BTreeSet<&'a Task>> {
+    fn construct_duration_table(tasks: &'a [Task]) -> BTreeMap<TimeDelta, BTreeSet<TaskRef<'a>>> {
         tasks.iter().fold(BTreeMap::new(), |mut table, task| {
+            let task_ref = TaskRef::new(task);
             table
-                .entry(task.estimated_duration())
+                .entry(task_ref.task().estimated_duration())
                 .or_default()
-                .insert(task);
+                .insert(task_ref);
             table
         })
     }
 
-    pub(super) fn table(&self) -> &BTreeMap<TimeDelta, BTreeSet<&'a Task>> {
+    pub(super) fn table(&self) -> &BTreeMap<TimeDelta, BTreeSet<TaskRef<'a>>> {
         &self.table
     }
 
-    pub(super) fn table_mut(&mut self) -> &mut BTreeMap<TimeDelta, BTreeSet<&'a Task>> {
+    pub(super) fn table_mut(&mut self) -> &mut BTreeMap<TimeDelta, BTreeSet<TaskRef<'a>>> {
         &mut self.table
     }
 
-    pub(super) fn plan(&self) -> &Plan<'a> {
+    pub(super) fn plan(&self) -> &Plan {
         &self.plan
     }
 
-    pub(super) fn take_plan(self) -> Plan<'a> {
+    pub(super) fn take_plan(self) -> Plan {
         self.plan
     }
 

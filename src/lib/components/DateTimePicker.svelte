@@ -35,7 +35,7 @@
 </script>
 
 <div class="flex flex-col gap-2">
-    <Label for={id} class="font-semibold">{label}</Label>
+    <Label for={id} class="font-semibold text-black dark:text-white">{label}</Label>
     <div class="flex gap-2">
         <Popover.Root bind:open>
             <Popover.Trigger>
@@ -43,7 +43,7 @@
                     <Button
                         variant="outline"
                         class={cn(
-                            "w-35 justify-start text-left font-normal",
+                            "w-35 justify-start text-left font-normal text-black dark:text-white",
                             !date && "text-muted-foreground",
                         )}
                         {...triggerProps}
@@ -71,7 +71,7 @@
             id={id.replace("At", "Time")}
             type="time"
             bind:value={time}
-            class="w-auto"
+            class="w-auto text-black dark:text-white"
         />
     </div>
 </div>

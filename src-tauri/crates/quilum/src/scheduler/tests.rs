@@ -1,8 +1,12 @@
-use super::*;
-use crate::model::task::{Priority, ScheduledTask};
+use crate::model::{
+    slot::Slot,
+    task::{Priority, Task},
+};
+use crate::{db::Storage, scheduler::Scheduler};
 use chrono::{NaiveDateTime, TimeDelta};
 use std::collections::BTreeSet;
 use test_helpers::{create_date, create_date_time};
+use tokio;
 
 pub(in crate::scheduler) mod test_helpers {
     use chrono::{NaiveDate, NaiveDateTime};
@@ -31,17 +35,30 @@ fn create_task(
     deadline: NaiveDateTime,
     priority: Priority,
 ) -> Task {
-    Task::new(
-        format!("Задача {index}"),
-        format!("Описание для задачи {index}"),
+    let name = format!("Задача {index}");
+    let description = format!("Описание для задачи {index}");
+
+    Task {
+        id: surrealdb::types::RecordId::new("task", format!("{index}").as_str()),
+        name,
+        description,
         priority,
-        duration,
-        deadline,
-    )
+        estimated_duration: duration.num_seconds(),
+        deadline: deadline.and_utc().timestamp(),
+        completed: false,
+    }
 }
 
-#[test]
-fn tasks_fit_into_two_slots() {
+fn create_slot(start: NaiveDateTime, end: NaiveDateTime) -> Slot {
+    Slot {
+        id: surrealdb::types::RecordId::new("slot", "test"),
+        starts_at: start.and_utc().timestamp(),
+        ends_at: end.and_utc().timestamp(),
+    }
+}
+
+#[tokio::test]
+async fn tasks_fit_into_two_slots() {
     let task_1 = create_task(
         1,
         TimeDelta::minutes(40),
@@ -59,23 +76,24 @@ fn tasks_fit_into_two_slots() {
     let tasks = [task_1.clone(), task_2];
 
     let slots = [
-        Slot::new(
+        create_slot(
             create_date_time(2025, 6, 1, 15, 00),
             create_date_time(2025, 6, 1, 15, 30),
         ),
-        Slot::new(
+        create_slot(
             create_date_time(2025, 6, 1, 16, 00),
             create_date_time(2025, 6, 1, 16, 30),
         ),
-        Slot::new(
+        create_slot(
             create_date_time(2025, 6, 1, 17, 00),
             create_date_time(2025, 6, 1, 17, 40),
         ),
     ];
 
     let now = create_date_time(2025, 6, 1, 16, 10);
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
 
-    let scheduler = Scheduler::new(&tasks, &slots, now);
+    let scheduler = Scheduler::new(&tasks, &slots, now, &storage);
     let plan = scheduler.schedule();
 
     assert_eq!(
@@ -84,17 +102,17 @@ fn tasks_fit_into_two_slots() {
         "Обе задачи должны быть включены в план"
     );
 
-    for task in plan.tasks() {
-        if *task.task() == task_1 {
-            assert_eq!(task.scheduled_for(), create_date_time(2025, 6, 1, 17, 00));
+    for (task_id, _slot_id, scheduled_for) in plan.tasks() {
+        if *task_id == task_1.id().clone() {
+            assert_eq!(*scheduled_for, create_date_time(2025, 6, 1, 17, 00));
         } else {
-            assert_eq!(task.scheduled_for(), create_date_time(2025, 6, 1, 16, 10));
+            assert_eq!(*scheduled_for, create_date_time(2025, 6, 1, 16, 10));
         }
     }
 }
 
-#[test]
-fn tasks_fit_into_one_slot() {
+#[tokio::test]
+async fn tasks_fit_into_one_slot() {
     let task_1 = create_task(
         1,
         TimeDelta::minutes(20),
@@ -112,27 +130,23 @@ fn tasks_fit_into_one_slot() {
     let tasks = [task_1, task_2];
 
     let slots = [
-        Slot::new(
+        create_slot(
             create_date_time(2025, 6, 1, 15, 00),
             create_date_time(2025, 6, 1, 15, 40),
         ),
-        Slot::new(
+        create_slot(
             create_date_time(2025, 6, 1, 16, 00),
             create_date_time(2025, 6, 1, 17, 00),
         ),
     ];
 
     let now = create_date_time(2025, 6, 1, 14, 00);
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
 
-    let scheduler = Scheduler::new(&tasks, &slots, now);
+    let scheduler = Scheduler::new(&tasks, &slots, now, &storage);
     let plan = scheduler.schedule();
 
-    let actual: BTreeSet<NaiveDateTime> = plan
-        .tasks()
-        .iter()
-        .map(ScheduledTask::scheduled_for)
-        .collect();
-
+    let actual: BTreeSet<_> = plan.tasks().iter().map(|(_, _, t)| *t).collect();
     let expected = BTreeSet::from([
         create_date_time(2025, 6, 1, 15, 00),
         create_date_time(2025, 6, 1, 15, 20),
@@ -141,14 +155,14 @@ fn tasks_fit_into_one_slot() {
     assert_eq!(actual, expected);
 }
 
-#[test]
-fn overdue_tasks_are_not_scheduled() {
+#[tokio::test]
+async fn overdue_tasks_are_not_scheduled() {
     let slots = [
-        Slot::new(
+        create_slot(
             create_date_time(2025, 6, 1, 15, 00),
             create_date_time(2025, 6, 1, 15, 20),
         ),
-        Slot::new(
+        create_slot(
             create_date_time(2025, 6, 1, 16, 00),
             create_date_time(2025, 6, 1, 16, 40),
         ),
@@ -168,11 +182,11 @@ fn overdue_tasks_are_not_scheduled() {
         Priority::default(),
     );
 
-    let tasks = [task_1.clone(), task_2];
-
+    let tasks = [task_1.clone(), task_2.clone()];
     let now = create_date_time(2025, 6, 1, 14, 00);
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
 
-    let scheduler = Scheduler::new(&tasks, &slots, now);
+    let scheduler = Scheduler::new(&tasks, &slots, now, &storage);
     let plan = scheduler.schedule();
 
     assert_eq!(
@@ -181,18 +195,26 @@ fn overdue_tasks_are_not_scheduled() {
         "В плане должна оказаться только та задача, которую можно успеть сделать в срок"
     );
 
-    let first_planned_task = plan.tasks().first().unwrap();
+    let first_planned_task = plan.tasks().first().expect("Should have a task");
+    assert_eq!(first_planned_task.0, task_1.id().clone());
+    assert_eq!(first_planned_task.2, create_date_time(2025, 6, 1, 15, 00));
 
-    assert_eq!(*first_planned_task.task(), task_1);
     assert_eq!(
-        first_planned_task.scheduled_for(),
-        create_date_time(2025, 6, 1, 15, 00)
+        plan.discarded_tasks().len(),
+        1,
+        "Одна из задач должна быть отклонена"
+    );
+
+    assert_eq!(
+        plan.discarded_tasks()[0],
+        task_2.id().clone(),
+        "Задача с истекшим сроком должна быть отклонена"
     );
 }
 
-#[test]
-fn priority_is_handled_correctly() {
-    let slots = [Slot::new(
+#[tokio::test]
+async fn priority_is_handled_correctly() {
+    let slots = [create_slot(
         create_date_time(2025, 6, 1, 15, 00),
         create_date_time(2025, 6, 1, 16, 00),
     )];
@@ -212,10 +234,10 @@ fn priority_is_handled_correctly() {
     );
 
     let tasks = [task_1.clone(), task_2.clone()];
-
     let now = create_date_time(2025, 6, 1, 14, 00);
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
 
-    let scheduler = Scheduler::new(&tasks, &slots, now);
+    let scheduler = Scheduler::new(&tasks, &slots, now, &storage);
     let plan = scheduler.schedule();
 
     assert_eq!(
@@ -225,13 +247,13 @@ fn priority_is_handled_correctly() {
     );
 
     assert_eq!(
-        *plan[0].task(),
-        task_1,
+        plan.tasks()[0].0,
+        task_1.id().clone(),
         "Задача с более высоким приоритетом должна быть добавлена в план"
     );
 
     assert_eq!(
-        plan[0].scheduled_for(),
+        plan.tasks()[0].2,
         create_date_time(2025, 6, 1, 15, 00),
         "Задача должна быть запланирована на начало слота"
     );
@@ -243,14 +265,14 @@ fn priority_is_handled_correctly() {
     );
 
     assert_eq!(
-        *plan.discarded_tasks()[0],
-        task_2,
+        plan.discarded_tasks()[0],
+        task_2.id().clone(),
         "Задача с более низким приоритетом должна быть отклонена"
     );
 }
 
-#[test]
-fn the_task_that_can_be_done_on_time_should_be_prioritized() {
+#[tokio::test]
+async fn the_task_that_can_be_done_on_time_should_be_prioritized() {
     let task_1 = create_task(
         1,
         TimeDelta::hours(1),
@@ -266,15 +288,15 @@ fn the_task_that_can_be_done_on_time_should_be_prioritized() {
     );
 
     let tasks = [task_1.clone(), task_2.clone()];
-
-    let slots = [Slot::new(
+    let slots = [create_slot(
         create_date_time(2025, 6, 1, 15, 00),
         create_date_time(2025, 6, 1, 16, 00),
     )];
 
     let now = create_date_time(2025, 6, 1, 14, 00);
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
 
-    let scheduler = Scheduler::new(&tasks, &slots, now);
+    let scheduler = Scheduler::new(&tasks, &slots, now, &storage);
     let plan = scheduler.schedule();
 
     assert_eq!(
@@ -284,20 +306,26 @@ fn the_task_that_can_be_done_on_time_should_be_prioritized() {
     );
 
     assert_eq!(
-        plan[0].scheduled_for(),
+        plan.tasks()[0].2,
         create_date_time(2025, 6, 1, 15, 00),
         "Задача должна быть запланирована на начало слота"
     );
-    assert_eq!(*plan[0].task(), task_2, "Можно успеть только вторую задачу");
+
+    assert_eq!(
+        plan.tasks()[0].0,
+        task_2.id().clone(),
+        "Можно успеть только вторую задачу"
+    );
 
     assert_eq!(
         plan.discarded_tasks().len(),
         1,
         "Одну из задач нельзя успеть сделать в срок"
     );
+
     assert_eq!(
-        *plan.discarded_tasks()[0],
-        task_1,
+        plan.discarded_tasks()[0],
+        task_1.id().clone(),
         "Невозможно успеть сделать первую задачу"
     );
 }

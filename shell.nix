@@ -2,6 +2,7 @@ let
   pkgs = import <nixpkgs> { };
 
   libraries = with pkgs; [
+    dbus
     at-spi2-atk
     atkmm
     cairo
@@ -21,7 +22,6 @@ pkgs.mkShell {
     pkg-config
     gobject-introspection
     nodejs
-    cargo
     cargo-tauri
   ];
 
@@ -34,7 +34,7 @@ pkgs.mkShell {
 
   shellHook = ''
     # 1. Standard Library Path
-    export LD_LIBRARY_PATH=${pkgs.lib.makeLibraryPath libraries}:/run/opengl-driver/lib:${pkgs.libglvnd}/lib:$LD_LIBRARY_PATH
+    export LD_LIBRARY_PATH=${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.lib.makeLibraryPath libraries}:/run/opengl-driver/lib:${pkgs.libglvnd}/lib:$LD_LIBRARY_PATH
 
     # 2. XDG Data Dirs (Themes)
     export XDG_DATA_DIRS=${pkgs.gsettings-desktop-schemas}/share/gsettings-schemas/${pkgs.gsettings-desktop-schemas.name}:${pkgs.gtk3}/share/gsettings-schemas/${pkgs.gtk3.name}:${pkgs.gnome-themes-extra}/share:$XDG_DATA_DIRS
@@ -52,5 +52,8 @@ pkgs.mkShell {
     # --- DEBUGGING (Uncomment these if it still fails) ---
     # export G_MESSAGES_DEBUG=all
     # export WEBKIT_DEBUG=compositing,layers
+
+    # surrealdb-librocksdb-sys does not compile without this one
+    export LIBCLANG_PATH=/nix/store/19mjhjglq0g1qrnyr7prbi6xxl1ghsr3-user-environment/lib
   '';
 }

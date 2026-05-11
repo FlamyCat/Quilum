@@ -1,14 +1,15 @@
 <script lang="ts">
     import BaseCard from "./BaseCard.svelte";
 
-    type Props = {
-        title: string;
-        description?: string;
-        startTime: Date;
-        endTime: Date;
-    };
+type Props = {
+    title: string;
+    description?: string;
+    startTime: Date | null;
+    endTime: Date | null;
+    href?: string;
+};
 
-    let { title, description, startTime, endTime }: Props = $props();
+    let { title, description, startTime, endTime, href }: Props = $props();
 </script>
 
 <BaseCard
@@ -17,4 +18,6 @@
     {startTime}
     {endTime}
     showCheckbox={false}
+    {href}
+    showTime={true}
 />

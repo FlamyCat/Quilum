@@ -4,10 +4,12 @@
     type Props = {
         title: string;
         description?: string;
-        startTime: Date;
-        endTime: Date;
+        startTime: Date | null;
+        endTime: Date | null;
         completed?: boolean;
         onToggle?: (completed: boolean) => Promise<void>;
+        showTime?: boolean;
+        href?: string;
     };
 
     let {
@@ -17,6 +19,8 @@
         endTime,
         completed = false,
         onToggle,
+        showTime = false,
+        href,
     }: Props = $props();
 </script>
 
@@ -28,5 +32,7 @@
     showCheckbox={true}
     checked={completed}
     {onToggle}
-    class="opacity-50 [&:not(.completed)]:opacity-100 [.completed_&]:opacity-50"
+    {showTime}
+    {href}
+    class="opacity-50 [&:not(.completed)]:opacity-100 in-[.completed]:opacity-50"
 />

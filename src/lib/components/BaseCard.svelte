@@ -4,13 +4,15 @@
     type Props = {
         title: string;
         description?: string;
-        startTime: Date;
-        endTime: Date;
+        startTime: Date | null;
+        endTime: Date | null;
         showCheckbox?: boolean;
         checked?: boolean;
         onToggle?: (checked: boolean) => Promise<void>;
         children?: Snippet;
         class?: string;
+        showTime?: boolean;
+        href?: string;
     };
 
     let {
@@ -23,10 +25,13 @@
         onToggle,
         children,
         class: className = "",
+        showTime = false,
+        href,
     }: Props = $props();
 
-    function formatTime(date: Date): string {
-        return date.toLocaleTimeString("en-GB", {
+    function formatTime(date: Date | null): string {
+        if (date === null) return "-";
+        return date.toLocaleTimeString("ru-RU", {
             hour: "2-digit",
             minute: "2-digit",
         });
@@ -57,8 +62,12 @@
 
 {#snippet titleAndDescription()}
     <div class="h-full flex-1 flex flex-col min-w-0 justify-evenly">
-        <h3 class="font-semibold text-black dark:text-white">
-            <span class="strikethrough">{title}</span>
+        <h3 class="font-semibold text-black dark:text-white truncate">
+            {#if href}
+                <a href={href} class="cursor-pointer strikethrough">{title}</a>
+            {:else}
+                <span class="strikethrough">{title}</span>
+            {/if}
         </h3>
         {#if description}
             <p class="text-gray-500 dark:text-gray-400 truncate">
@@ -72,12 +81,14 @@
 {/snippet}
 
 {#snippet time()}
-    <div
-        class="font-light flex flex-col h-full justify-evenly text-gray-500 dark:text-gray-400"
-    >
-        <span>{formatTime(startTime)}</span>
-        <span>{formatTime(endTime)}</span>
-    </div>
+    {#if showTime}
+        <div
+            class="font-light flex flex-col h-full justify-evenly text-gray-500 dark:text-gray-400"
+        >
+            <span>{formatTime(startTime)}</span>
+            <span>{formatTime(endTime)}</span>
+        </div>
+    {/if}
 {/snippet}
 
 <div

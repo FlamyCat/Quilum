@@ -8,6 +8,43 @@
     %sveltekit.head%
   </head>
   <body data-sveltekit-preload-data="hover">
+    <script>
+      (function() {
+        const darkClass = 'dark';
+        function setTheme(isDark) {
+          document.body.classList.toggle(darkClass, isDark);
+        }
+        
+        async function initTheme() {
+          try {
+            const { getCurrentWindow } = await import('@tauri-apps/api/window');
+            const appWindow = getCurrentWindow();
+            
+            // Set initial theme
+            const initialTheme = await appWindow.theme();
+            if (initialTheme) {
+              setTheme(initialTheme === 'dark');
+            } else {
+              // Fallback to media query if Tauri theme returns null
+              setTheme(window.matchMedia('(prefers-color-scheme: dark)').matches);
+            }
+            
+            // Listen for theme changes
+            const unlisten = await appWindow.onThemeChanged((event) => {
+              setTheme(event.payload === 'dark');
+            });
+          } catch (e) {
+            // Fallback for browser dev mode
+            setTheme(window.matchMedia('(prefers-color-scheme: dark)').matches);
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+              setTheme(e.matches);
+            });
+          }
+        }
+        
+        initTheme();
+      })();
+    </script>
     <div style="display: contents">%sveltekit.body%</div>
   </body>
 </html>

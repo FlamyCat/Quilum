@@ -67,9 +67,7 @@ OpenProcess(pid) → QueryFullProcessImageNameW()
     └── ДА →
         ├── TerminateProcess(handle) — убить процесс
         │   (или)
-        ├── PostMessage(hwnd, WM_CLOSE) — вежливо попросить закрыться
-        │   (или)
-        └── Показать overlay поверх окна + вернуть фокус своему окну
+        └── PostMessage(hwnd, WM_CLOSE) — вежливо попросить закрыться
 ```
 
 #### Детали реализации
@@ -508,7 +506,9 @@ fn start_monitoring() {
 - Идентификация по App Bundle ID
 - Полностью fail-safe по аналогичным причинам
 
-По заверениям Opus, подход совместим с macOS 10.6 (Snow Leopard).
+Подход требует версию macOS не ниже 10.12 (требовние крейта `objc2`).
+
+Подробнее - см. [поддерживаемые крейтом версии ОС](https://docs.rs/objc2/latest/objc2/#supported-operating-systems).
 
 ## Источники
 
