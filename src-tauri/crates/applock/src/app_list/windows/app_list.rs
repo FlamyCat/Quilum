@@ -20,17 +20,12 @@ pub fn get_installed_apps() -> Vec<AppInfo> {
 }
 
 fn parse_lnk_shortcut(lnk_path: &PathBuf) -> Option<AppInfo> {
-    let lnk_content = match std::fs::read(lnk_path) {
-        Ok(content) => content,
-        Err(_) => return None,
-    };
-
-    let shell_link = match lnk::ShellLink::open(&lnk_content) {
+    let shell_link = match lnk::ShellLink::open(lnk_path, lnk::encoding::UTF_16LE) {
         Ok(link) => link,
         Err(_) => return None,
     };
 
-    let target_path = match shell_link.target_path() {
+    let target_path = match shell_link.link_target() {
         Some(path) => PathBuf::from(path),
         None => return None,
     };
