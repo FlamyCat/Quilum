@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "quilum",
+  "productName": "Quilum",
   "version": "0.1.0",
   "identifier": "com.flamycat.quilum",
   "build": {
@@ -12,9 +12,9 @@
   "app": {
     "windows": [
       {
-        "title": "quilum",
-        "width": 800,
-        "height": 600
+        "title": "Quilum",
+        "width": 1200,
+        "height": 700
       }
     ],
     "security": {
