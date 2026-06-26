@@ -11,10 +11,11 @@ use chrono::{Local, NaiveDate, NaiveDateTime, TimeDelta};
 use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 use surrealdb::{
-    Error, Surreal,
-    engine::local::{Db, Mem, RocksDb},
-    types::{RecordId, SurrealValue},
+    engine::local::{Db, Mem}, types::{RecordId, SurrealValue},
+    Error,
+    Surreal,
 };
+use surrealdb::engine::local::SurrealKv;
 
 /// Struct for returning slots with their scheduled tasks
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -256,14 +257,14 @@ impl Storage {
         Ok(storage)
     }
 
-    /// Creates a new Storage instance using RocksDB database mode.
+    /// Creates a new Storage instance using SurrealKV database mode.
     /// Uses platform-specific data directory via ProjectDirs.
     /// If the database cannot be opened, backs up the existing database
     /// to `quilum.db.{timestamp}.copy` and creates a fresh database.
     ///
     /// # Returns
     /// * The storage instance or an error
-    pub async fn new_rocksdb() -> Result<Self, Error> {
+    pub async fn new_surrealkv() -> Result<Self, Error> {
         let proj_dirs = ProjectDirs::from("com", "quilum", "quilum")
             .expect("Failed to get project directories");
 
@@ -271,7 +272,7 @@ impl Storage {
         std::fs::create_dir_all(&data_dir).expect("Failed to create data directory");
         let db_path = data_dir.join("quilum.db");
 
-        let db = match Surreal::new::<RocksDb>(db_path.clone()).await {
+        let db = match Surreal::new::<SurrealKv>(db_path.clone()).await {
             Ok(db) => db,
             Err(e) => {
                 if db_path.exists() {
@@ -283,7 +284,7 @@ impl Storage {
                             None,
                         )
                     })?;
-                    Surreal::new::<RocksDb>(db_path).await?
+                    Surreal::new::<SurrealKv>(db_path).await?
                 } else {
                     return Err(e);
                 }

@@ -389,7 +389,7 @@ pub fn run() {
             commands::session::end_focus_session,
         ])
         .setup(|app| {
-            let storage = tauri::async_runtime::block_on(Storage::new_rocksdb())
+            let storage = tauri::async_runtime::block_on(Storage::new_surrealkv())
                 .expect("Failed to initialize database");
             app.manage(storage.clone());
 
