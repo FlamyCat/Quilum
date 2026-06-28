@@ -5,15 +5,7 @@ mod db;
 mod model;
 mod scheduler;
 
-use crate::commands::session::check_and_restore_session;
-use chrono::NaiveDate;
-use quilum_db::{
-    event::Event,
-    slot::Slot,
-    storage::{SlotWithTasks, Storage, TaskListWithTasks},
-    task::Task,
-    tasklist::TaskList,
-};
+use quilum_db::storage::Storage;
 use surrealdb::types::RecordId;
 use tauri::{Manager, State};
 
