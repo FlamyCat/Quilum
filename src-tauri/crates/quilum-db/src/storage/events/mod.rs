@@ -1,6 +1,6 @@
-use crate::{Storage, event::Event};
+use crate::{event::Event, Storage};
 use chrono::NaiveDateTime;
-use surrealdb::{Error, types::RecordId};
+use surrealdb::{types::RecordId, Error};
 
 impl Storage {
     /// Creates a new event record in the database.
@@ -27,7 +27,7 @@ impl Storage {
             "ends_at": ends_at.and_utc().timestamp()
         });
         let created: Option<Event> = self.db.create("event").content(data).await?;
-        created.ok_or_else(|| Error::query("Failed to create event".to_string(), None))
+        Ok(created.expect("SurrealDB is not explicitly instructed to return None, so the operation result is expected to be Some(...)"))
     }
 
     /// Reads an event record from the database by its ID.
@@ -38,8 +38,7 @@ impl Storage {
     /// # Returns
     /// * The event
     pub async fn read_event(&self, id: &RecordId) -> Result<Event, Error> {
-        let key = Self::record_id_key(id);
-        let event: Option<Event> = self.db.select(("event", key)).await?;
+        let event: Option<Event> = self.db.select(id).await?;
         event.ok_or_else(|| Error::query("Event not found".to_string(), None))
     }
 
@@ -51,8 +50,7 @@ impl Storage {
     /// # Returns
     /// * Success or error
     pub async fn update_event(&self, event: Event) -> Result<(), Error> {
-        let key = Self::record_id_key(&event.id());
-        let _: Option<Event> = self.db.update(("event", key)).content(event).await?;
+        let _: Option<Event> = self.db.update(&event.id).content(event).await?;
         Ok(())
     }
 
@@ -64,8 +62,7 @@ impl Storage {
     /// # Returns
     /// * Success or error
     pub async fn delete_event(&self, id: &RecordId) -> Result<(), Error> {
-        let key = Self::record_id_key(id);
-        let _: Option<Event> = self.db.delete(("event", key)).await?;
+        let _: Option<Event> = self.db.delete(id).await?;
         Ok(())
     }
 }
