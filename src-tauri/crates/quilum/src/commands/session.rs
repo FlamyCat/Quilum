@@ -44,26 +44,13 @@ fn blocked_apps_to_info(blocked: Vec<BlockedApp>) -> Vec<AppInfo> {
         .collect()
 }
 
-async fn end_focus_session_internal(app_handle: tauri::AppHandle) -> Result<(), String> {
-    let state = blocking_state();
-    let mut guard = state.lock().await;
-    stop_blocking(&mut guard).await;
-
-    let storage = guard
-        .as_ref()
-        .map(|bs| bs._storage.clone())
-        .ok_or("No active session")?;
-
-    drop(guard);
-
-    let _ = app_handle
+async fn end_focus_session_internal(app_handle: tauri::AppHandle) -> tauri_plugin_notification::Result<()> {
+    app_handle
         .notification()
         .builder()
         .title("Период концентрации")
         .body("Период концентрации окончен. Приложения разблокированы.")
-        .show();
-
-    storage.end_session().await.map_err(|e| e.to_string())
+        .show()
 }
 
 #[tauri::command]
@@ -74,11 +61,6 @@ pub async fn start_focus_session(
 ) -> Result<(), String> {
     let end_time = DateTime::from_timestamp(end_time, 0).ok_or("Invalid end time")?;
     let now = Utc::now();
-
-    storage
-        .start_session(now.naive_utc(), end_time.naive_utc(), None)
-        .await
-        .map_err(|e| e.to_string())?;
 
     let blocked = storage
         .get_blocked_apps()
@@ -122,7 +104,7 @@ pub async fn start_focus_session(
 
 #[tauri::command]
 pub async fn end_focus_session(app_handle: tauri::AppHandle) -> Result<(), String> {
-    end_focus_session_internal(app_handle).await
+    end_focus_session_internal(app_handle).await.map_err(|e| e.to_string())
 }
 
 pub fn check_and_restore_session(storage: Storage, app_handle: tauri::AppHandle) {

@@ -40,12 +40,9 @@ pub async fn update_blocked_apps(
     storage: State<'_, Storage>,
     apps: Vec<AppInfoRaw>,
 ) -> Result<(), String> {
-    let is_active = storage
-        .is_blocking_active()
-        .await
-        .map_err(|e| e.to_string())?;
+    let focus_session_is_active = focus_session_is_active(&storage).await?;
 
-    if is_active {
+    if focus_session_is_active {
         return Err("Невозможно изменить список приложений во время фокус сессии".to_string());
     }
 
@@ -70,10 +67,15 @@ pub async fn update_blocked_apps(
     Ok(())
 }
 
+async fn focus_session_is_active(storage: &State<'_, Storage>) -> Result<bool, String> {
+    Ok(storage
+        .get_active_session()
+        .await
+        .map_err(|e| e.to_string())?
+        .is_some())
+}
+
 #[tauri::command]
 pub async fn is_blocking_active(storage: State<'_, Storage>) -> Result<bool, String> {
-    storage
-        .is_blocking_active()
-        .await
-        .map_err(|e| e.to_string())
+    focus_session_is_active(&storage).await
 }
