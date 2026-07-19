@@ -25,7 +25,7 @@ impl Plan {
         priority: u64,
     ) {
         self.scheduled.push((task_id, slot_id, scheduled_for));
-        self.score += priority;
+        self.score += priority.pow(2);
     }
 
     pub fn with_task(
