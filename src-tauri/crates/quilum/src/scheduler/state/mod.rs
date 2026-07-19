@@ -142,7 +142,7 @@ impl<'a> State<'a> {
 
         let task = task_ref.task();
         let priority = u64::from(*task.priority());
-        let current_slot = self.current_slot.expect("Current slot should be set");
+        let current_slot = self.current_slot.expect("Текущий слот должен быть задан");
 
         next.plan.add_task(
             task_ref.record_id().clone(),
@@ -182,9 +182,8 @@ impl<'a> State<'a> {
         })
     }
 
-    /// Метод удаляет ведущие слоты в списке,
-    /// * в которых осталось времени меньше, чем ``min_duration``;
-    /// * которые просрочены.
+    /// Метод удаляет прошедшие ведущие слоты в списке или те,
+    /// в которых осталось времени меньше, чем ``min_duration``.
     ///
     fn skip_unsuitable_slots(&mut self) {
         let count = self
