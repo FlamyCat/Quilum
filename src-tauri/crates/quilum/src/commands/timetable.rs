@@ -1,17 +1,18 @@
-use tauri::State;
 use chrono::NaiveDate;
 use quilum_db::{
-    event::Event,
-    SlotWithTasks,
+    storage::model::{
+        event::Event,
+        task::{Scheduled, Task},
+    }, SlotWithTasks,
     Storage,
-    task::Task
 };
+use tauri::State;
 
 #[tauri::command]
 pub async fn today_timetable(
     storage: State<'_, Storage>,
     today: String,
-) -> Result<(Vec<Event>, Vec<(Task, i64)>), String> {
+) -> Result<(Vec<Event>, Vec<Task<Scheduled>>), String> {
     let today = NaiveDate::parse_from_str(&today, "%Y-%m-%d").map_err(|e| e.to_string())?;
     storage
         .get_today_timetable(today)

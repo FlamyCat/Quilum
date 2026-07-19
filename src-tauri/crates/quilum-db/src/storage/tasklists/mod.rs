@@ -1,5 +1,12 @@
-use crate::{Storage, TaskListWithTasks, task::Task, tasklist::TaskList};
-use surrealdb::{Error, types::RecordId};
+use surrealdb::{types::RecordId, Error};
+
+use crate::{
+    storage::model::{
+        task::{Task, Unscheduled},
+        tasklist::TaskList,
+    }, Storage,
+    TaskListWithTasks,
+};
 
 impl Storage {
     /// Creates a new task list record in the database.
@@ -63,6 +70,7 @@ impl Storage {
     ///
     /// # Returns
     /// * Success or error
+    // TODO: снести
     pub async fn delete_tasks_in_list(&self, list_id: &RecordId) -> Result<(), Error> {
         let sql = format!(
             "DELETE FROM task WHERE id IN (SELECT in FROM belongs_to WHERE out = {})",
@@ -79,60 +87,21 @@ impl Storage {
     ///
     /// # Returns
     /// * The tasks in the list
-    pub async fn get_tasks_in_list(&self, list_id: &RecordId) -> Result<Vec<Task>, Error> {
-        let sql = format!(
-            "SELECT in.* FROM belongs_to WHERE out = {}",
-            Self::record_id_to_string(list_id)
-        );
-        let mut result = self.db.query(sql).await?;
-        let raw: Vec<serde_json::Value> = result.take(0).unwrap_or_default();
+    pub async fn get_tasks_in_list(
+        &self,
+        list_id: RecordId,
+    ) -> Result<Vec<Task<Unscheduled>>, Error> {
+        let sql = "SELECT ->contains->tasks AS tasks FROM $tasklist_id FETCH tasks";
+        let tasks = self
+            .db
+            .query(sql)
+            .bind(("tasklist_id", list_id))
+            .await?
+            .take::<Vec<_>>(0)?
+            .into_iter()
+            .map(Task::unscheduled_from_data)
+            .collect();
 
-        let mut tasks = Vec::new();
-        for item in raw {
-            if let Some(task_value) = item.get("in") {
-                if let Some(task_obj) = task_value.as_object() {
-                    let mut task_json = serde_json::Map::new();
-                    for (k, v) in task_obj {
-                        if k == "id" {
-                            if let Some(id_str) = v.as_str() {
-                                let parts: Vec<&str> = id_str.split(':').collect();
-                                if parts.len() == 2 {
-                                    let mut id_obj = serde_json::Map::new();
-                                    id_obj.insert(
-                                        "table".to_string(),
-                                        serde_json::Value::String(parts[0].to_string()),
-                                    );
-                                    id_obj.insert(
-                                        "key".to_string(),
-                                        serde_json::json!({"String": parts[1]}),
-                                    );
-                                    task_json.insert(
-                                        "id".to_string(),
-                                        serde_json::Value::Object(id_obj),
-                                    );
-                                }
-                            }
-                        } else if k == "priority" {
-                            if let Some(priority_obj) = v.as_object() {
-                                if let Some(first_key) = priority_obj.keys().next() {
-                                    task_json.insert(
-                                        "priority".to_string(),
-                                        serde_json::Value::String(first_key.clone()),
-                                    );
-                                }
-                            }
-                        } else {
-                            task_json.insert(k.clone(), v.clone());
-                        }
-                    }
-                    let task: Task = serde_json::from_value(serde_json::Value::Object(task_json))
-                        .map_err(|e| {
-                        Error::query(format!("Failed to deserialize task: {}", e), None)
-                    })?;
-                    tasks.push(task);
-                }
-            }
-        }
         Ok(tasks)
     }
 
@@ -141,17 +110,10 @@ impl Storage {
     /// # Returns
     /// * Vector of task lists with their tasks
     pub async fn get_all_task_lists_with_tasks(&self) -> Result<Vec<TaskListWithTasks>, Error> {
-        let sql = "SELECT * FROM task_list".to_string();
-        let mut result = self.db.query(sql).await?;
-        let lists: Vec<TaskList> = result.take(0).unwrap_or_default();
+        let sql = "SELECT *, ->contains->tasks AS tasks FROM tasklists FETCH tasks";
+        let lists = self.db.query(sql).await?.take(0)?;
 
-        let mut result_lists = Vec::new();
-        for list in lists {
-            let tasks = self.get_tasks_in_list(list.id()).await?;
-            result_lists.push(TaskListWithTasks { list, tasks });
-        }
-
-        Ok(result_lists)
+        Ok(lists)
     }
 }
 

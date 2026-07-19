@@ -1,9 +1,6 @@
-use tauri::State;
-use quilum_db::{
-    Storage,
-    slot::Slot
-};
+use quilum_db::{storage::model::slot::Slot, Storage};
 use surrealdb::types::RecordId;
+use tauri::State;
 
 #[tauri::command]
 pub async fn create_slot(

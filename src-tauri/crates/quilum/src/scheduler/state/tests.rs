@@ -20,30 +20,37 @@ pub(in crate::scheduler) mod test_helpers {
 }
 
 mod skip_unsuitable_slots_tests {
-    use crate::model::{
-        slot::Slot,
-        task::{Priority, Task},
-    };
-    use crate::scheduler::state::State;
-    use crate::scheduler::state::tests::test_helpers::{create_date, create_date_time};
-    use chrono::TimeDelta;
     use std::collections::VecDeque;
 
-    fn create_task(index: u32, estimated_duration: TimeDelta) -> Task {
+    use chrono::TimeDelta;
+    use quilum_db::storage::model::task::{TaskData, Unscheduled};
+
+    use crate::{
+        model::{
+            slot::Slot,
+            task::{Priority, Task},
+        },
+        scheduler::state::{
+            tests::test_helpers::{create_date, create_date_time},
+            State,
+        },
+    };
+
+    fn create_task(index: u32, estimated_duration: TimeDelta) -> Task<Unscheduled> {
         let name = format!("Задача {index}");
         let description = format!("Описание для задачи {index}");
         let priority = Priority::default();
         let deadline = create_date_time(2025, 6, 2, 23, 59);
 
-        Task {
-            id: surrealdb::types::RecordId::new("task", format!("{index}").as_str()),
+        Task::unscheduled_from_data(TaskData::new(
             name,
             description,
             priority,
-            estimated_duration: estimated_duration.num_seconds(),
-            deadline: deadline.and_utc().timestamp(),
-            completed: false,
-        }
+            estimated_duration.num_seconds(),
+            deadline.and_utc().timestamp(),
+            false,
+            None,
+        ))
     }
 
     fn create_slot(start: chrono::NaiveDateTime, end: chrono::NaiveDateTime) -> Slot {
@@ -159,30 +166,37 @@ mod skip_unsuitable_slots_tests {
 }
 
 mod get_available_time_tests {
-    use crate::model::{
-        slot::Slot,
-        task::{Priority, Task},
-    };
-    use crate::scheduler::state::State;
-    use crate::scheduler::state::tests::test_helpers::{create_date, create_date_time};
-    use chrono::TimeDelta;
     use std::collections::VecDeque;
 
-    fn create_task(index: u32, estimated_duration: TimeDelta) -> Task {
+    use chrono::TimeDelta;
+    use quilum_db::storage::model::task::{TaskData, Unscheduled};
+
+    use crate::{
+        model::{
+            slot::Slot,
+            task::{Priority, Task},
+        },
+        scheduler::state::{
+            tests::test_helpers::{create_date, create_date_time},
+            State,
+        },
+    };
+
+    fn create_task(index: u32, estimated_duration: TimeDelta) -> Task<Unscheduled> {
         let name = format!("Задача {index}");
         let description = format!("Описание для задачи {index}");
         let priority = Priority::default();
         let deadline = create_date_time(2025, 6, 2, 23, 59);
 
-        Task {
-            id: surrealdb::types::RecordId::new("task", format!("{index}").as_str()),
+        Task::unscheduled_from_data(TaskData::new(
             name,
             description,
             priority,
-            estimated_duration: estimated_duration.num_seconds(),
-            deadline: deadline.and_utc().timestamp(),
-            completed: false,
-        }
+            estimated_duration.num_seconds(),
+            deadline.and_utc().timestamp(),
+            false,
+            None,
+        ))
     }
 
     fn create_slot(start: chrono::NaiveDateTime, end: chrono::NaiveDateTime) -> Slot {

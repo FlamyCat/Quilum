@@ -1,11 +1,10 @@
 use std::path::PathBuf;
+
+use applock::app_list::{get_installed_apps as get_apps, AppInfo};
+use quilum_db::storage::model::app_identifier::AppIdentifier;
 use tauri::State;
 
 use crate::db::Storage;
-use applock::{
-    app_list::{AppInfo, get_installed_apps as get_apps},
-    model::AppIdentifier,
-};
 
 #[derive(serde::Deserialize)]
 pub struct AppInfoRaw {

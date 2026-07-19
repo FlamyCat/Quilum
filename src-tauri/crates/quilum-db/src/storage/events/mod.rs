@@ -1,6 +1,7 @@
-use crate::{event::Event, Storage};
 use chrono::NaiveDateTime;
 use surrealdb::{types::RecordId, Error};
+
+use crate::{storage::model::event::Event, Storage};
 
 impl Storage {
     /// Creates a new event record in the database.

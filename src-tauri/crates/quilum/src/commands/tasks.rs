@@ -1,9 +1,11 @@
-use tauri::State;
+use chrono::NaiveDateTime;
 use quilum_db::{
+    storage::model::task::{Priority, Task, Unscheduled},
     Storage,
-    task::Task
 };
 use surrealdb::types::RecordId;
+use tauri::State;
+
 use crate::commands::session::check_and_restore_session;
 
 #[tauri::command]
@@ -14,9 +16,7 @@ pub async fn create_task(
     priority: String,
     estimated_duration: i64,
     deadline: i64,
-) -> Result<Task, String> {
-    use chrono::NaiveDateTime;
-    use quilum_db::task::Priority;
+) -> Result<Task<Unscheduled>, String> {
     let priority = match priority.as_str() {
         "Low" => Priority::Low,
         "Medium" => Priority::Medium,
@@ -36,7 +36,7 @@ pub async fn read_task(
     storage: State<'_, Storage>,
     id_table: String,
     id_key: String,
-) -> Result<Task, String> {
+) -> Result<Task<Unscheduled>, String> {
     let id = RecordId::new(id_table.as_str(), id_key.as_str());
     storage.read_task(&id).await.map_err(|e| e.to_string())
 }
@@ -45,7 +45,7 @@ pub async fn read_task(
 pub async fn update_task(
     storage: State<'_, Storage>,
     app_handle: tauri::AppHandle,
-    task: Task,
+    task: Task<Unscheduled>,
 ) -> Result<(), String> {
     let result = storage.update_task(task).await.map_err(|e| e.to_string());
     check_and_restore_session(storage.inner().clone(), app_handle.clone());

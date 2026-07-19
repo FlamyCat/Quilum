@@ -1,5 +1,6 @@
-use crate::{Storage, task::Priority};
+use crate::Storage;
 use chrono::{NaiveDate, TimeDelta};
+use crate::storage::model::task::Priority;
 
 #[tokio::test]
 async fn task_list_crud() {
@@ -70,7 +71,7 @@ async fn relate_task_to_list() {
         .expect("Failed to relate task to list");
 
     let tasks = storage
-        .get_tasks_in_list(task_list.id())
+        .get_tasks_in_list(task_list.id().clone())
         .await
         .expect("Failed to get tasks in list");
 
@@ -223,7 +224,7 @@ async fn delete_task_list_deletes_tasks() {
         .expect("Failed to relate task 2");
 
     let tasks_before = storage
-        .get_tasks_in_list(task_list.id())
+        .get_tasks_in_list(task_list.id().clone())
         .await
         .expect("Failed to get tasks");
     assert_eq!(tasks_before.len(), 2, "Should have 2 tasks before delete");

@@ -1,4 +1,5 @@
-use crate::{Storage, task::Priority};
+use crate::storage::model::task::{Priority, Task};
+use crate::Storage;
 use chrono::{NaiveDate, TimeDelta};
 
 #[tokio::test]
@@ -200,7 +201,7 @@ async fn get_scheduled_tasks_basic() {
         )
         .await
         .expect("Failed to create task");
-    assert_eq!(task.completed, false);
+    assert_eq!(task.completed(), false);
 
     let scheduled_for = slot_date.and_hms_opt(10, 30, 0).unwrap();
     storage
@@ -214,8 +215,8 @@ async fn get_scheduled_tasks_basic() {
         .expect("Failed to query scheduled tasks");
 
     assert_eq!(scheduled_tasks.len(), 1, "Should return 1 scheduled task");
-    assert_eq!(scheduled_tasks[0].0.name(), "Test Task");
-    assert_eq!(scheduled_tasks[0].1, scheduled_for.and_utc().timestamp());
+    assert_eq!(scheduled_tasks[0].name(), "Test Task");
+    assert_eq!(scheduled_tasks[0].scheduled_for(), scheduled_for.and_utc().timestamp());
 }
 
 #[tokio::test]
@@ -241,7 +242,7 @@ async fn get_scheduled_tasks_wrong_date() {
         )
         .await
         .expect("Failed to create task");
-    assert_eq!(task.completed, false);
+    assert_eq!(task.completed(), false);
 
     storage
         .relate_task_to_slot(
@@ -289,7 +290,7 @@ async fn get_scheduled_tasks_multiple_in_slot() {
             )
             .await
             .expect("Failed to create task");
-        assert_eq!(task.completed, false);
+        assert_eq!(task.completed(), false);
 
         let scheduled_for = slot_date.and_hms_opt(10 + (i - 1) as u32, 0, 0).unwrap();
         storage
@@ -306,11 +307,11 @@ async fn get_scheduled_tasks_multiple_in_slot() {
 
     assert_eq!(scheduled_tasks.len(), 3, "Should return all 3 tasks");
 
-    let mut task_names: Vec<&str> = scheduled_tasks.iter().map(|st| st.0.name()).collect();
+    let mut task_names: Vec<&str> = scheduled_tasks.iter().map(|st| st.name()).collect();
     task_names.sort();
     assert_eq!(task_names, vec!["Task 1", "Task 2", "Task 3"]);
 
-    let mut scheduled_fors: Vec<i64> = scheduled_tasks.iter().map(|st| st.1).collect();
+    let mut scheduled_fors: Vec<i64> = scheduled_tasks.iter().map(|st| st.scheduled_for()).collect();
     scheduled_fors.sort();
     assert_eq!(scheduled_fors, expected_scheduled_fors);
 }
@@ -338,7 +339,7 @@ async fn get_scheduled_tasks_date_range_filter() {
         )
         .await
         .expect("Failed to create T1");
-    assert_eq!(task_t1.completed, false);
+    assert_eq!(task_t1.completed(), false);
     storage
         .relate_task_to_slot(
             &slot_a.id(),
@@ -367,7 +368,7 @@ async fn get_scheduled_tasks_date_range_filter() {
         )
         .await
         .expect("Failed to create T2");
-    assert_eq!(task_t2.completed, false);
+    assert_eq!(task_t2.completed(), false);
     storage
         .relate_task_to_slot(
             &slot_b.id(),
@@ -387,7 +388,7 @@ async fn get_scheduled_tasks_date_range_filter() {
         1,
         "Should return only T1 (May 3 is excluded)"
     );
-    assert_eq!(scheduled_tasks[0].0.name(), "Task T1");
+    assert_eq!(scheduled_tasks[0].name(), "Task T1");
 }
 
 #[tokio::test]
@@ -430,7 +431,7 @@ async fn get_slots_with_tasks_basic() {
         )
         .await
         .expect("Failed to create task");
-    assert_eq!(task.completed, false);
+    assert_eq!(task.completed(), false);
 
     let scheduled_for = slot_date.and_hms_opt(10, 30, 0).unwrap();
     storage
@@ -449,9 +450,9 @@ async fn get_slots_with_tasks_basic() {
         slot_date.and_hms_opt(10, 0, 0).unwrap()
     );
     assert_eq!(slots_with_tasks[0].tasks.len(), 1, "Should have 1 task");
-    assert_eq!(slots_with_tasks[0].tasks[0].0.name(), "Test Task");
+    assert_eq!(slots_with_tasks[0].tasks[0].name(), "Test Task");
     assert_eq!(
-        slots_with_tasks[0].tasks[0].1,
+        slots_with_tasks[0].tasks[0].scheduled_for(),
         scheduled_for.and_utc().timestamp()
     );
 }
@@ -481,7 +482,7 @@ async fn get_slots_with_tasks_multiple_tasks() {
             )
             .await
             .expect("Failed to create task");
-        assert_eq!(task.completed, false);
+        assert_eq!(task.completed(), false);
 
         let scheduled_for = slot_date.and_hms_opt(10 + (i - 1) as u32, 0, 0).unwrap();
         storage
@@ -502,7 +503,7 @@ async fn get_slots_with_tasks_multiple_tasks() {
     let mut task_names: Vec<&str> = slots_with_tasks[0]
         .tasks
         .iter()
-        .map(|(t, _)| t.name())
+        .map(Task::name)
         .collect();
     task_names.sort();
     assert_eq!(task_names, vec!["Task 1", "Task 2", "Task 3"]);
@@ -510,7 +511,7 @@ async fn get_slots_with_tasks_multiple_tasks() {
     let mut scheduled_fors: Vec<i64> = slots_with_tasks[0]
         .tasks
         .iter()
-        .map(|(_, sf)| *sf)
+        .map(Task::scheduled_for)
         .collect();
     scheduled_fors.sort();
     assert_eq!(scheduled_fors, expected_scheduled_fors);
@@ -534,14 +535,14 @@ async fn get_slots_with_tasks_multiple_slots() {
         let task = storage
             .create_task(
                 format!("Task A{}", i),
-                format!("In slot A"),
+                "In slot A".to_string(),
                 Priority::Medium,
                 TimeDelta::hours(1),
                 slot_date.and_hms_opt(0, 0, 0).unwrap(),
             )
             .await
             .expect("Failed to create task");
-        assert_eq!(task.completed, false);
+        assert_eq!(task.completed(), false);
 
         storage
             .relate_task_to_slot(
@@ -571,7 +572,7 @@ async fn get_slots_with_tasks_multiple_slots() {
         )
         .await
         .expect("Failed to create task");
-    assert_eq!(task_b.completed, false);
+    assert_eq!(task_b.completed(), false);
 
     storage
         .relate_task_to_slot(
@@ -673,7 +674,7 @@ async fn get_slots_with_tasks_date_range_filter() {
         "Should return only Slot A (May 3 is excluded)"
     );
     assert_eq!(slots_with_tasks[0].slot.id(), slot_a.id());
-    assert_eq!(slots_with_tasks[0].tasks[0].0.name(), "Task T1");
+    assert_eq!(slots_with_tasks[0].tasks[0].name(), "Task T1");
 }
 
 #[tokio::test]
@@ -752,7 +753,7 @@ async fn get_today_timetable_basic() {
         )
         .await
         .expect("Failed to create task");
-    assert_eq!(task.completed, false);
+    assert_eq!(task.completed(), false);
 
     let scheduled_for = today.and_hms_opt(10, 30, 0).unwrap();
     storage
@@ -768,8 +769,8 @@ async fn get_today_timetable_basic() {
     assert_eq!(events.len(), 1, "Should have 1 event");
     assert_eq!(events[0].name(), "Today's Event");
     assert_eq!(scheduled_tasks.len(), 1, "Should have 1 scheduled task");
-    assert_eq!(scheduled_tasks[0].0.name(), "Today's Task");
-    assert_eq!(scheduled_tasks[0].1, scheduled_for.and_utc().timestamp());
+    assert_eq!(scheduled_tasks[0].name(), "Today's Task");
+    assert_eq!(scheduled_tasks[0].scheduled_for(), scheduled_for.and_utc().timestamp());
 }
 
 #[tokio::test]
@@ -816,14 +817,14 @@ async fn get_week_timetable_basic() {
         let task = storage
             .create_task(
                 format!("Task B{}", i),
-                format!("In slot B"),
+                "In slot B".to_string(),
                 Priority::Medium,
                 TimeDelta::hours(1),
                 week_start.and_hms_opt(0, 0, 0).unwrap(),
             )
             .await
             .expect("Failed to create task");
-        assert_eq!(task.completed, false);
+        assert_eq!(task.completed(), false);
 
         storage
             .relate_task_to_slot(
@@ -897,7 +898,7 @@ async fn get_week_timetable_excludes_next_week() {
         )
         .await
         .expect("Failed to create task");
-    assert_eq!(task_b.completed, false);
+    assert_eq!(task_b.completed(), false);
 
     storage
         .relate_task_to_slot(
@@ -981,7 +982,7 @@ async fn get_next_scheduled_task_basic() {
         .expect("Failed to get next scheduled task");
 
     assert!(result.is_some(), "Should return a task");
-    let (task, scheduled_for) = result.unwrap();
+    let task = result.unwrap();
 
     assert_eq!(
         task.name(),
@@ -989,7 +990,7 @@ async fn get_next_scheduled_task_basic() {
         "Should return earliest scheduled task"
     );
     assert_eq!(
-        scheduled_for,
+        task.scheduled_for(),
         slot_date
             .and_hms_opt(10, 0, 0)
             .unwrap()

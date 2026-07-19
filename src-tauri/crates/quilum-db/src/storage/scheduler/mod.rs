@@ -1,19 +1,31 @@
-use crate::{Storage, slot::Slot, task::Task};
 use surrealdb::Error;
+
+use crate::{
+    storage::model::{
+        slot::Slot,
+        task::{Task, TaskData, Unscheduled},
+    },
+    Storage,
+};
 
 impl Storage {
     /// Gets all uncompleted tasks that are not overdue.
     ///
     /// # Returns
     /// * Vector of tasks where completed = false AND deadline > now
-    pub async fn get_uncompleted_tasks(&self) -> Result<Vec<Task>, Error> {
+    pub async fn get_uncompleted_tasks(&self) -> Result<Vec<Task<Unscheduled>>, Error> {
         let now = chrono::Utc::now().naive_utc().and_utc().timestamp();
         let sql = format!(
             "SELECT * FROM task WHERE completed = false AND deadline > {}",
             now
         );
         let mut result = self.db.query(sql).await?;
-        let tasks: Vec<Task> = result.take(0)?;
+        let tasks: Vec<_> = result
+            .take::<Vec<TaskData>>(0)?
+            .into_iter()
+            .map(Task::unscheduled_from_data)
+            .collect();
+
         Ok(tasks)
     }
 

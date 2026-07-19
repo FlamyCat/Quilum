@@ -1,9 +1,9 @@
-use crate::{Storage, task::{Priority, Task}};
 use chrono::{NaiveDateTime, TimeDelta};
-use serde::{Deserialize, Serialize};
-use surrealdb::{
-    Error,
-    types::{RecordId, SurrealValue},
+use surrealdb::{types::RecordId, Error};
+
+use crate::{
+    storage::model::task::{Priority, Task, TaskData, Unscheduled, TASKS_TABLE},
+    Storage,
 };
 
 impl Storage {
@@ -25,27 +25,18 @@ impl Storage {
         priority: Priority,
         estimated_duration: TimeDelta,
         deadline: NaiveDateTime,
-    ) -> Result<Task, Error> {
-        #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize, SurrealValue)]
-        struct TaskCreate {
-            name: String,
-            description: String,
-            priority: Priority,
-            estimated_duration: i64,
-            deadline: i64,
-            completed: bool,
-        }
+    ) -> Result<Task<Unscheduled>, Error> {
+        let data = TaskData::new(
+            name,
+            description,
+            priority,
+            estimated_duration.num_seconds(),
+            deadline.and_utc().timestamp(),
+            false,
+            None,
+        );
 
-        let data = TaskCreate {
-            name: name,
-            description: description,
-            priority: priority,
-            estimated_duration: estimated_duration.num_seconds(),
-            deadline: deadline.and_utc().timestamp(),
-            completed: false,
-        };
-
-        let created: Option<Task> = self.db.create("task").content(data).await?;
+        let created: Option<Task<_>> = self.db.create(TASKS_TABLE).content(data).await?;
         created.ok_or_else(|| Error::query("Failed to create task".to_string(), None))
     }
 
@@ -56,9 +47,9 @@ impl Storage {
     ///
     /// # Returns
     /// * The task
-    pub async fn read_task(&self, id: &RecordId) -> Result<Task, Error> {
+    pub async fn read_task(&self, id: &RecordId) -> Result<Task<Unscheduled>, Error> {
         let key = Self::record_id_key(id);
-        let task: Option<Task> = self.db.select(("task", key)).await?;
+        let task: Option<Task<_>> = self.db.select((TASKS_TABLE, key)).await?;
         task.ok_or_else(|| Error::query("Task not found".to_string(), None))
     }
 
@@ -69,9 +60,9 @@ impl Storage {
     ///
     /// # Returns
     /// * Success or error
-    pub async fn update_task(&self, task: Task) -> Result<(), Error> {
+    pub async fn update_task(&self, task: Task<Unscheduled>) -> Result<(), Error> {
         let key = Self::record_id_key(&task.id());
-        let _: Option<Task> = self.db.update(("task", key)).content(task).await?;
+        let _: Option<Task<Unscheduled>> = self.db.update((TASKS_TABLE, key)).content(task).await?;
         Ok(())
     }
 
@@ -85,7 +76,7 @@ impl Storage {
     pub async fn delete_task(&self, id: &RecordId) -> Result<(), Error> {
         self.delete_task_slot_relations(&[id.clone()]).await?;
         let key = Self::record_id_key(id);
-        let _: Option<Task> = self.db.delete(("task", key)).await?;
+        let _: Option<Task<Unscheduled>> = self.db.delete((TASKS_TABLE, key)).await?;
         Ok(())
     }
 }

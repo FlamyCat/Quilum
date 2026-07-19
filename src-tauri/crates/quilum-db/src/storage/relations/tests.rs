@@ -1,4 +1,7 @@
-use crate::{Storage, task::Priority};
+use crate::{
+    Storage,
+    storage::model::task::Priority
+};
 use chrono::TimeDelta;
 
 #[tokio::test]

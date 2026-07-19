@@ -1,6 +1,7 @@
-use crate::{Storage, slot::Slot};
 use chrono::NaiveDateTime;
-use surrealdb::{Error, types::RecordId};
+use surrealdb::{types::RecordId, Error};
+
+use crate::{storage::model::slot::Slot, Storage};
 
 impl Storage {
     /// Creates a new slot record in the database.
