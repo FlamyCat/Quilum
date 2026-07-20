@@ -1,7 +1,7 @@
 use chrono::NaiveDateTime;
 use surrealdb::{types::RecordId, Error};
 
-use crate::{storage::model::event::Event, Storage};
+use crate::{event::EVENTS_TABLE, storage::model::event::Event, Storage};
 
 impl Storage {
     /// Creates a new event record in the database.
@@ -21,13 +21,15 @@ impl Storage {
         starts_at: NaiveDateTime,
         ends_at: NaiveDateTime,
     ) -> Result<Event, Error> {
-        let data = serde_json::json!({
-            "name": name,
-            "description": description,
-            "starts_at": starts_at.and_utc().timestamp(),
-            "ends_at": ends_at.and_utc().timestamp()
-        });
-        let created: Option<Event> = self.db.create("event").content(data).await?;
+        let event = Event::new(
+            name,
+            description,
+            starts_at.and_utc().timestamp(),
+            ends_at.and_utc().timestamp(),
+        );
+
+        let created = self.db.create(EVENTS_TABLE).content(event).await?;
+
         Ok(created.expect("SurrealDB is not explicitly instructed to return None, so the operation result is expected to be Some(...)"))
     }
 
@@ -39,7 +41,7 @@ impl Storage {
     /// # Returns
     /// * The event
     pub async fn read_event(&self, id: &RecordId) -> Result<Event, Error> {
-        let event: Option<Event> = self.db.select(id).await?;
+        let event = self.db.select(id).await?;
         event.ok_or_else(|| Error::query("Event not found".to_string(), None))
     }
 

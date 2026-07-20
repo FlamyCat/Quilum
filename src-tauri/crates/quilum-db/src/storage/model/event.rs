@@ -1,6 +1,8 @@
 use chrono::{DateTime, NaiveDateTime};
 use serde::{Deserialize, Serialize};
-use surrealdb::types::{RecordId, SurrealValue};
+use surrealdb::types::{RecordId, RecordIdKey, SurrealValue};
+
+pub const EVENTS_TABLE: &str = "events";
 
 #[derive(Clone, Debug, Serialize, Deserialize, SurrealValue)]
 pub struct Event {
@@ -50,5 +52,15 @@ impl Event {
 
     pub fn set_ends_at(&mut self, ends_at: NaiveDateTime) {
         self.ends_at = ends_at.and_utc().timestamp();
+    }
+
+    pub fn new(name: String, description: String, starts_at: i64, ends_at: i64) -> Self {
+        Self {
+            id: RecordId::new(EVENTS_TABLE, RecordIdKey::ulid()),
+            name,
+            description,
+            starts_at,
+            ends_at,
+        }
     }
 }
