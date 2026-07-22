@@ -111,7 +111,7 @@ async fn delete_task_cleans_up_slot_relations() {
         .expect("Failed to create slot");
 
     storage
-        .relate_task_to_slot(&slot.id(), &task.id(), future_date)
+        .schedule_task(&slot.id(), &task.id(), future_date)
         .await
         .expect("Failed to relate task to slot");
 
@@ -164,11 +164,11 @@ async fn delete_slot_cleans_up_contains_relations() {
         .expect("Failed to create slot");
 
     storage
-        .relate_task_to_slot(&slot.id(), &task1.id(), future_date)
+        .schedule_task(&slot.id(), &task1.id(), future_date)
         .await
         .expect("Failed to relate task 1 to slot");
     storage
-        .relate_task_to_slot(
+        .schedule_task(
             &slot.id(),
             &task2.id(),
             future_date + chrono::Duration::hours(1),

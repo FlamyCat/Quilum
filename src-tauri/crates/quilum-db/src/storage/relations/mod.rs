@@ -1,6 +1,7 @@
-use crate::Storage;
-use chrono::NaiveDateTime;
+use chrono::{DateTime, Utc};
 use surrealdb::{types::RecordId, Error};
+
+use crate::Storage;
 
 impl Storage {
     /// Relates a task to a slot with the scheduled_for timestamp.
@@ -12,19 +13,23 @@ impl Storage {
     ///
     /// # Returns
     /// * Success or error
-    pub async fn relate_task_to_slot(
+    pub async fn schedule_task(
         &self,
-        slot_id: &RecordId,
-        task_id: &RecordId,
-        scheduled_for: NaiveDateTime,
+        slot_id: RecordId,
+        task_id: RecordId,
+        scheduled_for: DateTime<Utc>,
     ) -> Result<(), Error> {
-        let sql = format!(
-            "RELATE {}->contains->{} SET scheduled_for = {}",
-            Self::record_id_to_string(slot_id),
-            Self::record_id_to_string(task_id),
-            scheduled_for.and_utc().timestamp()
-        );
-        self.db.query(sql).await?;
+        let sql = "
+            fn::schedule_task($task, $slot, $time)
+        ";
+
+        self.db
+            .query(sql)
+            .bind(("task", task_id))
+            .bind(("slot", slot_id))
+            .bind(("time", scheduled_for))
+            .await?;
+
         Ok(())
     }
 

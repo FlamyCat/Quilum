@@ -23,7 +23,7 @@ async fn relate_task_to_slot(
     let task_id = RecordId::new(task_id_table.as_str(), task_id_key.as_str());
     let scheduled_for = NaiveDateTime::from_timestamp(scheduled_for, 0);
     storage
-        .relate_task_to_slot(&slot_id, &task_id, scheduled_for)
+        .schedule_task(&slot_id, &task_id, scheduled_for)
         .await
         .map_err(|e| e.to_string())
 }

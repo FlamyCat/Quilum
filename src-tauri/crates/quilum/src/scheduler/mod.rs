@@ -91,7 +91,7 @@ impl<'a> Scheduler<'a> {
 
         for (task_id, slot_id, scheduled_for) in plan.tasks() {
             self.storage
-                .relate_task_to_slot(slot_id, task_id, *scheduled_for)
+                .schedule_task(slot_id, task_id, *scheduled_for)
                 .await?;
         }
 

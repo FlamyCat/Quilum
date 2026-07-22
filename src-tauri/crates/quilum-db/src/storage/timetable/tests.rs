@@ -205,7 +205,7 @@ async fn get_scheduled_tasks_basic() {
 
     let scheduled_for = slot_date.and_hms_opt(10, 30, 0).unwrap();
     storage
-        .relate_task_to_slot(&slot.id(), &task.id(), scheduled_for)
+        .schedule_task(&slot.id(), &task.id(), scheduled_for)
         .await
         .expect("Failed to relate task to slot");
 
@@ -245,7 +245,7 @@ async fn get_scheduled_tasks_wrong_date() {
     assert_eq!(task.completed(), false);
 
     storage
-        .relate_task_to_slot(
+        .schedule_task(
             &slot.id(),
             &task.id(),
             slot_date.and_hms_opt(10, 0, 0).unwrap(),
@@ -294,7 +294,7 @@ async fn get_scheduled_tasks_multiple_in_slot() {
 
         let scheduled_for = slot_date.and_hms_opt(10 + (i - 1) as u32, 0, 0).unwrap();
         storage
-            .relate_task_to_slot(&slot.id(), &task.id(), scheduled_for)
+            .schedule_task(&slot.id(), &task.id(), scheduled_for)
             .await
             .expect("Failed to relate task to slot");
         expected_scheduled_fors.push(scheduled_for.and_utc().timestamp());
@@ -341,7 +341,7 @@ async fn get_scheduled_tasks_date_range_filter() {
         .expect("Failed to create T1");
     assert_eq!(task_t1.completed(), false);
     storage
-        .relate_task_to_slot(
+        .schedule_task(
             &slot_a.id(),
             &task_t1.id(),
             date1.and_hms_opt(10, 0, 0).unwrap(),
@@ -370,7 +370,7 @@ async fn get_scheduled_tasks_date_range_filter() {
         .expect("Failed to create T2");
     assert_eq!(task_t2.completed(), false);
     storage
-        .relate_task_to_slot(
+        .schedule_task(
             &slot_b.id(),
             &task_t2.id(),
             date2.and_hms_opt(10, 0, 0).unwrap(),
@@ -435,7 +435,7 @@ async fn get_slots_with_tasks_basic() {
 
     let scheduled_for = slot_date.and_hms_opt(10, 30, 0).unwrap();
     storage
-        .relate_task_to_slot(&slot.id(), &task.id(), scheduled_for)
+        .schedule_task(&slot.id(), &task.id(), scheduled_for)
         .await
         .expect("Failed to relate task to slot");
 
@@ -486,7 +486,7 @@ async fn get_slots_with_tasks_multiple_tasks() {
 
         let scheduled_for = slot_date.and_hms_opt(10 + (i - 1) as u32, 0, 0).unwrap();
         storage
-            .relate_task_to_slot(&slot.id(), &task.id(), scheduled_for)
+            .schedule_task(&slot.id(), &task.id(), scheduled_for)
             .await
             .expect("Failed to relate task to slot");
         expected_scheduled_fors.push(scheduled_for.and_utc().timestamp());
@@ -545,7 +545,7 @@ async fn get_slots_with_tasks_multiple_slots() {
         assert_eq!(task.completed(), false);
 
         storage
-            .relate_task_to_slot(
+            .schedule_task(
                 &slot_a.id(),
                 &task.id(),
                 slot_date.and_hms_opt(10 + (i - 1) as u32, 0, 0).unwrap(),
@@ -575,7 +575,7 @@ async fn get_slots_with_tasks_multiple_slots() {
     assert_eq!(task_b.completed(), false);
 
     storage
-        .relate_task_to_slot(
+        .schedule_task(
             &slot_b.id(),
             &task_b.id(),
             slot_date.and_hms_opt(14, 0, 0).unwrap(),
@@ -627,7 +627,7 @@ async fn get_slots_with_tasks_date_range_filter() {
         .await
         .expect("Failed to create T1");
     storage
-        .relate_task_to_slot(
+        .schedule_task(
             &slot_a.id(),
             &task_t1.id(),
             date1.and_hms_opt(10, 0, 0).unwrap(),
@@ -655,7 +655,7 @@ async fn get_slots_with_tasks_date_range_filter() {
         .await
         .expect("Failed to create T2");
     storage
-        .relate_task_to_slot(
+        .schedule_task(
             &slot_b.id(),
             &task_t2.id(),
             date2.and_hms_opt(10, 0, 0).unwrap(),
@@ -757,7 +757,7 @@ async fn get_today_timetable_basic() {
 
     let scheduled_for = today.and_hms_opt(10, 30, 0).unwrap();
     storage
-        .relate_task_to_slot(&slot.id(), &task.id(), scheduled_for)
+        .schedule_task(&slot.id(), &task.id(), scheduled_for)
         .await
         .expect("Failed to relate task to slot");
 
@@ -827,7 +827,7 @@ async fn get_week_timetable_basic() {
         assert_eq!(task.completed(), false);
 
         storage
-            .relate_task_to_slot(
+            .schedule_task(
                 &slot_b.id(),
                 &task.id(),
                 week_start.and_hms_opt(14 + (i - 1) as u32, 0, 0).unwrap(),
@@ -901,7 +901,7 @@ async fn get_week_timetable_excludes_next_week() {
     assert_eq!(task_b.completed(), false);
 
     storage
-        .relate_task_to_slot(
+        .schedule_task(
             &slot_b.id(),
             &task_b.id(),
             slot_b_date.and_hms_opt(10, 0, 0).unwrap(),
@@ -959,7 +959,7 @@ async fn get_next_scheduled_task_basic() {
         .expect("Failed to create task 2");
 
     storage
-        .relate_task_to_slot(
+        .schedule_task(
             &slot.id(),
             &task1.id(),
             slot_date.and_hms_opt(11, 0, 0).unwrap(),
@@ -968,7 +968,7 @@ async fn get_next_scheduled_task_basic() {
         .expect("Failed to relate task 1 to slot");
 
     storage
-        .relate_task_to_slot(
+        .schedule_task(
             &slot.id(),
             &task2.id(),
             slot_date.and_hms_opt(10, 0, 0).unwrap(),
@@ -1040,7 +1040,7 @@ async fn get_next_scheduled_task_past_only() {
         .expect("Failed to create task");
 
     storage
-        .relate_task_to_slot(
+        .schedule_task(
             &slot.id(),
             &task.id(),
             slot_date.and_hms_opt(10, 0, 0).unwrap(),
