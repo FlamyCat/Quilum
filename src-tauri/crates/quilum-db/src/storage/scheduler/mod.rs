@@ -7,6 +7,7 @@ use crate::{
     },
     Storage,
 };
+use crate::slot::SLOTS_TABLE;
 
 impl Storage {
     /// Gets all uncompleted tasks that theoretically can be done on time.
@@ -37,9 +38,9 @@ impl Storage {
     /// # Returns
     /// * Vector of slots where ends_at > now
     pub async fn get_future_slots(&self) -> Result<Vec<Slot>, Error> {
-        let sql = "
-            SELECT * FROM slot WHERE ends_at > time::now() ORDER BY starts_at ASC
-        ";
+        let sql = format!("
+            SELECT * FROM {} WHERE ends_at > time::now() ORDER BY starts_at ASC
+        ", SLOTS_TABLE);
 
         let slots = self.db.query(sql).await?.take(0)?;
         Ok(slots)

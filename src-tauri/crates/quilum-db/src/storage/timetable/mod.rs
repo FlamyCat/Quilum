@@ -139,8 +139,21 @@ impl Storage {
 
         self.db
             .query(sql)
-            .bind(("start", start))
-            .bind(("end", end))
+            .bind((
+                "start",
+                start
+                    .and_hms_opt(0, 0, 0)
+                    .unwrap_or_default()
+                    .and_utc()
+                    .timestamp(),
+            ))
+            .bind((
+                "end",
+                end.and_hms_opt(0, 0, 0)
+                    .unwrap_or_default()
+                    .and_utc()
+                    .timestamp(),
+            ))
             .await?
             .take(0)
     }

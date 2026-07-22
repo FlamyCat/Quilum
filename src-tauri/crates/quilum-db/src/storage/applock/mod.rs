@@ -76,7 +76,7 @@ impl Storage {
         &self,
         identifier: AppIdentifier,
         display_name: &str,
-    ) -> surrealdb::Result<Option<BlockedApp>> {
+    ) -> surrealdb::Result<BlockedApp> {
         let id_str = match &identifier {
             AppIdentifier::Path(p) => p.to_string_lossy().to_string(),
             AppIdentifier::BundleId(s) => s.clone(),
@@ -88,6 +88,7 @@ impl Storage {
             .upsert((BLOCKED_APPS_TABLE, id_str))
             .content(blocked_app)
             .await
+            .map(Option::unwrap)
     }
 
     /// Deletes all blocked apps (clears the table).

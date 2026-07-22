@@ -14,11 +14,11 @@ impl Storage {
     ///
     /// # Returns
     /// * The storage instance or an error
-    pub fn new(db: Surreal<Db>) -> Result<Self, Error> {
-        Ok(Self { db })
+    pub fn new(db: Surreal<Db>) -> Self {
+        Self { db }
     }
 
-    /// Initialize the database with required schema (indexes, etc.)
+    /// Initialize the database with required initialization script
     /// Runs the init.surql script included at compile time.
     pub async fn init(&self) -> Result<(), Error> {
         let init_script = include_str!("../../../resources/init.surql");
@@ -33,7 +33,7 @@ impl Storage {
     pub async fn new_mem() -> Result<Self, Error> {
         let db = Surreal::new::<Mem>(()).await?;
         db.use_ns("test").use_db("test").await?;
-        let storage = Self::new(db)?;
+        let storage = Self::new(db);
         storage.init().await?;
         Ok(storage)
     }

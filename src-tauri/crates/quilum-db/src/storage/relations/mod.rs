@@ -38,10 +38,13 @@ impl Storage {
         Ok(())
     }
 
-    /// Deletes task-slot relations (contains edges) for the specified tasks.
+    /// Unschedules tasks by IDs.
+    ///
+    /// This method removes the edges connecting respective tasks with their slots and also sets
+    /// `scheduled_for` to `NONE`.
     ///
     /// # Arguments
-    /// * `task_ids` - Vector of task record IDs to unlink from slots
+    /// * `task_ids` - Vector of task record IDs to unschedule.
     ///
     /// # Returns
     /// * Success or error

@@ -31,8 +31,7 @@ pub struct TaskListWithTasks {
     pub tasks: Vec<Task<Unscheduled>>,
 }
 
-/// Storage struct that holds a handle to a SurrealDB instance
-/// and exposes CRUD methods for events, tasks, and app blocking.
+/// Struct that exposes storage methods.
 #[derive(Clone)]
 pub struct Storage {
     db: Surreal<Db>,

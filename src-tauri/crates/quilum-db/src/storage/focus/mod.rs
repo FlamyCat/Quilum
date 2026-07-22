@@ -16,7 +16,7 @@ impl Storage {
             SELECT *
             FROM ONLY tasks
             WHERE
-                scheduled_for + duration >= time::now()
+                scheduled_for + estimated_duration >= time::now()
                 AND completed == false
             ORDER BY scheduled_for
             LIMIT 1;

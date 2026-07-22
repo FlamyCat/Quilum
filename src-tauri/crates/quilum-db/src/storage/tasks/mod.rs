@@ -69,12 +69,14 @@ impl Storage {
 
     /// Deletes a task record from the database by its ID.
     ///
+    /// The task is also unscheduled.
+    ///
     /// # Arguments
     /// * `id` - The ID of the task to delete
     ///
     /// # Returns
     /// * Success or error
-    pub async fn delete_task(&self, id: RecordId) -> Result<(), Error> {
+    pub async fn delete_task(&self, id: &RecordId) -> Result<(), Error> {
         self.unschedule_tasks(HashSet::from([id.clone()])).await?;
         let _: Option<Task<Unscheduled>> = self.db.delete(id).await?;
         Ok(())
