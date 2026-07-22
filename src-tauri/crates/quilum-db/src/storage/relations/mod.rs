@@ -59,17 +59,21 @@ impl Storage {
     ///
     /// # Returns
     /// * Success or error
-    pub async fn relate_task_to_list(
+    pub async fn put_task_into_list(
         &self,
-        task_id: &RecordId,
-        list_id: &RecordId,
+        task_id: RecordId,
+        list_id: RecordId,
     ) -> Result<(), Error> {
-        let sql = format!(
-            "RELATE {}->belongs_to->{}",
-            Self::record_id_to_string(task_id),
-            Self::record_id_to_string(list_id)
-        );
-        self.db.query(sql).await?;
+        let sql = "
+            fn::put_task_into_list($task, $list)
+        ";
+
+        self.db
+            .query(sql)
+            .bind(("task", task_id))
+            .bind(("list", list_id))
+            .await?;
+
         Ok(())
     }
 }

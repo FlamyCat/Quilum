@@ -66,7 +66,7 @@ async fn relate_task_to_list() {
         .expect("Failed to create task");
 
     storage
-        .relate_task_to_list(task.id(), task_list.id())
+        .put_task_into_list(task.id(), task_list.id())
         .await
         .expect("Failed to relate task to list");
 
@@ -102,7 +102,7 @@ async fn get_all_task_lists_with_tasks() {
         .await
         .expect("Failed to create task 1A");
     storage
-        .relate_task_to_list(task1a.id(), list1.id())
+        .put_task_into_list(task1a.id(), list1.id())
         .await
         .expect("Failed to relate task 1A");
 
@@ -120,7 +120,7 @@ async fn get_all_task_lists_with_tasks() {
         .await
         .expect("Failed to create task 1B");
     storage
-        .relate_task_to_list(task1b.id(), list1.id())
+        .put_task_into_list(task1b.id(), list1.id())
         .await
         .expect("Failed to relate task 1B");
 
@@ -143,7 +143,7 @@ async fn get_all_task_lists_with_tasks() {
         .await
         .expect("Failed to create task 2A");
     storage
-        .relate_task_to_list(task2a.id(), list2.id())
+        .put_task_into_list(task2a.id(), list2.id())
         .await
         .expect("Failed to relate task 2A");
 
@@ -201,7 +201,7 @@ async fn delete_task_list_deletes_tasks() {
         .await
         .expect("Failed to create task 1");
     storage
-        .relate_task_to_list(task1.id(), task_list.id())
+        .put_task_into_list(task1.id(), task_list.id())
         .await
         .expect("Failed to relate task 1");
 
@@ -219,7 +219,7 @@ async fn delete_task_list_deletes_tasks() {
         .await
         .expect("Failed to create task 2");
     storage
-        .relate_task_to_list(task2.id(), task_list.id())
+        .put_task_into_list(task2.id(), task_list.id())
         .await
         .expect("Failed to relate task 2");
 

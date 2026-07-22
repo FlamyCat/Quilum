@@ -40,7 +40,7 @@ async fn relate_task_to_list(
     let task_id = RecordId::new(task_id_table.as_str(), task_id_key.as_str());
     let list_id = RecordId::new(list_id_table.as_str(), list_id_key.as_str());
     storage
-        .relate_task_to_list(&task_id, &list_id)
+        .put_task_into_list(&task_id, &list_id)
         .await
         .map_err(|e| e.to_string())
 }
