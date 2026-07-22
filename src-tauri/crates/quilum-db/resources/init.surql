@@ -32,17 +32,3 @@ DEFINE FIELD OVERWRITE blocked ON blocked_apps TYPE bool;
 
 DEFINE TABLE OVERWRITE contains SCHEMAFULL TYPE RELATION FROM task_lists TO tasks ENFORCED;
 DEFINE TABLE OVERWRITE scheduled_in SCHEMAFULL TYPE RELATION FROM tasks TO slots ENFORCED;
-
-DEFINE FUNCTION OVERWRITE fn::put_task_into_list($task: record<tasks>, $list: record<tasklists>) {
-    RELATE $list -> contains:[$list, $task] -> $task;
-};
-
-DEFINE FUNCTION OVERWRITE fn::schedule_task($task: record<tasks>, $slot: record<slots>, $time: datetime) {
-    RELATE $task -> scheduled_in:[$task, $slot] -> $slot;
-    UPDATE $task SET scheduled_for = $time;
-};
-
-DEFINE FUNCTION OVERWRITE fn::unschedule_tasks($tasks: set<record<task>>) {
-    UPDATE $tasks SET scheduled_for = NONE;
-    DELETE scheduled_in WHERE in IN $tasks;
-}

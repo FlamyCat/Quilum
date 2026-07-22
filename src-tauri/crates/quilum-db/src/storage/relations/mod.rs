@@ -22,7 +22,10 @@ impl Storage {
         scheduled_for: DateTime<Utc>,
     ) -> Result<(), Error> {
         let sql = "
-            fn::schedule_task($task, $slot, $time)
+            BEGIN TRANSACTION;
+            RELATE $task -> scheduled_in:[$task, $slot] -> $slot;
+            UPDATE $task SET scheduled_for = $time;
+            COMMIT;
         ";
 
         self.db
@@ -44,7 +47,10 @@ impl Storage {
     /// * Success or error
     pub async fn unschedule_tasks(&self, task_ids: HashSet<RecordId>) -> Result<(), Error> {
         let sql = "
-            fn::unschedule_tasks($tasks)
+            BEGIN TRANSACTION;
+            UPDATE $tasks SET scheduled_for = NONE;
+            DELETE scheduled_in WHERE in IN $tasks;
+            COMMIT;
         ";
 
         self.db.query(sql).bind(("tasks", task_ids)).await?;
@@ -65,7 +71,7 @@ impl Storage {
         list_id: RecordId,
     ) -> Result<(), Error> {
         let sql = "
-            fn::put_task_into_list($task, $list)
+            RELATE $list -> contains:[$list, $task] -> $task;
         ";
 
         self.db
