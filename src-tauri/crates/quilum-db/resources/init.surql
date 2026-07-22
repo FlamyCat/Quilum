@@ -13,9 +13,9 @@ DEFINE FIELD OVERWRITE ends_at ON slots TYPE int;
 DEFINE TABLE OVERWRITE tasks SCHEMAFULL TYPE NORMAL;
 DEFINE FIELD OVERWRITE title ON tasks TYPE string ASSERT $value != "";
 DEFINE FIELD OVERWRITE description ON tasks TYPE string DEFAULT "";
-DEFINE FIELD OVERWRITE priority ON tasks TYPE object;
 DEFINE FIELD OVERWRITE estimated_duration ON tasks TYPE int;
 DEFINE FIELD OVERWRITE deadline ON tasks TYPE int;
+DEFINE FIELD OVERWRITE priority ON tasks TYPE object FLEXIBLE;
 DEFINE FIELD OVERWRITE completed ON tasks TYPE bool;
 DEFINE FIELD OVERWRITE scheduled_for ON tasks TYPE option<int>;
 
