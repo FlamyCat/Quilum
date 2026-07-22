@@ -4,7 +4,8 @@ use crate::{
     storage::model::{
         task::{Task, Unscheduled},
         tasklist::TaskList,
-    }, Storage,
+    }, tasklist::TASKLISTS_TABLE,
+    Storage,
     TaskListWithTasks,
 };
 
@@ -17,10 +18,9 @@ impl Storage {
     /// # Returns
     /// * The created task list
     pub async fn create_task_list(&self, title: String) -> Result<TaskList, Error> {
-        let data = serde_json::json!({
-            "title": title
-        });
-        let created: Option<TaskList> = self.db.create("task_list").content(data).await?;
+        let tasklist = TaskList::new(title);
+
+        let created: Option<TaskList> = self.db.create(TASKLISTS_TABLE).content(tasklist).await?;
         created.ok_or_else(|| Error::query("Failed to create task list".to_string(), None))
     }
 
@@ -32,8 +32,7 @@ impl Storage {
     /// # Returns
     /// * The task list
     pub async fn read_task_list(&self, id: &RecordId) -> Result<TaskList, Error> {
-        let key = Self::record_id_key(id);
-        let list: Option<TaskList> = self.db.select(("task_list", key)).await?;
+        let list = self.db.select(id).await?;
         list.ok_or_else(|| Error::query("Task list not found".to_string(), None))
     }
 
@@ -45,8 +44,7 @@ impl Storage {
     /// # Returns
     /// * Success or error
     pub async fn update_task_list(&self, list: TaskList) -> Result<(), Error> {
-        let key = Self::record_id_key(&list.id());
-        let _: Option<TaskList> = self.db.update(("task_list", key)).content(list).await?;
+        let _: Option<TaskList> = self.db.update(list.id()).content(list).await?;
         Ok(())
     }
 
@@ -58,25 +56,7 @@ impl Storage {
     /// # Returns
     /// * Success or error
     pub async fn delete_task_list(&self, id: &RecordId) -> Result<(), Error> {
-        let key = Self::record_id_key(id);
-        let _: Option<TaskList> = self.db.delete(("task_list", key)).await?;
-        Ok(())
-    }
-
-    /// Deletes all tasks in a task list.
-    ///
-    /// # Arguments
-    /// * `list_id` - The task list record ID
-    ///
-    /// # Returns
-    /// * Success or error
-    // TODO: снести
-    pub async fn delete_tasks_in_list(&self, list_id: &RecordId) -> Result<(), Error> {
-        let sql = format!(
-            "DELETE FROM task WHERE id IN (SELECT in FROM belongs_to WHERE out = {})",
-            Self::record_id_to_string(list_id)
-        );
-        self.db.query(sql).await?;
+        let _: Option<TaskList> = self.db.delete(id).await?;
         Ok(())
     }
 

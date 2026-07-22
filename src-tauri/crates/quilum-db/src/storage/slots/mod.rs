@@ -2,6 +2,7 @@ use chrono::NaiveDateTime;
 use surrealdb::{types::RecordId, Error};
 
 use crate::{storage::model::slot::Slot, Storage};
+use crate::slot::SLOTS_TABLE;
 
 impl Storage {
     /// Creates a new slot record in the database.
@@ -17,11 +18,12 @@ impl Storage {
         starts_at: NaiveDateTime,
         ends_at: NaiveDateTime,
     ) -> Result<Slot, Error> {
-        let data = serde_json::json!({
-            "starts_at": starts_at.and_utc().timestamp(),
-            "ends_at": ends_at.and_utc().timestamp()
-        });
-        let created: Option<Slot> = self.db.create("slot").content(data).await?;
+        let slot = Slot::new(
+            starts_at.and_utc().timestamp(),
+            ends_at.and_utc().timestamp(),
+        );
+
+        let created: Option<Slot> = self.db.create(SLOTS_TABLE).content(slot).await?;
         created.ok_or_else(|| Error::query("Failed to create slot".to_string(), None))
     }
 
@@ -33,8 +35,7 @@ impl Storage {
     /// # Returns
     /// * The slot
     pub async fn read_slot(&self, id: &RecordId) -> Result<Slot, Error> {
-        let key = Self::record_id_key(id);
-        let slot: Option<Slot> = self.db.select(("slot", key)).await?;
+        let slot: Option<Slot> = self.db.select(id).await?;
         slot.ok_or_else(|| Error::query("Slot not found".to_string(), None))
     }
 
@@ -46,8 +47,7 @@ impl Storage {
     /// # Returns
     /// * Success or error
     pub async fn update_slot(&self, slot: Slot) -> Result<(), Error> {
-        let key = Self::record_id_key(&slot.id());
-        let _: Option<Slot> = self.db.update(("slot", key)).content(slot).await?;
+        let _: Option<Slot> = self.db.update(slot.id()).content(slot).await?;
         Ok(())
     }
 
@@ -59,14 +59,7 @@ impl Storage {
     /// # Returns
     /// * Success or error
     pub async fn delete_slot(&self, id: &RecordId) -> Result<(), Error> {
-        let sql = format!(
-            "DELETE FROM contains WHERE out = {}",
-            Self::record_id_to_string(id)
-        );
-        self.db.query(sql).await?;
-
-        let key = Self::record_id_key(id);
-        let _: Option<Slot> = self.db.delete(("slot", key)).await?;
+        let _: Option<Slot> = self.db.delete(id).await?;
         Ok(())
     }
 }

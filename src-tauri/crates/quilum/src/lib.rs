@@ -5,6 +5,7 @@ mod db;
 mod model;
 mod scheduler;
 
+use chrono::DateTime;
 use quilum_db::storage::Storage;
 use surrealdb::types::RecordId;
 use tauri::{Manager, State};
@@ -18,12 +19,12 @@ async fn relate_task_to_slot(
     task_id_key: String,
     scheduled_for: i64,
 ) -> Result<(), String> {
-    use chrono::NaiveDateTime;
     let slot_id = RecordId::new(slot_id_table.as_str(), slot_id_key.as_str());
     let task_id = RecordId::new(task_id_table.as_str(), task_id_key.as_str());
-    let scheduled_for = NaiveDateTime::from_timestamp(scheduled_for, 0);
+    let scheduled_for = DateTime::from_timestamp(scheduled_for, 0).unwrap();
+
     storage
-        .schedule_task(&slot_id, &task_id, scheduled_for)
+        .schedule_task(slot_id, task_id, scheduled_for)
         .await
         .map_err(|e| e.to_string())
 }
@@ -40,7 +41,7 @@ async fn relate_task_to_list(
     let task_id = RecordId::new(task_id_table.as_str(), task_id_key.as_str());
     let list_id = RecordId::new(list_id_table.as_str(), list_id_key.as_str());
     storage
-        .put_task_into_list(&task_id, &list_id)
+        .put_task_into_list(task_id, list_id)
         .await
         .map_err(|e| e.to_string())
 }

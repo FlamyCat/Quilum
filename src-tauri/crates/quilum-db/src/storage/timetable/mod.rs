@@ -10,8 +10,7 @@ use crate::{
 };
 
 impl Storage {
-    /// Gets events occurring within a date range (inclusive start, exclusive end).
-    /// Events that overlap with the date range are returned (even if they span multiple days).
+    /// Gets events overlapping a date range (inclusive start, exclusive end).
     ///
     /// # Arguments
     /// * `start` - The start date (inclusive, at 00:00:00)
@@ -27,12 +26,18 @@ impl Storage {
         let range_start = start.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp();
         let range_end = end.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp();
 
-        let sql = format!(
-            "SELECT * FROM event WHERE starts_at < {} AND ends_at > {}",
-            range_end, range_start
-        );
-        let mut result = self.db.query(sql).await?;
-        let events: Vec<Event> = result.take(0).unwrap_or_default();
+        let sql = "
+            SELECT * FROM event WHERE starts_at IN $start..$end OR ends_at IN $start..$end
+        ";
+
+        let mut result = self
+            .db
+            .query(sql)
+            .bind(("start", range_start))
+            .bind(("end", range_end))
+            .await?;
+
+        let events = result.take(0).unwrap_or_default();
         Ok(events)
     }
 
@@ -69,13 +74,11 @@ impl Storage {
         let range_end = end.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp();
 
         let sql = "
-            SELECT
-                *,
-                ->scheduled_in[0].scheduled_for AS scheduled_for
+            SELECT *
             FROM tasks
             WHERE
-                ->scheduled_in[0].scheduled_for != NONE
-                AND ->scheduled_in[0].scheduled_for IN $start..$end
+                scheduled_for != NONE
+                AND scheduled_for IN $start..$end
         ";
 
         self.db
@@ -100,7 +103,7 @@ impl Storage {
             SELECT *
             FROM ONLY tasks
             WHERE
-                scheduled_for + duration >= time::now()
+                scheduled_for + estimated_duration >= time::now()
                 AND completed == false
             ORDER BY scheduled_for
             LIMIT 1;

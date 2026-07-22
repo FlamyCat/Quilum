@@ -37,10 +37,6 @@ pub async fn delete_task_list(
 ) -> Result<(), String> {
     let id = RecordId::new(id_table.as_str(), id_key.as_str());
     storage
-        .delete_tasks_in_list(&id)
-        .await
-        .map_err(|e| e.to_string())?;
-    storage
         .delete_task_list(&id)
         .await
         .map_err(|e| e.to_string())

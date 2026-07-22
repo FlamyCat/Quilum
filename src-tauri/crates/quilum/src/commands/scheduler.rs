@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use tauri::State;
 use quilum_db::Storage;
 use crate::SchedulerResult;
@@ -49,9 +50,9 @@ pub async fn run_scheduler(
         });
     }
 
-    let task_ids: Vec<RecordId> = tasks.iter().map(|t| t.id().clone()).collect();
+    let task_ids: HashSet<RecordId> = tasks.iter().map(|t| t.id().clone()).collect();
     storage
-        .unschedule_tasks(&task_ids)
+        .unschedule_tasks(task_ids)
         .await
         .map_err(|e| e.to_string())?;
 

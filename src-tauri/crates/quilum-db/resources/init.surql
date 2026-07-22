@@ -1,5 +1,3 @@
-DEFINE INDEX OVERWRITE idx_blocked_app_identifier ON blocked_app COLUMNS identifier UNIQUE;
-
 DEFINE TABLE OVERWRITE events SCHEMAFULL TYPE NORMAL;
 DEFINE FIELD OVERWRITE title ON events TYPE string ASSERT $value != "";
 DEFINE FIELD OVERWRITE description ON events TYPE string DEFAULT "";

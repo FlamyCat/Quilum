@@ -1,5 +1,10 @@
-use crate::{Storage, app_identifier::AppIdentifier, blocked_app::BlockedApp};
 use surrealdb::Error;
+
+use crate::{
+    app_identifier::AppIdentifier,
+    blocked_app::{BlockedApp, BLOCKED_APPS_TABLE},
+    Storage,
+};
 
 // App blocking methods
 impl Storage {
@@ -20,11 +25,14 @@ impl Storage {
             AppIdentifier::Path(p) => p.to_string_lossy().to_string(),
             AppIdentifier::BundleId(s) => s,
         };
-        let data = serde_json::json!({
-            "identifier": id_str,
-            "display_name": display_name
-        });
-        let created: Option<BlockedApp> = self.db.create("blocked_app").content(data).await?;
+
+        let blocked_app = BlockedApp::new(id_str, display_name.to_string());
+        let created: Option<BlockedApp> = self
+            .db
+            .create(BLOCKED_APPS_TABLE)
+            .content(blocked_app)
+            .await?;
+
         created.ok_or_else(|| Error::query("Failed to create blocked app".to_string(), None))
     }
 
@@ -40,11 +48,8 @@ impl Storage {
             AppIdentifier::Path(p) => p.to_string_lossy().to_string(),
             AppIdentifier::BundleId(s) => s.clone(),
         };
-        let sql = format!(
-            "DELETE FROM blocked_app WHERE identifier = '{}'",
-            id_str.replace('\'', "''")
-        );
-        self.db.query(sql).await?;
+
+        let _: Option<BlockedApp> = self.db.delete((BLOCKED_APPS_TABLE, id_str)).await?;
         Ok(())
     }
 
@@ -71,37 +76,18 @@ impl Storage {
         &self,
         identifier: AppIdentifier,
         display_name: &str,
-    ) -> Result<BlockedApp, Error> {
+    ) -> surrealdb::Result<Option<BlockedApp>> {
         let id_str = match &identifier {
             AppIdentifier::Path(p) => p.to_string_lossy().to_string(),
             AppIdentifier::BundleId(s) => s.clone(),
         };
 
-        // First check if record exists by querying
-        let apps = self.get_blocked_apps().await?;
-        let existing = apps.iter().find(|app| app.identifier == id_str);
+        let blocked_app = BlockedApp::new(id_str.clone(), display_name.to_string());
 
-        if let Some(existing_app) = existing {
-            // Record exists - update it using query builder
-            let key = Self::record_id_key(&existing_app.id);
-            let data = serde_json::json!({
-                "identifier": id_str,
-                "display_name": display_name
-            });
-            let updated: Option<BlockedApp> =
-                self.db.update(("blocked_app", key)).content(data).await?;
-            return updated
-                .ok_or_else(|| Error::query("Failed to update blocked app".to_string(), None));
-        } else {
-            // Record doesn't exist - create new one using query builder
-            let data = serde_json::json!({
-                "identifier": id_str,
-                "display_name": display_name
-            });
-            let created: Option<BlockedApp> = self.db.create("blocked_app").content(data).await?;
-            return created
-                .ok_or_else(|| Error::query("Failed to create blocked app".to_string(), None));
-        }
+        self.db
+            .upsert((BLOCKED_APPS_TABLE, id_str))
+            .content(blocked_app)
+            .await
     }
 
     /// Deletes all blocked apps (clears the table).

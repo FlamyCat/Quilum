@@ -59,5 +59,5 @@ pub async fn delete_task(
     id_key: String,
 ) -> Result<(), String> {
     let id = RecordId::new(id_table.as_str(), id_key.as_str());
-    storage.delete_task(&id).await.map_err(|e| e.to_string())
+    storage.delete_task(id).await.map_err(|e| e.to_string())
 }

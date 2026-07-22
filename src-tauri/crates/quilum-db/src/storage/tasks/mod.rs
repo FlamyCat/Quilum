@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use chrono::{NaiveDateTime, TimeDelta};
 use surrealdb::{types::RecordId, Error};
 
@@ -73,10 +74,9 @@ impl Storage {
     ///
     /// # Returns
     /// * Success or error
-    pub async fn delete_task(&self, id: &RecordId) -> Result<(), Error> {
-        self.unschedule_tasks(&[id.clone()]).await?;
-        let key = Self::record_id_key(id);
-        let _: Option<Task<Unscheduled>> = self.db.delete((TASKS_TABLE, key)).await?;
+    pub async fn delete_task(&self, id: RecordId) -> Result<(), Error> {
+        self.unschedule_tasks(HashSet::from([id.clone()])).await?;
+        let _: Option<Task<Unscheduled>> = self.db.delete(id).await?;
         Ok(())
     }
 }
