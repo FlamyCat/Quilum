@@ -41,3 +41,8 @@ DEFINE FUNCTION OVERWRITE fn::schedule_task($task: record<tasks>, $slot: record<
     RELATE $task -> scheduled_in:[$task, $slot] -> $slot;
     UPDATE $task SET scheduled_for = $time;
 };
+
+DEFINE FUNCTION OVERWRITE fn::unschedule_tasks($tasks: set<record<task>>) {
+    UPDATE $tasks SET scheduled_for = NONE;
+    DELETE scheduled_in WHERE in IN $tasks;
+}
