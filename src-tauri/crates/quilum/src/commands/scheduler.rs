@@ -51,7 +51,7 @@ pub async fn run_scheduler(
 
     let task_ids: Vec<RecordId> = tasks.iter().map(|t| t.id().clone()).collect();
     storage
-        .delete_task_slot_relations(&task_ids)
+        .unschedule_tasks(&task_ids)
         .await
         .map_err(|e| e.to_string())?;
 

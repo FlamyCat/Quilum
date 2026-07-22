@@ -74,7 +74,7 @@ impl Storage {
     /// # Returns
     /// * Success or error
     pub async fn delete_task(&self, id: &RecordId) -> Result<(), Error> {
-        self.delete_task_slot_relations(&[id.clone()]).await?;
+        self.unschedule_tasks(&[id.clone()]).await?;
         let key = Self::record_id_key(id);
         let _: Option<Task<Unscheduled>> = self.db.delete((TASKS_TABLE, key)).await?;
         Ok(())

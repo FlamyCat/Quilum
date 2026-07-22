@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use chrono::{DateTime, Utc};
 use surrealdb::{types::RecordId, Error};
 
@@ -40,14 +42,12 @@ impl Storage {
     ///
     /// # Returns
     /// * Success or error
-    pub async fn delete_task_slot_relations(&self, task_ids: &[RecordId]) -> Result<(), Error> {
-        for task_id in task_ids {
-            let sql = format!(
-                "DELETE FROM contains WHERE out = {}",
-                Self::record_id_to_string(task_id)
-            );
-            self.db.query(sql).await?;
-        }
+    pub async fn unschedule_tasks(&self, task_ids: HashSet<RecordId>) -> Result<(), Error> {
+        let sql = "
+            fn::unschedule_tasks($tasks)
+        ";
+
+        self.db.query(sql).bind(("tasks", task_ids)).await?;
         Ok(())
     }
 

@@ -36,7 +36,7 @@ async fn delete_task_slot_relations_basic() {
         .expect("Failed to create task 2");
 
     storage
-        .delete_task_slot_relations(&[task1.id().clone(), task2.id().clone()])
+        .unschedule_tasks(&[task1.id().clone(), task2.id().clone()])
         .await
         .expect("Failed to delete task slot relations");
 
@@ -74,7 +74,7 @@ async fn delete_task_slot_relations_no_relations() {
         .expect("Failed to create task");
 
     storage
-        .delete_task_slot_relations(&[task.id().clone()])
+        .unschedule_tasks(&[task.id().clone()])
         .await
         .expect("Failed to delete task slot relations");
 
