@@ -1,4 +1,4 @@
-use crate::{Storage, app_identifier::AppIdentifier};
+use crate::{Storage, storage::model::app_identifier::AppIdentifier};
 use std::path::PathBuf;
 
 #[tokio::test]

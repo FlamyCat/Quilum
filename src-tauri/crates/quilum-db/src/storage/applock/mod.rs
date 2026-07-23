@@ -1,8 +1,10 @@
 use surrealdb::Error;
 
 use crate::{
-    app_identifier::AppIdentifier,
-    blocked_app::{BlockedApp, BLOCKED_APPS_TABLE},
+    storage::model::{
+        app_identifier::AppIdentifier,
+        blocked_app::{BlockedApp, BLOCKED_APPS_TABLE},
+    },
     Storage,
 };
 
