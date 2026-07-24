@@ -232,7 +232,7 @@ impl<'a> State<'a> {
         tasks.iter().fold(BTreeMap::new(), |mut table, task| {
             let task_ref = TaskRef::new(task);
             table
-                .entry(task_ref.task().estimated_duration())
+                .entry(task_ref.task().estimated_duration_timedelta())
                 .or_default()
                 .insert(task_ref);
             table
