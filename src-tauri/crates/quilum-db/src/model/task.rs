@@ -87,6 +87,10 @@ impl Task {
         self.estimated_duration
     }
 
+    pub fn estimated_duration_timedelta(&self) -> TimeDelta {
+        TimeDelta::from_std(self.estimated_duration()).unwrap()
+    }
+
     pub fn scheduled_for(&self) -> Option<DateTime<Utc>> {
         self.scheduled_for
     }
