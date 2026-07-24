@@ -1,9 +1,6 @@
 use surrealdb::Error;
 
-use crate::{
-    storage::model::task::{Scheduled, Task},
-    Storage,
-};
+use crate::{model::task::Task, Storage};
 
 // Focus session methods
 impl Storage {
