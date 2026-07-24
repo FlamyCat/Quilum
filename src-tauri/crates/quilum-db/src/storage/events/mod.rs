@@ -1,7 +1,10 @@
 use chrono::NaiveDateTime;
 use surrealdb::{types::RecordId, Error};
 
-use crate::{model::event::{Event, EVENTS_TABLE}, Storage};
+use crate::{
+    model::event::{Event, EVENTS_TABLE},
+    Storage,
+};
 
 impl Storage {
     /// Creates a new event record in the database.
@@ -21,12 +24,7 @@ impl Storage {
         starts_at: NaiveDateTime,
         ends_at: NaiveDateTime,
     ) -> Result<Event, Error> {
-        let event = Event::new(
-            name,
-            description,
-            starts_at.and_utc(),
-            ends_at.and_utc(),
-        );
+        let event = Event::new(name, description, starts_at.and_utc(), ends_at.and_utc());
 
         let created = self.db.create(EVENTS_TABLE).content(event).await?;
 
