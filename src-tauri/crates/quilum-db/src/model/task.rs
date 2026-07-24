@@ -7,13 +7,6 @@ use surrealdb::{
     Error,
 };
 
-/// Marks the task as unscheduled.
-///
-/// This state **DOES NOT** necessarily represent the state of the storage, it just means that the
-/// current task instance does not carry the scheduling information.
-#[derive(Ord, PartialOrd, Eq, PartialEq, Clone, Copy, Debug, Serialize, Deserialize)]
-pub struct Unscheduled;
-
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Task<S> {
     data: TaskData,
