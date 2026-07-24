@@ -99,11 +99,6 @@ impl TaskData {
     }
 }
 
-pub enum TaskVariant {
-    Scheduled(Task<Scheduled>),
-    Unscheduled(Task<Unscheduled>),
-}
-
 #[derive(Error, Debug)]
 pub enum TaskSerializationError {
     #[error("Failed to deserialize a with a wrong scheduling kind: {0}")]
