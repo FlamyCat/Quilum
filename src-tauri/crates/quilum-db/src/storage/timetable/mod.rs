@@ -2,9 +2,9 @@ use chrono::{NaiveDate, TimeDelta};
 use surrealdb::Error;
 
 use crate::{
-    storage::model::{
+    model::{
         event::Event,
-        task::{Scheduled, Task},
+        task::Task,
     }, SlotWithTasks,
     Storage,
 };
