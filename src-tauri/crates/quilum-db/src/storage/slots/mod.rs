@@ -1,7 +1,7 @@
 use chrono::NaiveDateTime;
 use surrealdb::{types::RecordId, Error};
 
-use crate::{storage::model::slot::Slot, Storage};
+use crate::{model::slot::Slot, Storage};
 use crate::slot::SLOTS_TABLE;
 
 impl Storage {
