@@ -11,7 +11,7 @@ impl Storage {
     ///
     /// # Returns
     /// * Vector of tasks where `completed == false` and `now + estimated_duration <= deadline`
-    pub async fn get_uncompleted_tasks(&self) -> Result<Vec<Task<Unscheduled>>, Error> {
+    pub async fn get_uncompleted_tasks(&self) -> Result<Vec<Task>, Error> {
         let sql = "
             SELECT *
             FROM tasks
