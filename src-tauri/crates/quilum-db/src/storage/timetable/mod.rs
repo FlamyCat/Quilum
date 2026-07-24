@@ -98,7 +98,7 @@ impl Storage {
     ///
     /// # Returns
     /// * Scheduled task if found
-    pub async fn get_next_scheduled_task(&self) -> Result<Option<Task<Scheduled>>, Error> {
+    pub async fn get_next_scheduled_task(&self) -> Result<Option<Task>, Error> {
         let sql = "
             SELECT *
             FROM ONLY tasks
