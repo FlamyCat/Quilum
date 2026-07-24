@@ -98,17 +98,6 @@ impl TaskData {
     }
 }
 
-impl<S> Task<S> {
-    /// Constructs a new task from data with unknown `scheduled_for` value.
-    pub fn new_from_data(task_data: TaskData) -> TaskVariant {
-        if task_data.scheduled_for.is_some() {
-            TaskVariant::Scheduled(Task::<Scheduled>::scheduled_from_data(task_data))
-        } else {
-            TaskVariant::Unscheduled(Task::<Unscheduled>::unscheduled_from_data(task_data))
-        }
-    }
-}
-
 impl<S: Ord> PartialOrd for Task<S> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
