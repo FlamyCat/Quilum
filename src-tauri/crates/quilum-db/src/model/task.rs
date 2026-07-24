@@ -41,20 +41,20 @@ impl TaskData {
     }
 }
 
-impl<S: Ord> PartialOrd for Task<S> {
+impl PartialOrd for TaskData {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<S: Ord> Ord for Task<S> {
+impl Ord for TaskData {
     fn cmp(&self, other: &Self) -> Ordering {
-        fn to_priority_tuple<S>(task: &Task<S>) -> (u64, DateTime<Utc>, &String, &String) {
+        fn to_priority_tuple(task: &TaskData) -> (u64, DateTime<Utc>, &String, &String) {
             (
-                u64::from(task.data.priority),
-                task.data.deadline,
-                &task.data.title,
-                &task.data.description,
+                u64::from(task.priority),
+                task.deadline,
+                &task.title,
+                &task.description,
             )
         }
 
@@ -62,65 +62,65 @@ impl<S: Ord> Ord for Task<S> {
     }
 }
 
-impl<S> Task<S> {
+impl TaskData {
     pub fn name(&self) -> &str {
-        &self.data.title
+        &self.title
     }
 
     pub fn description(&self) -> &str {
-        &self.data.description
+        &self.description
     }
 
     pub fn priority(&self) -> &Priority {
-        &self.data.priority
+        &self.priority
     }
 
     pub fn deadline(&self) -> DateTime<Utc> {
-        self.data.deadline
+        self.deadline
     }
 
     pub fn deadline_as_datetime(&self) -> NaiveDateTime {
-        self.data.deadline.naive_utc()
+        self.deadline.naive_utc()
     }
 
     pub fn id(&self) -> &RecordId {
-        &self.data.id
+        &self.id
     }
 
     pub fn estimated_duration(&self) -> Duration {
-        self.data.estimated_duration
+        self.estimated_duration
     }
 
     pub fn deadline_datetime(&self) -> DateTime<Utc> {
-        self.data.deadline
+        self.deadline
     }
 
     pub fn set_name(&mut self, name: String) {
-        self.data.title = name;
+        self.title = name;
     }
 
     pub fn set_description(&mut self, description: String) {
-        self.data.description = description;
+        self.description = description;
     }
 
     pub fn set_priority(&mut self, priority: Priority) {
-        self.data.priority = priority;
+        self.priority = priority;
     }
 
     pub fn set_estimated_duration(&mut self, estimated_duration: Duration) {
-        self.data.estimated_duration = estimated_duration;
+        self.estimated_duration = estimated_duration;
     }
 
     pub fn set_deadline(&mut self, deadline: DateTime<Utc>) {
-        self.data.deadline = deadline;
+        self.deadline = deadline;
     }
 
     pub fn completed(&self) -> bool {
-        self.data.completed
+        self.completed
     }
 
     pub fn set_completed(&mut self, completed: bool) {
-        self.data.completed = completed;
+        self.completed = completed;
     }
 
     /// Transforms the task into scheduled one, with `scheduled_for` set to `timestamp`.
@@ -128,7 +128,7 @@ impl<S> Task<S> {
         Task::<Scheduled> {
             data: TaskData {
                 scheduled_for: Some(timestamp),
-                ..self.data
+                ..self
             },
             _schedule_info: PhantomData,
         }
@@ -137,7 +137,7 @@ impl<S> Task<S> {
 
 impl Task<Scheduled> {
     pub fn scheduled_for(&self) -> Option<DateTime<Utc>> {
-        self.data.scheduled_for
+        self.scheduled_for
     }
 }
 
