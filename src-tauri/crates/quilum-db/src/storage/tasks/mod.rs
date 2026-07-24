@@ -77,7 +77,6 @@ impl Storage {
     /// # Returns
     /// * Success or error
     pub async fn delete_task(&self, id: &RecordId) -> Result<(), Error> {
-        self.unschedule_tasks(HashSet::from([id.clone()])).await?;
         let _: Option<Task> = self.db.delete(id).await?;
         Ok(())
     }
