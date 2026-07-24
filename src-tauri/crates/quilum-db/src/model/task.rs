@@ -4,12 +4,6 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 use surrealdb::types::{RecordId, RecordIdKey, SurrealValue};
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Task<S> {
-    data: TaskData,
-    _schedule_info: PhantomData<S>,
-}
-
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize, SurrealValue)]
 pub struct TaskData {
     pub id: RecordId,
