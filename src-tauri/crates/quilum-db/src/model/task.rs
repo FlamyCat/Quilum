@@ -79,10 +79,6 @@ impl TaskData {
         self.deadline
     }
 
-    pub fn deadline_as_datetime(&self) -> NaiveDateTime {
-        self.deadline.naive_utc()
-    }
-
     pub fn id(&self) -> &RecordId {
         &self.id
     }
