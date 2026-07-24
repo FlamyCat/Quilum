@@ -1,1 +1,1 @@
-pub(crate) use quilum_db::storage::model::*;
+pub(crate) use quilum_db::model::*;

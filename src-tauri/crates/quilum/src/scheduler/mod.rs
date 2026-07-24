@@ -1,16 +1,12 @@
 mod state;
 
+use crate::db::Storage;
+use crate::model::{plan::Plan, slot::Slot, task::Task};
 use chrono::{Local, NaiveDateTime};
-use quilum_db::storage::model::task::Unscheduled;
 use state::State;
 
-use crate::{
-    db::Storage,
-    model::{plan::Plan, slot::Slot, task::Task},
-};
-
 pub(crate) struct Scheduler<'a> {
-    tasks: &'a [Task<Unscheduled>],
+    tasks: &'a [Task],
     upcoming_slots: &'a [Slot],
     now: NaiveDateTime,
     storage: &'a Storage,
@@ -18,7 +14,7 @@ pub(crate) struct Scheduler<'a> {
 
 impl<'a> Scheduler<'a> {
     pub fn new(
-        tasks: &'a [Task<Unscheduled>],
+        tasks: &'a [Task],
         upcoming_slots: &'a [Slot],
         now: NaiveDateTime,
         storage: &'a Storage,
@@ -32,7 +28,7 @@ impl<'a> Scheduler<'a> {
     }
 
     pub fn new_with_local_datetime(
-        tasks: &'a [Task<Unscheduled>],
+        tasks: &'a [Task],
         upcoming_slots: &'a [Slot],
         storage: &'a Storage,
     ) -> Self {

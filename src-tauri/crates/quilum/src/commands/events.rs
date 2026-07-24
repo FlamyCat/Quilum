@@ -1,6 +1,9 @@
-use quilum_db::{storage::model::event::Event, Storage};
-use surrealdb::types::RecordId;
 use tauri::State;
+use quilum_db::{
+    event::Event,
+    Storage
+};
+use surrealdb::types::RecordId;
 
 #[tauri::command]
 pub async fn create_event(

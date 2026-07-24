@@ -24,12 +24,7 @@ impl Storage {
         ";
 
         let mut result = self.db.query(sql).await?;
-        let tasks: Vec<_> = result
-            .take::<Vec<TaskData>>(0)?
-            .into_iter()
-            .map(Task::unscheduled_from_data)
-            .collect();
-
+        let tasks: Vec<Task> = result.take(0)?;
         Ok(tasks)
     }
 

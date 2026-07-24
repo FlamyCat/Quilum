@@ -1,14 +1,10 @@
-use quilum_db::{storage::model::tasklist::TaskList, Storage, TaskListWithTasks};
-use surrealdb::types::RecordId;
 use tauri::State;
-
+use quilum_db::{tasklist::TaskList, Storage, TaskListWithTasks};
+use surrealdb::types::RecordId;
 use crate::commands::session::check_and_restore_session;
 
 #[tauri::command]
-pub async fn create_task_list(
-    storage: State<'_, Storage>,
-    title: String,
-) -> Result<TaskList, String> {
+pub async fn create_task_list(storage: State<'_, Storage>, title: String) -> Result<TaskList, String> {
     storage
         .create_task_list(title)
         .await
@@ -43,9 +39,7 @@ pub async fn delete_task_list(
 }
 
 #[tauri::command]
-pub async fn get_all_task_lists(
-    storage: State<'_, Storage>,
-) -> Result<Vec<TaskListWithTasks>, String> {
+pub async fn get_all_task_lists(storage: State<'_, Storage>) -> Result<Vec<TaskListWithTasks>, String> {
     storage
         .get_all_task_lists_with_tasks()
         .await

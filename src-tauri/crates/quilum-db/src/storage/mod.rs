@@ -3,7 +3,6 @@ mod events;
 mod focus;
 mod helpers;
 mod init;
-pub mod model;
 mod relations;
 mod scheduler;
 mod slots;
@@ -11,24 +10,22 @@ mod tasklists;
 mod tasks;
 mod timetable;
 
+use crate::{slot::Slot, task::Task, tasklist::TaskList};
 use serde::{Deserialize, Serialize};
-use surrealdb::{engine::local::Db, types::SurrealValue, Surreal};
-
-use self::model::{slot::Slot, task::Task, tasklist::TaskList};
-use crate::storage::model::task::{Scheduled, Unscheduled};
+use surrealdb::{Surreal, engine::local::Db};
 
 /// Struct for returning slots with their scheduled tasks
-#[derive(Clone, Debug, Serialize, Deserialize, SurrealValue)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SlotWithTasks {
     pub slot: Slot,
-    pub tasks: Vec<Task<Scheduled>>,
+    pub tasks: Vec<(Task, i64)>,
 }
 
 /// Struct for returning task lists with their tasks
-#[derive(Clone, Debug, Serialize, Deserialize, SurrealValue)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TaskListWithTasks {
     pub list: TaskList,
-    pub tasks: Vec<Task<Unscheduled>>,
+    pub tasks: Vec<Task>,
 }
 
 /// Struct that exposes storage methods.

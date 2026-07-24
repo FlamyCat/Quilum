@@ -1,18 +1,12 @@
-use std::collections::BTreeSet;
-
-use chrono::{NaiveDateTime, TimeDelta};
-use quilum_db::task::{TaskData, Unscheduled};
-use surrealdb::types::RecordId;
-use test_helpers::{create_date, create_date_time};
-
-use crate::{
-    db::Storage,
-    model::{
-        slot::Slot,
-        task::{Priority, Task},
-    },
-    scheduler::Scheduler,
+use crate::model::{
+    slot::Slot,
+    task::{Priority, Task},
 };
+use crate::{db::Storage, scheduler::Scheduler};
+use chrono::{NaiveDateTime, TimeDelta};
+use std::collections::BTreeSet;
+use test_helpers::{create_date, create_date_time};
+use tokio;
 
 pub(in crate::scheduler) mod test_helpers {
     use chrono::{NaiveDate, NaiveDateTime};
@@ -40,24 +34,24 @@ fn create_task(
     duration: TimeDelta,
     deadline: NaiveDateTime,
     priority: Priority,
-) -> Task<Unscheduled> {
+) -> Task {
     let name = format!("Задача {index}");
     let description = format!("Описание для задачи {index}");
 
-    Task::unscheduled_from_data(TaskData::new(
+    Task {
+        id: surrealdb::types::RecordId::new("task", format!("{index}").as_str()),
         name,
         description,
         priority,
-        duration.num_seconds(),
-        deadline.and_utc().timestamp(),
-        false,
-        None,
-    ))
+        estimated_duration: duration.num_seconds(),
+        deadline: deadline.and_utc().timestamp(),
+        completed: false,
+    }
 }
 
 fn create_slot(start: NaiveDateTime, end: NaiveDateTime) -> Slot {
     Slot {
-        id: RecordId::new("slot", "test"),
+        id: surrealdb::types::RecordId::new("slot", "test"),
         starts_at: start.and_utc().timestamp(),
         ends_at: end.and_utc().timestamp(),
     }

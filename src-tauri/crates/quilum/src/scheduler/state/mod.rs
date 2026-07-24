@@ -1,27 +1,19 @@
+use crate::model::{plan::Plan, slot::Slot, task::Task};
+use chrono::{NaiveDateTime, TimeDelta};
 use std::{
     cmp,
     collections::{BTreeMap, BTreeSet, VecDeque},
 };
-
-use chrono::{NaiveDateTime, TimeDelta};
-use quilum_db::storage::model::{
-    plan::Plan,
-    slot::Slot,
-    task::{Task, Unscheduled},
-};
 use surrealdb::types::RecordId;
 
-/// Обертка вокруг `&Task`, которая реализует `Ord` для использования в `BTreeSet`.
+/// Обертка вокруг &Task, которая реализует `Ord` для использования в `BTreeSet`.
 #[derive(Clone, Copy, Debug)]
-pub(super) struct TaskRef<'a, S>
-where
-    S: Ord,
-{
-    task: &'a Task<S>,
+pub(super) struct TaskRef<'a> {
+    task: &'a Task,
 }
 
-impl<'a, S: Ord> TaskRef<'a, S> {
-    pub fn new(task: &'a Task<S>) -> Self {
+impl<'a> TaskRef<'a> {
+    pub fn new(task: &'a Task) -> Self {
         Self { task }
     }
 
@@ -29,26 +21,26 @@ impl<'a, S: Ord> TaskRef<'a, S> {
         &self.task.id()
     }
 
-    pub fn task(&self) -> &Task<S> {
+    pub fn task(&self) -> &Task {
         self.task
     }
 }
 
-impl<'a, S: PartialEq + Ord> PartialEq for TaskRef<'a, S> {
+impl<'a> PartialEq for TaskRef<'a> {
     fn eq(&self, other: &Self) -> bool {
         self.task == other.task
     }
 }
 
-impl<'a, S: PartialEq + Ord> Eq for TaskRef<'a, S> {}
+impl<'a> Eq for TaskRef<'a> {}
 
-impl<'a, S: PartialEq + Ord> PartialOrd for TaskRef<'a, S> {
+impl<'a> PartialOrd for TaskRef<'a> {
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<'a, S: PartialEq + Ord> Ord for TaskRef<'a, S> {
+impl<'a> Ord for TaskRef<'a> {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         self.task.cmp(other.task)
     }
@@ -60,7 +52,7 @@ impl<'a, S: PartialEq + Ord> Ord for TaskRef<'a, S> {
 ///
 #[derive(Clone, Debug)]
 pub(super) struct State<'a> {
-    table: BTreeMap<TimeDelta, BTreeSet<TaskRef<'a, Unscheduled>>>,
+    table: BTreeMap<TimeDelta, BTreeSet<TaskRef<'a>>>,
     plan: Plan,
     slots: VecDeque<&'a Slot>,
     now: NaiveDateTime,
@@ -71,11 +63,7 @@ impl<'a> State<'a> {
     /// Создает начальный вариант состояния на основе списка задач, слотов и
     /// текущего момента времени.
     ///
-    pub(super) fn new(
-        tasks: &'a [Task<Unscheduled>],
-        slots: VecDeque<&'a Slot>,
-        now: NaiveDateTime,
-    ) -> Self {
+    pub(super) fn new(tasks: &'a [Task], slots: VecDeque<&'a Slot>, now: NaiveDateTime) -> Self {
         let table = Self::construct_duration_table(tasks);
 
         Self {
@@ -103,7 +91,7 @@ impl<'a> State<'a> {
     /// Перед ее вызовом необходимо убедиться, что в слоте достаточно времени, чтобы задача могла
     /// быть запланирована.
     ///
-    pub(super) fn create_next_state(&self, task_ref: TaskRef<'a, Unscheduled>) -> Self {
+    pub(super) fn create_next_state(&self, task_ref: TaskRef<'a>) -> Self {
         let task = task_ref.task();
         let priority = u64::from(*task.priority());
 
@@ -221,7 +209,7 @@ impl<'a> State<'a> {
     ///
     pub(super) fn discard_overdue_tasks(&mut self) {
         self.table.values_mut().for_each(|task_set| {
-            let overdue_tasks: BTreeSet<TaskRef<'a, Unscheduled>> = task_set
+            let overdue_tasks: BTreeSet<TaskRef<'a>> = task_set
                 .iter()
                 .filter(|task_ref| {
                     let task = task_ref.task();
@@ -240,9 +228,7 @@ impl<'a> State<'a> {
 
     /// Метод строит таблицу, которая группирует задачи по отведенному на них времени.
     ///
-    fn construct_duration_table(
-        tasks: &'a [Task<Unscheduled>],
-    ) -> BTreeMap<TimeDelta, BTreeSet<TaskRef<'a, Unscheduled>>> {
+    fn construct_duration_table(tasks: &'a [Task]) -> BTreeMap<TimeDelta, BTreeSet<TaskRef<'a>>> {
         tasks.iter().fold(BTreeMap::new(), |mut table, task| {
             let task_ref = TaskRef::new(task);
             table
@@ -253,13 +239,11 @@ impl<'a> State<'a> {
         })
     }
 
-    pub(super) fn table(&self) -> &BTreeMap<TimeDelta, BTreeSet<TaskRef<'a, Unscheduled>>> {
+    pub(super) fn table(&self) -> &BTreeMap<TimeDelta, BTreeSet<TaskRef<'a>>> {
         &self.table
     }
 
-    pub(super) fn table_mut(
-        &mut self,
-    ) -> &mut BTreeMap<TimeDelta, BTreeSet<TaskRef<'a, Unscheduled>>> {
+    pub(super) fn table_mut(&mut self) -> &mut BTreeMap<TimeDelta, BTreeSet<TaskRef<'a>>> {
         &mut self.table
     }
 

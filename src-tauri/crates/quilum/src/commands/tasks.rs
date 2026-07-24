@@ -36,7 +36,7 @@ pub async fn read_task(
     storage: State<'_, Storage>,
     id_table: String,
     id_key: String,
-) -> Result<Task<Unscheduled>, String> {
+) -> Result<Task, String> {
     let id = RecordId::new(id_table.as_str(), id_key.as_str());
     storage.read_task(&id).await.map_err(|e| e.to_string())
 }
@@ -45,7 +45,7 @@ pub async fn read_task(
 pub async fn update_task(
     storage: State<'_, Storage>,
     app_handle: tauri::AppHandle,
-    task: Task<Unscheduled>,
+    task: Task,
 ) -> Result<(), String> {
     let result = storage.update_task(task).await.map_err(|e| e.to_string());
     check_and_restore_session(storage.inner().clone(), app_handle.clone());

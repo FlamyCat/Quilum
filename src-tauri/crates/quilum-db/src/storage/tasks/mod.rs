@@ -48,9 +48,9 @@ impl Storage {
     ///
     /// # Returns
     /// * The task
-    pub async fn read_task(&self, id: &RecordId) -> Result<Task<Unscheduled>, Error> {
+    pub async fn read_task(&self, id: &RecordId) -> Result<Task, Error> {
         let key = Self::record_id_key(id);
-        let task: Option<Task<_>> = self.db.select((TASKS_TABLE, key)).await?;
+        let task: Option<Task> = self.db.select((TASKS_TABLE, key)).await?;
         task.ok_or_else(|| Error::query("Task not found".to_string(), None))
     }
 
@@ -61,9 +61,9 @@ impl Storage {
     ///
     /// # Returns
     /// * Success or error
-    pub async fn update_task(&self, task: Task<Unscheduled>) -> Result<(), Error> {
+    pub async fn update_task(&self, task: Task) -> Result<(), Error> {
         let key = Self::record_id_key(&task.id());
-        let _: Option<Task<Unscheduled>> = self.db.update((TASKS_TABLE, key)).content(task).await?;
+        let _: Option<Task> = self.db.update((TASKS_TABLE, key)).content(task).await?;
         Ok(())
     }
 

@@ -1,13 +1,11 @@
-use std::{sync::Arc, time::Duration};
-
-use applock::{app_list::AppInfo, start_polling, BlockingSession};
 use chrono::{DateTime, Utc};
-use quilum_db::storage::model::blocked_app::BlockedApp;
+use std::{sync::Arc, time::Duration};
 use tauri::State;
 use tauri_plugin_notification::NotificationExt;
 use tokio::{sync::Mutex, task::JoinHandle};
 
 use crate::db::Storage;
+use applock::{BlockingSession, app_list::AppInfo, start_polling};
 
 pub struct BlockingState {
     pub session: BlockingSession,
@@ -34,7 +32,7 @@ async fn stop_blocking(guard: &mut tokio::sync::MutexGuard<'_, Option<BlockingSt
     }
 }
 
-fn blocked_apps_to_info(blocked: Vec<BlockedApp>) -> Vec<AppInfo> {
+fn blocked_apps_to_info(blocked: Vec<quilum_db::blocked_app::BlockedApp>) -> Vec<AppInfo> {
     blocked
         .into_iter()
         .map(|app| AppInfo {
@@ -114,7 +112,7 @@ pub fn check_and_restore_session(storage: Storage, app_handle: tauri::AppHandle)
         stop_blocking(&mut guard).await;
         drop(guard);
 
-        let Ok(Some(task)) = storage.get_next_scheduled_task().await else {
+        let Ok(Some((task, scheduled_for))) = storage.get_next_scheduled_task().await else {
             return;
         };
 
@@ -124,11 +122,11 @@ pub fn check_and_restore_session(storage: Storage, app_handle: tauri::AppHandle)
 
         let blocked_info = blocked_apps_to_info(blocked.clone());
         let now = Utc::now().timestamp();
-        let end_timestamp = task.scheduled_for() + task.estimated_duration().num_seconds();
+        let end_timestamp = scheduled_for + task.estimated_duration;
         let task_name = task.name().to_string();
-        let task_duration = task.estimated_duration().num_seconds();
+        let task_duration = task.estimated_duration;
 
-        if task.scheduled_for() <= now && now <= end_timestamp {
+        if scheduled_for <= now && now <= end_timestamp {
             let end = DateTime::from_timestamp(end_timestamp, 0).unwrap_or_default();
             start_blocking(
                 blocked_info,
@@ -138,8 +136,8 @@ pub fn check_and_restore_session(storage: Storage, app_handle: tauri::AppHandle)
                 task_name,
                 task_duration,
             );
-        } else if task.scheduled_for() > now {
-            let start_time = DateTime::from_timestamp(task.scheduled_for(), 0).unwrap_or_default();
+        } else if scheduled_for > now {
+            let start_time = DateTime::from_timestamp(scheduled_for, 0).unwrap_or_default();
             let end = DateTime::from_timestamp(end_timestamp, 0).unwrap_or_default();
 
             let blocked_info_clone = blocked_apps_to_info(blocked);

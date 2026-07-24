@@ -1,3 +1,4 @@
+use crate::{event::Event, Storage};
 use chrono::NaiveDateTime;
 use surrealdb::{types::RecordId, Error};
 

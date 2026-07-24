@@ -10,4 +10,3 @@ surrealdb = { version = "3", features = ["kv-mem", "kv-surrealkv", "protocol-ws"
 applock = { path = "crates/applock" }
 quilum-db = { path = "crates/quilum-db" }
 tokio = { version = "1", features = ["full"] }
-thiserror = "2.0.18"
