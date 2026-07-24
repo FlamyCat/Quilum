@@ -11,7 +11,7 @@ use quilum_db::{
 pub async fn today_timetable(
     storage: State<'_, Storage>,
     today: String,
-) -> Result<(Vec<Event>, Vec<(Task, i64)>), String> {
+) -> Result<(Vec<Event>, Vec<Task>), String> {
     let today = NaiveDate::parse_from_str(&today, "%Y-%m-%d").map_err(|e| e.to_string())?;
     storage
         .get_today_timetable(today)
