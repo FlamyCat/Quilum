@@ -98,34 +98,6 @@ impl TaskData {
     }
 }
 
-impl Task<Scheduled> {
-    /// Constructs a new **scheduled** task from given `data`.
-    /// If `scheduled_for` in `data` is `None`, the method will panic.
-    pub fn scheduled_from_data(data: TaskData) -> Self {
-        assert!(
-            data.scheduled_for.is_some(),
-            "Attempted constructing a scheduled task from unscheduled task data"
-        );
-
-        Self {
-            data,
-            _schedule_info: PhantomData,
-        }
-    }
-
-    /// Constructs a new **scheduled** task from given `data`.
-    /// If `scheduled_for` in `data` is `None`, the method will return an error.
-    pub fn try_scheduled_from_data(data: TaskData) -> Result<Self, TaskSerializationError> {
-        if data.scheduled_for.is_none() {
-            Err(TaskSerializationError::WrongSchedulingKind(String::from(
-                "value being deserialized did not carry the scheduling data",
-            )))
-        } else {
-            Ok(Self::scheduled_from_data(data))
-        }
-    }
-}
-
 impl<S> Task<S> {
     /// Constructs a new task from data with unknown `scheduled_for` value.
     pub fn new_from_data(task_data: TaskData) -> TaskVariant {
