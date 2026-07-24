@@ -1,8 +1,12 @@
 pub(in crate::scheduler) mod test_helpers {
-    use chrono::{NaiveDate, DateTime<Utc>};
+    use chrono::{DateTime, NaiveDate, Utc};
 
     pub(in crate::scheduler) fn create_date(year: i32, month: u32, day: u32) -> DateTime<Utc> {
-        DateTime < Utc > ::from(NaiveDate::from_ymd_opt(year, month, day).unwrap())
+        NaiveDate::from_ymd_opt(year, month, day)
+            .unwrap()
+            .and_hms_opt(0, 0, 0)
+            .unwrap()
+            .and_utc()
     }
 
     pub(in crate::scheduler) fn create_date_time(
@@ -16,42 +20,40 @@ pub(in crate::scheduler) mod test_helpers {
             .unwrap()
             .and_hms_opt(hours, minutes, 0)
             .unwrap()
+            .and_utc()
     }
 }
 
 mod skip_unsuitable_slots_tests {
-    use crate::model::{
-        slot::Slot,
-        task::{Priority, Task},
-    };
-    use crate::scheduler::state::State;
-    use crate::scheduler::state::tests::test_helpers::{create_date, create_date_time};
-    use chrono::TimeDelta;
     use std::collections::VecDeque;
 
-    fn create_task(index: u32, estimated_duration: TimeDelta) -> Task {
-        let name = format!("Задача {index}");
-        let description = format!("Описание для задачи {index}");
-        let priority = Priority::default();
-        let deadline = create_date_time(2025, 6, 2, 23, 59);
+    use chrono::{DateTime, TimeDelta, Utc};
 
-        Task {
-            id: surrealdb::types::RecordId::new("task", format!("{index}").as_str()),
-            name,
-            description,
-            priority,
-            estimated_duration: estimated_duration.num_seconds(),
-            deadline: deadline.and_utc().timestamp(),
-            completed: false,
-        }
+    use crate::{
+        model::{
+            slot::Slot,
+            task::{Priority, Task},
+        },
+        scheduler::state::{
+            tests::test_helpers::{create_date, create_date_time},
+            State,
+        },
+    };
+
+    fn create_task(index: u32, estimated_duration: TimeDelta) -> Task {
+        Task::new(
+            format!("Задача {index}"),
+            format!("Описание для задачи {index}"),
+            Priority::default(),
+            estimated_duration.to_std().unwrap(),
+            create_date_time(2025, 6, 2, 23, 59),
+            false,
+            None,
+        )
     }
 
-    fn create_slot(start: chrono::DateTime<Utc>, end: chrono::DateTime<Utc>) -> Slot {
-        Slot {
-            id: surrealdb::types::RecordId::new("slot", "test"),
-            starts_at: start.and_utc().timestamp(),
-            ends_at: end.and_utc().timestamp(),
-        }
+    fn create_slot(start: DateTime<Utc>, end: DateTime<Utc>) -> Slot {
+        Slot::new(start, end)
     }
 
     #[test]
@@ -159,38 +161,35 @@ mod skip_unsuitable_slots_tests {
 }
 
 mod get_available_time_tests {
-    use crate::model::{
-        slot::Slot,
-        task::{Priority, Task},
-    };
-    use crate::scheduler::state::State;
-    use crate::scheduler::state::tests::test_helpers::{create_date, create_date_time};
-    use chrono::TimeDelta;
     use std::collections::VecDeque;
 
-    fn create_task(index: u32, estimated_duration: TimeDelta) -> Task {
-        let name = format!("Задача {index}");
-        let description = format!("Описание для задачи {index}");
-        let priority = Priority::default();
-        let deadline = create_date_time(2025, 6, 2, 23, 59);
+    use chrono::{DateTime, TimeDelta, Utc};
 
-        Task {
-            id: surrealdb::types::RecordId::new("task", format!("{index}").as_str()),
-            name,
-            description,
-            priority,
-            estimated_duration: estimated_duration.num_seconds(),
-            deadline: deadline.and_utc().timestamp(),
-            completed: false,
-        }
+    use crate::{
+        model::{
+            slot::Slot,
+            task::{Priority, Task},
+        },
+        scheduler::state::{
+            tests::test_helpers::{create_date, create_date_time},
+            State,
+        },
+    };
+
+    fn create_task(index: u32, estimated_duration: TimeDelta) -> Task {
+        Task::new(
+            format!("Задача {index}"),
+            format!("Описание для задачи {index}"),
+            Priority::default(),
+            estimated_duration.to_std().unwrap(),
+            create_date_time(2025, 6, 2, 23, 59),
+            false,
+            None,
+        )
     }
 
-    fn create_slot(start: chrono::DateTime<Utc>, end: chrono::DateTime<Utc>) -> Slot {
-        Slot {
-            id: surrealdb::types::RecordId::new("slot", "test"),
-            starts_at: start.and_utc().timestamp(),
-            ends_at: end.and_utc().timestamp(),
-        }
+    fn create_slot(start: DateTime<Utc>, end: DateTime<Utc>) -> Slot {
+        Slot::new(start, end)
     }
 
     #[test]
@@ -256,7 +255,7 @@ mod get_available_time_tests {
             .expect("Слот должен остаться");
         let expected_available_time = first_slot.ends_at() - now;
         assert_eq!(actual_available_time, expected_available_time);
-        assert!(actual_available_time >= task.task().estimated_duration());
+        assert!(actual_available_time >= task.task().estimated_duration_timedelta());
         assert_eq!(now, state.now);
     }
 
@@ -293,7 +292,7 @@ mod get_available_time_tests {
             .expect("Слот должен остаться");
         let expected_available_time = first_slot.ends_at() - first_slot.starts_at();
         assert_eq!(actual_available_time, expected_available_time);
-        assert!(actual_available_time >= task.task().estimated_duration());
+        assert!(actual_available_time >= task.task().estimated_duration_timedelta());
         assert_eq!(first_slot.starts_at(), state.now);
     }
 }
