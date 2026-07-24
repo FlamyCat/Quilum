@@ -7,11 +7,6 @@ use surrealdb::{
     Error,
 };
 
-/// Marks the task as scheduled.
-/// For [`Task`] instances of this state it is safe to access scheduling information.
-#[derive(Ord, PartialOrd, Eq, PartialEq, Clone, Copy, Debug, Serialize, Deserialize)]
-pub struct Scheduled;
-
 /// Marks the task as unscheduled.
 ///
 /// This state **DOES NOT** necessarily represent the state of the storage, it just means that the
