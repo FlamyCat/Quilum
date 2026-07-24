@@ -1,6 +1,6 @@
-use std::{cmp::Ordering, fmt::Debug, marker::PhantomData};
+use std::{cmp::Ordering, fmt::Debug, marker::PhantomData, time::Duration};
 
-use chrono::{DateTime, NaiveDateTime, TimeDelta};
+use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 use surrealdb::{
     types::{Kind, RecordId, RecordIdKey, SurrealValue, Value},
@@ -65,30 +65,30 @@ impl SurrealValue for Task<Unscheduled> {
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize, SurrealValue)]
 pub struct TaskData {
     pub id: RecordId,
-    pub name: String,
+    pub title: String,
     pub description: String,
     pub priority: Priority,
-    pub estimated_duration: i64,
-    pub deadline: i64,
+    pub estimated_duration: Duration,
+    pub deadline: DateTime<Utc>,
     pub completed: bool,
-    pub scheduled_for: Option<i64>,
+    pub scheduled_for: Option<DateTime<Utc>>,
 }
 
 pub const TASKS_TABLE: &str = "tasks";
 
 impl TaskData {
     pub fn new(
-        name: String,
+        title: String,
         description: String,
         priority: Priority,
-        estimated_duration: i64,
-        deadline: i64,
+        estimated_duration: Duration,
+        deadline: DateTime<Utc>,
         completed: bool,
-        scheduled_for: Option<i64>,
+        scheduled_for: Option<DateTime<Utc>>,
     ) -> Self {
         Self {
             id: RecordId::new(TASKS_TABLE, RecordIdKey::ulid()),
-            name,
+            title,
             description,
             priority,
             estimated_duration,
@@ -185,11 +185,11 @@ impl<S: Ord> PartialOrd for Task<S> {
 
 impl<S: Ord> Ord for Task<S> {
     fn cmp(&self, other: &Self) -> Ordering {
-        fn to_priority_tuple<S>(task: &Task<S>) -> (u64, i64, &String, &String) {
+        fn to_priority_tuple<S>(task: &Task<S>) -> (u64, DateTime<Utc>, &String, &String) {
             (
                 u64::from(task.data.priority),
                 task.data.deadline,
-                &task.data.name,
+                &task.data.title,
                 &task.data.description,
             )
         }
@@ -200,7 +200,7 @@ impl<S: Ord> Ord for Task<S> {
 
 impl<S> Task<S> {
     pub fn name(&self) -> &str {
-        &self.data.name
+        &self.data.title
     }
 
     pub fn description(&self) -> &str {
@@ -211,32 +211,28 @@ impl<S> Task<S> {
         &self.data.priority
     }
 
-    pub fn deadline(&self) -> i64 {
+    pub fn deadline(&self) -> DateTime<Utc> {
         self.data.deadline
     }
 
     pub fn deadline_as_datetime(&self) -> NaiveDateTime {
-        DateTime::from_timestamp(self.data.deadline, 0)
-            .unwrap_or_default()
-            .naive_utc()
+        self.data.deadline.naive_utc()
     }
 
     pub fn id(&self) -> &RecordId {
         &self.data.id
     }
 
-    pub fn estimated_duration(&self) -> TimeDelta {
-        TimeDelta::seconds(self.data.estimated_duration)
+    pub fn estimated_duration(&self) -> Duration {
+        self.data.estimated_duration
     }
 
-    pub fn deadline_datetime(&self) -> NaiveDateTime {
-        DateTime::from_timestamp(self.data.deadline, 0)
-            .unwrap_or_default()
-            .naive_utc()
+    pub fn deadline_datetime(&self) -> DateTime<Utc> {
+        self.data.deadline
     }
 
     pub fn set_name(&mut self, name: String) {
-        self.data.name = name;
+        self.data.title = name;
     }
 
     pub fn set_description(&mut self, description: String) {
@@ -247,12 +243,12 @@ impl<S> Task<S> {
         self.data.priority = priority;
     }
 
-    pub fn set_estimated_duration(&mut self, estimated_duration: TimeDelta) {
-        self.data.estimated_duration = estimated_duration.num_seconds();
+    pub fn set_estimated_duration(&mut self, estimated_duration: Duration) {
+        self.data.estimated_duration = estimated_duration;
     }
 
-    pub fn set_deadline(&mut self, deadline: NaiveDateTime) {
-        self.data.deadline = deadline.and_utc().timestamp();
+    pub fn set_deadline(&mut self, deadline: DateTime<Utc>) {
+        self.data.deadline = deadline;
     }
 
     pub fn completed(&self) -> bool {
@@ -264,7 +260,7 @@ impl<S> Task<S> {
     }
 
     /// Transforms the task into scheduled one, with `scheduled_for` set to `timestamp`.
-    pub fn schedule_for(self, timestamp: i64) -> Task<Scheduled> {
+    pub fn schedule_for(self, timestamp: DateTime<Utc>) -> Task<Scheduled> {
         Task::<Scheduled> {
             data: TaskData {
                 scheduled_for: Some(timestamp),
@@ -276,7 +272,7 @@ impl<S> Task<S> {
 }
 
 impl Task<Scheduled> {
-    pub fn scheduled_for(&self) -> i64 {
+    pub fn scheduled_for(&self) -> DateTime<Utc> {
         self.data.scheduled_for.unwrap()
     }
 }

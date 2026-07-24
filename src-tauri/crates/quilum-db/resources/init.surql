@@ -1,21 +1,21 @@
 DEFINE TABLE OVERWRITE events SCHEMAFULL TYPE NORMAL;
 DEFINE FIELD OVERWRITE title ON events TYPE string ASSERT $value != "";
 DEFINE FIELD OVERWRITE description ON events TYPE string DEFAULT "";
-DEFINE FIELD OVERWRITE starts_at ON events TYPE int;
-DEFINE FIELD OVERWRITE ends_at ON events TYPE int;
+DEFINE FIELD OVERWRITE starts_at ON events TYPE datetime;
+DEFINE FIELD OVERWRITE ends_at ON events TYPE datetime;
 
 DEFINE TABLE OVERWRITE slots SCHEMAFULL TYPE NORMAL;
-DEFINE FIELD OVERWRITE starts_at ON slots TYPE int;
-DEFINE FIELD OVERWRITE ends_at ON slots TYPE int;
+DEFINE FIELD OVERWRITE starts_at ON slots TYPE datetime;
+DEFINE FIELD OVERWRITE ends_at ON slots TYPE datetime;
 
 DEFINE TABLE OVERWRITE tasks SCHEMAFULL TYPE NORMAL;
 DEFINE FIELD OVERWRITE title ON tasks TYPE string ASSERT $value != "";
 DEFINE FIELD OVERWRITE description ON tasks TYPE string DEFAULT "";
-DEFINE FIELD OVERWRITE estimated_duration ON tasks TYPE int;
-DEFINE FIELD OVERWRITE deadline ON tasks TYPE int;
 DEFINE FIELD OVERWRITE priority ON tasks TYPE object FLEXIBLE;
+DEFINE FIELD OVERWRITE estimated_duration ON tasks TYPE duration;
+DEFINE FIELD OVERWRITE deadline ON tasks TYPE datetime;
 DEFINE FIELD OVERWRITE completed ON tasks TYPE bool;
-DEFINE FIELD OVERWRITE scheduled_for ON tasks TYPE option<int>;
+DEFINE FIELD OVERWRITE scheduled_for ON tasks TYPE option<datetime>;
 
 DEFINE TABLE OVERWRITE task_lists SCHEMAFULL TYPE NORMAL;
 DEFINE FIELD OVERWRITE title ON task_lists TYPE string ASSERT $value != "";

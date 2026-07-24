@@ -31,8 +31,8 @@ impl Storage {
             name,
             description,
             priority,
-            estimated_duration.num_seconds(),
-            deadline.and_utc().timestamp(),
+            estimated_duration.to_std().expect("Duration should be positive"),
+            deadline.and_utc(),
             false,
             None,
         );

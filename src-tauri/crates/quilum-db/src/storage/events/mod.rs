@@ -24,8 +24,8 @@ impl Storage {
         let event = Event::new(
             name,
             description,
-            starts_at.and_utc().timestamp(),
-            ends_at.and_utc().timestamp(),
+            starts_at.and_utc(),
+            ends_at.and_utc(),
         );
 
         let created = self.db.create(EVENTS_TABLE).content(event).await?;

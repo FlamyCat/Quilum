@@ -19,8 +19,8 @@ impl Storage {
         ends_at: NaiveDateTime,
     ) -> Result<Slot, Error> {
         let slot = Slot::new(
-            starts_at.and_utc().timestamp(),
-            ends_at.and_utc().timestamp(),
+            starts_at.and_utc(),
+            ends_at.and_utc(),
         );
 
         let created: Option<Slot> = self.db.create(SLOTS_TABLE).content(slot).await?;

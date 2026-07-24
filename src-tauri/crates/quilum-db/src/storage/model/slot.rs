@@ -1,4 +1,4 @@
-use chrono::{DateTime, NaiveDateTime, TimeDelta};
+use chrono::{DateTime, TimeDelta, Utc};
 use serde::{Deserialize, Serialize};
 use surrealdb::types::{RecordId, RecordIdKey, SurrealValue};
 
@@ -7,8 +7,8 @@ pub const SLOTS_TABLE: &str = "slots";
 #[derive(Clone, Debug, Serialize, Deserialize, SurrealValue)]
 pub struct Slot {
     pub id: RecordId,
-    pub starts_at: i64,
-    pub ends_at: i64,
+    pub starts_at: DateTime<Utc>,
+    pub ends_at: DateTime<Utc>,
 }
 
 impl Slot {
@@ -16,23 +16,19 @@ impl Slot {
         &self.id
     }
 
-    pub fn starts_at(&self) -> NaiveDateTime {
-        DateTime::from_timestamp(self.starts_at, 0)
-            .unwrap_or_default()
-            .naive_utc()
+    pub fn starts_at(&self) -> DateTime<Utc> {
+        self.starts_at
     }
 
-    pub fn ends_at(&self) -> NaiveDateTime {
-        DateTime::from_timestamp(self.ends_at, 0)
-            .unwrap_or_default()
-            .naive_utc()
+    pub fn ends_at(&self) -> DateTime<Utc> {
+        self.ends_at
     }
 
     pub fn duration(&self) -> TimeDelta {
         self.ends_at() - self.starts_at()
     }
 
-    pub fn new(starts_at: i64, ends_at: i64) -> Self {
+    pub fn new(starts_at: DateTime<Utc>, ends_at: DateTime<Utc>) -> Self {
         Self {
             id: RecordId::new(SLOTS_TABLE, RecordIdKey::ulid()),
             starts_at,
