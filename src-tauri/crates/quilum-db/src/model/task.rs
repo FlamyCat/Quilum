@@ -2,51 +2,12 @@ use std::{cmp::Ordering, fmt::Debug, marker::PhantomData, time::Duration};
 
 use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
-use surrealdb::{
-    types::{Kind, RecordId, RecordIdKey, SurrealValue, Value},
-    Error,
-};
+use surrealdb::types::{RecordId, RecordIdKey, SurrealValue};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Task<S> {
     data: TaskData,
     _schedule_info: PhantomData<S>,
-}
-
-impl SurrealValue for Task<Scheduled> {
-    fn kind_of() -> Kind {
-        TaskData::kind_of()
-    }
-
-    fn into_value(self) -> Value {
-        self.data.into_value()
-    }
-
-    fn from_value(value: Value) -> Result<Self, Error>
-    where
-        Self: Sized,
-    {
-        let data = TaskData::from_value(value)?;
-        Task::try_scheduled_from_data(data).map_err(|e| Error::serialization(e.to_string(), None))
-    }
-}
-
-impl SurrealValue for Task<Unscheduled> {
-    fn kind_of() -> Kind {
-        TaskData::kind_of()
-    }
-
-    fn into_value(self) -> Value {
-        self.data.into_value()
-    }
-
-    fn from_value(value: Value) -> Result<Self, Error>
-    where
-        Self: Sized,
-    {
-        let data = TaskData::from_value(value)?;
-        Task::try_unscheduled_from_data(data).map_err(|e| Error::serialization(e.to_string(), None))
-    }
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize, SurrealValue)]
