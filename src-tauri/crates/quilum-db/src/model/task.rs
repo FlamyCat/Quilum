@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use surrealdb::types::{RecordId, RecordIdKey, SurrealValue};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize, SurrealValue)]
-pub struct TaskData {
+pub struct Task {
     pub id: RecordId,
     pub title: String,
     pub description: String,
@@ -18,7 +18,7 @@ pub struct TaskData {
 
 pub const TASKS_TABLE: &str = "tasks";
 
-impl TaskData {
+impl Task {
     pub fn new(
         title: String,
         description: String,
@@ -41,15 +41,15 @@ impl TaskData {
     }
 }
 
-impl PartialOrd for TaskData {
+impl PartialOrd for Task {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for TaskData {
+impl Ord for Task {
     fn cmp(&self, other: &Self) -> Ordering {
-        fn to_priority_tuple(task: &TaskData) -> (u64, DateTime<Utc>, &String, &String) {
+        fn to_priority_tuple(task: &Task) -> (u64, DateTime<Utc>, &String, &String) {
             (
                 u64::from(task.priority),
                 task.deadline,
@@ -62,7 +62,7 @@ impl Ord for TaskData {
     }
 }
 
-impl TaskData {
+impl Task {
     pub fn name(&self) -> &str {
         &self.title
     }
