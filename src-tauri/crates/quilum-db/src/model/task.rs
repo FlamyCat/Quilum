@@ -122,17 +122,6 @@ impl TaskData {
     pub fn set_completed(&mut self, completed: bool) {
         self.completed = completed;
     }
-
-    /// Transforms the task into scheduled one, with `scheduled_for` set to `timestamp`.
-    pub fn schedule_for(self, timestamp: DateTime<Utc>) -> Task<Scheduled> {
-        Task::<Scheduled> {
-            data: TaskData {
-                scheduled_for: Some(timestamp),
-                ..self
-            },
-            _schedule_info: PhantomData,
-        }
-    }
 }
 
 impl Task<Scheduled> {
