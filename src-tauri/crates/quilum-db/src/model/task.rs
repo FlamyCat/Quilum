@@ -6,7 +6,6 @@ use surrealdb::{
     types::{Kind, RecordId, RecordIdKey, SurrealValue, Value},
     Error,
 };
-use thiserror::Error;
 
 /// Marks the task as scheduled.
 /// For [`Task`] instances of this state it is safe to access scheduling information.
@@ -97,12 +96,6 @@ impl TaskData {
             scheduled_for,
         }
     }
-}
-
-#[derive(Error, Debug)]
-pub enum TaskSerializationError {
-    #[error("Failed to deserialize a with a wrong scheduling kind: {0}")]
-    WrongSchedulingKind(String),
 }
 
 impl Task<Unscheduled> {
