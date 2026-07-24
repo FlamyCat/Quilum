@@ -26,8 +26,8 @@ impl Storage {
         priority: Priority,
         estimated_duration: TimeDelta,
         deadline: NaiveDateTime,
-    ) -> Result<Task<Unscheduled>, Error> {
-        let data = TaskData::new(
+    ) -> Result<Task, Error> {
+        let data = Task::new(
             name,
             description,
             priority,
@@ -37,7 +37,7 @@ impl Storage {
             None,
         );
 
-        let created: Option<Task<_>> = self.db.create(TASKS_TABLE).content(data).await?;
+        let created: Option<Task> = self.db.create(TASKS_TABLE).content(data).await?;
         created.ok_or_else(|| Error::query("Failed to create task".to_string(), None))
     }
 
