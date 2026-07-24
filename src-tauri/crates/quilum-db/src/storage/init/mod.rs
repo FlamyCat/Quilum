@@ -73,7 +73,7 @@ impl Storage {
         };
 
         db.use_ns("quilum").use_db("main").await?;
-        let storage = Self::new(db)?;
+        let storage = Self::new(db);
         storage.init().await?;
         Ok(storage)
     }
