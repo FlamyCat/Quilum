@@ -213,7 +213,7 @@ impl<'a> State<'a> {
                 .iter()
                 .filter(|task_ref| {
                     let task = task_ref.task();
-                    task.deadline_as_datetime() < self.now + task.estimated_duration()
+                    task.deadline() < self.now + task.estimated_duration()
                 })
                 .copied()
                 .collect();
