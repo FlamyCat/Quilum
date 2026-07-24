@@ -168,7 +168,7 @@ impl Storage {
     pub async fn get_today_timetable(
         &self,
         today: NaiveDate,
-    ) -> Result<(Vec<Event>, Vec<Task<Scheduled>>), Error> {
+    ) -> Result<(Vec<Event>, Vec<Task>), Error> {
         let tomorrow = today + TimeDelta::days(1);
 
         let events = self.get_events_for_date(today).await?;
