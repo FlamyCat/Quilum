@@ -97,7 +97,7 @@ impl<'a> State<'a> {
 
         let mut table = self.table.clone();
         table
-            .get_mut(&task.estimated_duration())
+            .get_mut(&TimeDelta::from_std(task.estimated_duration()).unwrap())
             .expect("Задача должна быть представлена в таблице")
             .remove(&task_ref);
 
