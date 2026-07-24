@@ -70,17 +70,14 @@ impl Storage {
     pub async fn get_tasks_in_list(
         &self,
         list_id: RecordId,
-    ) -> Result<Vec<Task<Unscheduled>>, Error> {
+    ) -> Result<Vec<Task>, Error> {
         let sql = "SELECT ->contains->tasks AS tasks FROM $tasklist_id FETCH tasks";
         let tasks = self
             .db
             .query(sql)
             .bind(("tasklist_id", list_id))
             .await?
-            .take::<Vec<_>>(0)?
-            .into_iter()
-            .map(Task::unscheduled_from_data)
-            .collect();
+            .take::<Vec<_>>(0)?;
 
         Ok(tasks)
     }
