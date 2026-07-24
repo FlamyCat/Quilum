@@ -1,6 +1,6 @@
 use chrono::NaiveDateTime;
 use quilum_db::{
-    storage::model::task::{Priority, Task, Unscheduled},
+    model::task::{Priority, Task},
     Storage,
 };
 use surrealdb::types::RecordId;
