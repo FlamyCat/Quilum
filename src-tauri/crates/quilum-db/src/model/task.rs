@@ -1,70 +1,196 @@
-use std::cmp::Ordering;
+use std::{cmp::Ordering, fmt::Debug, marker::PhantomData, time::Duration};
 
-use chrono::{DateTime, NaiveDateTime, TimeDelta};
+use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
-use surrealdb::types::{RecordId, RecordIdKey, SurrealValue};
+use surrealdb::{
+    types::{Kind, RecordId, RecordIdKey, SurrealValue, Value},
+    Error,
+};
+use thiserror::Error;
 
-const TASKS_TABLE: &str = "tasks";
+/// Marks the task as scheduled.
+/// For [`Task`] instances of this state it is safe to access scheduling information.
+#[derive(Ord, PartialOrd, Eq, PartialEq, Clone, Copy, Debug, Serialize, Deserialize)]
+pub struct Scheduled;
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize, SurrealValue)]
-pub struct Task {
-    pub id: RecordId,
-    pub name: String,
-    pub description: String,
-    pub priority: Priority,
-    pub estimated_duration: i64,
-    pub deadline: i64,
-    pub completed: bool,
+/// Marks the task as unscheduled.
+///
+/// This state **DOES NOT** necessarily represent the state of the storage, it just means that the
+/// current task instance does not carry the scheduling information.
+#[derive(Ord, PartialOrd, Eq, PartialEq, Clone, Copy, Debug, Serialize, Deserialize)]
+pub struct Unscheduled;
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Task<S> {
+    data: TaskData,
+    _schedule_info: PhantomData<S>,
 }
 
-impl Task {
-    pub fn id(&self) -> &RecordId {
-        &self.id
+impl SurrealValue for Task<Scheduled> {
+    fn kind_of() -> Kind {
+        TaskData::kind_of()
     }
 
-    pub fn estimated_duration(&self) -> TimeDelta {
-        TimeDelta::seconds(self.estimated_duration)
+    fn into_value(self) -> Value {
+        self.data.into_value()
     }
 
-    pub fn deadline_datetime(&self) -> NaiveDateTime {
-        DateTime::from_timestamp(self.deadline, 0)
-            .unwrap_or_default()
-            .naive_utc()
+    fn from_value(value: Value) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
+        let data = TaskData::from_value(value)?;
+        Task::try_scheduled_from_data(data).map_err(|e| Error::serialization(e.to_string(), None))
+    }
+}
+
+impl SurrealValue for Task<Unscheduled> {
+    fn kind_of() -> Kind {
+        TaskData::kind_of()
     }
 
+    fn into_value(self) -> Value {
+        self.data.into_value()
+    }
+
+    fn from_value(value: Value) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
+        let data = TaskData::from_value(value)?;
+        Task::try_unscheduled_from_data(data).map_err(|e| Error::serialization(e.to_string(), None))
+    }
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize, SurrealValue)]
+pub struct TaskData {
+    pub id: RecordId,
+    pub title: String,
+    pub description: String,
+    pub priority: Priority,
+    pub estimated_duration: Duration,
+    pub deadline: DateTime<Utc>,
+    pub completed: bool,
+    pub scheduled_for: Option<DateTime<Utc>>,
+}
+
+pub const TASKS_TABLE: &str = "tasks";
+
+impl TaskData {
     pub fn new(
-        name: String,
+        title: String,
         description: String,
         priority: Priority,
-        estimated_duration: i64,
-        deadline: i64,
+        estimated_duration: Duration,
+        deadline: DateTime<Utc>,
+        completed: bool,
+        scheduled_for: Option<DateTime<Utc>>,
     ) -> Self {
         Self {
             id: RecordId::new(TASKS_TABLE, RecordIdKey::ulid()),
-            name,
+            title,
             description,
             priority,
             estimated_duration,
             deadline,
-            completed: false,
+            completed,
+            scheduled_for,
         }
     }
 }
 
-impl PartialOrd for Task {
+pub enum TaskVariant {
+    Scheduled(Task<Scheduled>),
+    Unscheduled(Task<Unscheduled>),
+}
+
+#[derive(Error, Debug)]
+pub enum TaskSerializationError {
+    #[error("Failed to deserialize a with a wrong scheduling kind: {0}")]
+    WrongSchedulingKind(String),
+}
+
+impl Task<Unscheduled> {
+    /// Constructs a new **unscheduled** task from given `data`.
+    /// If `scheduled_for` in `data` is `Some`, the method will panic.
+    pub fn unscheduled_from_data(data: TaskData) -> Self {
+        assert!(
+            data.scheduled_for.is_none(),
+            "Attempted constructing an unscheduled task from scheduled task data"
+        );
+
+        Self {
+            data,
+            _schedule_info: PhantomData,
+        }
+    }
+
+    /// Constructs a new **unscheduled** task from given `data`.
+    /// If `scheduled_for` in `data` is `Some`, the method will return an error.
+    pub fn try_unscheduled_from_data(data: TaskData) -> Result<Self, TaskSerializationError> {
+        if data.scheduled_for.is_some() {
+            Err(TaskSerializationError::WrongSchedulingKind(String::from(
+                "value being deserialized did carry the scheduling data",
+            )))
+        } else {
+            Ok(Self::unscheduled_from_data(data))
+        }
+    }
+}
+
+impl Task<Scheduled> {
+    /// Constructs a new **scheduled** task from given `data`.
+    /// If `scheduled_for` in `data` is `None`, the method will panic.
+    pub fn scheduled_from_data(data: TaskData) -> Self {
+        assert!(
+            data.scheduled_for.is_some(),
+            "Attempted constructing a scheduled task from unscheduled task data"
+        );
+
+        Self {
+            data,
+            _schedule_info: PhantomData,
+        }
+    }
+
+    /// Constructs a new **scheduled** task from given `data`.
+    /// If `scheduled_for` in `data` is `None`, the method will return an error.
+    pub fn try_scheduled_from_data(data: TaskData) -> Result<Self, TaskSerializationError> {
+        if data.scheduled_for.is_none() {
+            Err(TaskSerializationError::WrongSchedulingKind(String::from(
+                "value being deserialized did not carry the scheduling data",
+            )))
+        } else {
+            Ok(Self::scheduled_from_data(data))
+        }
+    }
+}
+
+impl<S> Task<S> {
+    /// Constructs a new task from data with unknown `scheduled_for` value.
+    pub fn new_from_data(task_data: TaskData) -> TaskVariant {
+        if task_data.scheduled_for.is_some() {
+            TaskVariant::Scheduled(Task::<Scheduled>::scheduled_from_data(task_data))
+        } else {
+            TaskVariant::Unscheduled(Task::<Unscheduled>::unscheduled_from_data(task_data))
+        }
+    }
+}
+
+impl<S: Ord> PartialOrd for Task<S> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for Task {
+impl<S: Ord> Ord for Task<S> {
     fn cmp(&self, other: &Self) -> Ordering {
-        fn to_priority_tuple(task: &Task) -> (u64, i64, &String, &String) {
+        fn to_priority_tuple<S>(task: &Task<S>) -> (u64, DateTime<Utc>, &String, &String) {
             (
-                u64::from(task.priority),
-                task.deadline,
-                &task.name,
-                &task.description,
+                u64::from(task.data.priority),
+                task.data.deadline,
+                &task.data.title,
+                &task.data.description,
             )
         }
 
@@ -72,55 +198,82 @@ impl Ord for Task {
     }
 }
 
-impl Task {
+impl<S> Task<S> {
     pub fn name(&self) -> &str {
-        &self.name
+        &self.data.title
     }
 
     pub fn description(&self) -> &str {
-        &self.description
+        &self.data.description
     }
 
     pub fn priority(&self) -> &Priority {
-        &self.priority
+        &self.data.priority
     }
 
-    pub fn deadline(&self) -> i64 {
-        self.deadline
+    pub fn deadline(&self) -> DateTime<Utc> {
+        self.data.deadline
     }
 
     pub fn deadline_as_datetime(&self) -> NaiveDateTime {
-        DateTime::from_timestamp(self.deadline, 0)
-            .unwrap_or_default()
-            .naive_utc()
+        self.data.deadline.naive_utc()
+    }
+
+    pub fn id(&self) -> &RecordId {
+        &self.data.id
+    }
+
+    pub fn estimated_duration(&self) -> Duration {
+        self.data.estimated_duration
+    }
+
+    pub fn deadline_datetime(&self) -> DateTime<Utc> {
+        self.data.deadline
     }
 
     pub fn set_name(&mut self, name: String) {
-        self.name = name;
+        self.data.title = name;
     }
 
     pub fn set_description(&mut self, description: String) {
-        self.description = description;
+        self.data.description = description;
     }
 
     pub fn set_priority(&mut self, priority: Priority) {
-        self.priority = priority;
+        self.data.priority = priority;
     }
 
-    pub fn set_estimated_duration(&mut self, estimated_duration: TimeDelta) {
-        self.estimated_duration = estimated_duration.num_seconds();
+    pub fn set_estimated_duration(&mut self, estimated_duration: Duration) {
+        self.data.estimated_duration = estimated_duration;
     }
 
-    pub fn set_deadline(&mut self, deadline: NaiveDateTime) {
-        self.deadline = deadline.and_utc().timestamp();
+    pub fn set_deadline(&mut self, deadline: DateTime<Utc>) {
+        self.data.deadline = deadline;
     }
 
     pub fn completed(&self) -> bool {
-        self.completed
+        self.data.completed
     }
 
     pub fn set_completed(&mut self, completed: bool) {
-        self.completed = completed;
+        self.data.completed = completed;
+    }
+
+    /// Transforms the task into scheduled one, with `scheduled_for` set to `timestamp`.
+    pub fn schedule_for(self, timestamp: DateTime<Utc>) -> Task<Scheduled> {
+        Task::<Scheduled> {
+            data: TaskData {
+                scheduled_for: Some(timestamp),
+                ..self.data
+            },
+            _schedule_info: PhantomData,
+        }
+    }
+}
+
+impl Task<Scheduled> {
+    pub fn scheduled_for(&self) -> DateTime<Utc> {
+        self.data.scheduled_for.unwrap()
     }
 }
 
