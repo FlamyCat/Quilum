@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use chrono::{NaiveDateTime, TimeDelta};
+use chrono::{DateTime, TimeDelta, Utc};
 use surrealdb::{types::RecordId, Error};
 
 use crate::{
@@ -25,14 +25,14 @@ impl Storage {
         description: String,
         priority: Priority,
         estimated_duration: TimeDelta,
-        deadline: NaiveDateTime,
+        deadline: DateTime<Utc>,
     ) -> Result<Task, Error> {
         let data = Task::new(
             name,
             description,
             priority,
             estimated_duration.to_std().expect("Duration should be positive"),
-            deadline.and_utc(),
+            deadline,
             false,
             None,
         );

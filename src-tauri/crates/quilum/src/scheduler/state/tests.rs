@@ -1,8 +1,8 @@
 pub(in crate::scheduler) mod test_helpers {
-    use chrono::{NaiveDate, NaiveDateTime};
+    use chrono::{NaiveDate, DateTime<Utc>};
 
-    pub(in crate::scheduler) fn create_date(year: i32, month: u32, day: u32) -> NaiveDateTime {
-        NaiveDateTime::from(NaiveDate::from_ymd_opt(year, month, day).unwrap())
+    pub(in crate::scheduler) fn create_date(year: i32, month: u32, day: u32) -> DateTime<Utc> {
+        DateTime < Utc > ::from(NaiveDate::from_ymd_opt(year, month, day).unwrap())
     }
 
     pub(in crate::scheduler) fn create_date_time(
@@ -11,7 +11,7 @@ pub(in crate::scheduler) mod test_helpers {
         day: u32,
         hours: u32,
         minutes: u32,
-    ) -> NaiveDateTime {
+    ) -> DateTime<Utc> {
         NaiveDate::from_ymd_opt(year, month, day)
             .unwrap()
             .and_hms_opt(hours, minutes, 0)
@@ -46,7 +46,7 @@ mod skip_unsuitable_slots_tests {
         }
     }
 
-    fn create_slot(start: chrono::NaiveDateTime, end: chrono::NaiveDateTime) -> Slot {
+    fn create_slot(start: chrono::DateTime<Utc>, end: chrono::DateTime<Utc>) -> Slot {
         Slot {
             id: surrealdb::types::RecordId::new("slot", "test"),
             starts_at: start.and_utc().timestamp(),
@@ -185,7 +185,7 @@ mod get_available_time_tests {
         }
     }
 
-    fn create_slot(start: chrono::NaiveDateTime, end: chrono::NaiveDateTime) -> Slot {
+    fn create_slot(start: chrono::DateTime<Utc>, end: chrono::DateTime<Utc>) -> Slot {
         Slot {
             id: surrealdb::types::RecordId::new("slot", "test"),
             starts_at: start.and_utc().timestamp(),

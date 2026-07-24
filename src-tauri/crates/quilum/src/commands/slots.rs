@@ -1,3 +1,4 @@
+use chrono::DateTime;
 use tauri::State;
 use quilum_db::{
     Storage,
@@ -11,9 +12,8 @@ pub async fn create_slot(
     starts_at: i64,
     ends_at: i64,
 ) -> Result<Slot, String> {
-    use chrono::NaiveDateTime;
-    let starts_at = NaiveDateTime::from_timestamp(starts_at, 0);
-    let ends_at = NaiveDateTime::from_timestamp(ends_at, 0);
+    let starts_at = DateTime::from_timestamp(starts_at, 0).unwrap();
+    let ends_at = DateTime::from_timestamp(ends_at, 0).unwrap();
     storage
         .create_slot(starts_at, ends_at)
         .await

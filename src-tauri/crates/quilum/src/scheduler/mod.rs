@@ -2,13 +2,13 @@ mod state;
 
 use crate::db::Storage;
 use crate::model::{plan::Plan, slot::Slot, task::Task};
-use chrono::{Local, NaiveDateTime};
+use chrono::{Local, DateTime, Utc};
 use state::State;
 
 pub(crate) struct Scheduler<'a> {
     tasks: &'a [Task],
     upcoming_slots: &'a [Slot],
-    now: NaiveDateTime,
+    now: DateTime<Utc>,
     storage: &'a Storage,
 }
 
@@ -16,7 +16,7 @@ impl<'a> Scheduler<'a> {
     pub fn new(
         tasks: &'a [Task],
         upcoming_slots: &'a [Slot],
-        now: NaiveDateTime,
+        now: DateTime<Utc>,
         storage: &'a Storage,
     ) -> Self {
         Self {
@@ -32,7 +32,7 @@ impl<'a> Scheduler<'a> {
         upcoming_slots: &'a [Slot],
         storage: &'a Storage,
     ) -> Self {
-        Self::new(tasks, upcoming_slots, Local::now().naive_local(), storage)
+        Self::new(tasks, upcoming_slots, Local::now().into(), storage)
     }
 
     /// Метод составляет план на основе полученных задач

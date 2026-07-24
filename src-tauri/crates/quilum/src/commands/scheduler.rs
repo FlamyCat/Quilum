@@ -56,7 +56,7 @@ pub async fn run_scheduler(
         .await
         .map_err(|e| e.to_string())?;
 
-    let now = Utc::now().naive_utc();
+    let now = Utc::now();
 
     let scheduler = Scheduler::new(&tasks, &slots, now, &storage);
     let plan = scheduler

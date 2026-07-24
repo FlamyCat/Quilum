@@ -121,13 +121,14 @@ pub fn check_and_restore_session(storage: Storage, app_handle: tauri::AppHandle)
         };
 
         let blocked_info = blocked_apps_to_info(blocked.clone());
-        let now = Utc::now().timestamp();
+        let now = Utc::now();
+        let scheduled_for = task.scheduled_for().expect("The task is expected to be scheduled at this point");
         let end_timestamp = scheduled_for + task.estimated_duration;
         let task_name = task.name().to_string();
         let task_duration = task.estimated_duration;
 
         if scheduled_for <= now && now <= end_timestamp {
-            let end = DateTime::from_timestamp(end_timestamp, 0).unwrap_or_default();
+            let end = end_timestamp;
             start_blocking(
                 blocked_info,
                 end,
@@ -137,8 +138,7 @@ pub fn check_and_restore_session(storage: Storage, app_handle: tauri::AppHandle)
                 task_duration,
             );
         } else if scheduled_for > now {
-            let start_time = DateTime::from_timestamp(scheduled_for, 0).unwrap_or_default();
-            let end = DateTime::from_timestamp(end_timestamp, 0).unwrap_or_default();
+            let start_time = scheduled_for;
 
             let blocked_info_clone = blocked_apps_to_info(blocked);
             let storage_clone = storage.clone();
@@ -151,7 +151,7 @@ pub fn check_and_restore_session(storage: Storage, app_handle: tauri::AppHandle)
                 tokio::time::sleep(sleep_duration).await;
                 start_blocking(
                     blocked_info_clone,
-                    end,
+                    end_timestamp,
                     storage_clone,
                     app_handle_clone,
                     task_name_clone,
@@ -168,9 +168,9 @@ fn start_blocking(
     storage: Storage,
     app_handle: tauri::AppHandle,
     task_name: String,
-    task_duration_secs: i64,
+    task_duration: Duration,
 ) {
-    let duration_minutes = task_duration_secs / 60;
+    let duration_minutes = task_duration.as_secs();
     let notification_body = format!(
         "Начался период концентрации: \"{}\" ({} мин.). Отвлекающие приложения заблокированы!",
         task_name, duration_minutes

@@ -1,5 +1,5 @@
 use crate::model::{plan::Plan, slot::Slot, task::Task};
-use chrono::{NaiveDateTime, TimeDelta};
+use chrono::{DateTime, TimeDelta, Utc};
 use std::{
     cmp,
     collections::{BTreeMap, BTreeSet, VecDeque},
@@ -55,7 +55,7 @@ pub(super) struct State<'a> {
     table: BTreeMap<TimeDelta, BTreeSet<TaskRef<'a>>>,
     plan: Plan,
     slots: VecDeque<&'a Slot>,
-    now: NaiveDateTime,
+    now: DateTime<Utc>,
     current_slot: Option<&'a Slot>,
 }
 
@@ -63,7 +63,7 @@ impl<'a> State<'a> {
     /// Создает начальный вариант состояния на основе списка задач, слотов и
     /// текущего момента времени.
     ///
-    pub(super) fn new(tasks: &'a [Task], slots: VecDeque<&'a Slot>, now: NaiveDateTime) -> Self {
+    pub(super) fn new(tasks: &'a [Task], slots: VecDeque<&'a Slot>, now: DateTime<Utc>) -> Self {
         let table = Self::construct_duration_table(tasks);
 
         Self {

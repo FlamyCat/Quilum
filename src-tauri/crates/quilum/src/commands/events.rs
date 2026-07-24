@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use tauri::State;
 use quilum_db::{
     event::Event,
@@ -10,12 +11,9 @@ pub async fn create_event(
     storage: State<'_, Storage>,
     name: String,
     description: String,
-    starts_at: i64,
-    ends_at: i64,
+    starts_at: DateTime<Utc>,
+    ends_at: DateTime<Utc>,
 ) -> Result<Event, String> {
-    use chrono::NaiveDateTime;
-    let starts_at = NaiveDateTime::from_timestamp(starts_at, 0);
-    let ends_at = NaiveDateTime::from_timestamp(ends_at, 0);
     storage
         .create_event(name, description, starts_at, ends_at)
         .await

@@ -1,4 +1,4 @@
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use surrealdb::types::{RecordId, RecordIdKey, SurrealValue};
 
@@ -42,12 +42,12 @@ impl Event {
         self.description = description;
     }
 
-    pub fn set_starts_at(&mut self, starts_at: NaiveDateTime) {
-        self.starts_at = starts_at.and_utc();
+    pub fn set_starts_at(&mut self, starts_at: DateTime<Utc>) {
+        self.starts_at = starts_at;
     }
 
-    pub fn set_ends_at(&mut self, ends_at: NaiveDateTime) {
-        self.ends_at = ends_at.and_utc();
+    pub fn set_ends_at(&mut self, ends_at: DateTime<Utc>) {
+        self.ends_at = ends_at;
     }
 
     pub fn new(title: String, description: String, starts_at: DateTime<Utc>, ends_at: DateTime<Utc>) -> Self {

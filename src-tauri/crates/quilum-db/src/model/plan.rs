@@ -1,9 +1,9 @@
-use chrono::NaiveDateTime;
+use chrono::{DateTime, Utc};
 use surrealdb::types::RecordId;
 
 #[derive(Clone, Debug)]
 pub struct Plan {
-    scheduled: Vec<(RecordId, RecordId, NaiveDateTime)>, // (task_id, slot_id, scheduled_for)
+    scheduled: Vec<(RecordId, RecordId, DateTime<Utc>)>, // (task_id, slot_id, scheduled_for)
     discarded_task_ids: Vec<RecordId>,
     score: u64,
 }
@@ -21,7 +21,7 @@ impl Plan {
         &mut self,
         task_id: RecordId,
         slot_id: RecordId,
-        scheduled_for: NaiveDateTime,
+        scheduled_for: DateTime<Utc>,
         priority: u64,
     ) {
         self.scheduled.push((task_id, slot_id, scheduled_for));
@@ -32,7 +32,7 @@ impl Plan {
         mut self,
         task_id: RecordId,
         slot_id: RecordId,
-        scheduled_for: NaiveDateTime,
+        scheduled_for: DateTime<Utc>,
         priority: u64,
     ) -> Self {
         self.scheduled.push((task_id, slot_id, scheduled_for));
@@ -56,7 +56,7 @@ impl Plan {
         self.score
     }
 
-    pub fn tasks(&self) -> &Vec<(RecordId, RecordId, NaiveDateTime)> {
+    pub fn tasks(&self) -> &Vec<(RecordId, RecordId, DateTime<Utc>)> {
         &self.scheduled
     }
 

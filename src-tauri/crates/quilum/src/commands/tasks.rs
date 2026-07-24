@@ -1,11 +1,10 @@
-use chrono::NaiveDateTime;
+use chrono::{DateTime, TimeDelta};
 use quilum_db::{
     model::task::{Priority, Task},
     Storage,
 };
 use surrealdb::types::RecordId;
 use tauri::State;
-
 use crate::commands::session::check_and_restore_session;
 
 #[tauri::command]
@@ -23,8 +22,8 @@ pub async fn create_task(
         "High" => Priority::High,
         _ => return Err("Invalid priority".to_string()),
     };
-    let deadline = NaiveDateTime::from_timestamp(deadline, 0);
-    let estimated_duration = chrono::TimeDelta::seconds(estimated_duration);
+    let deadline = DateTime::from_timestamp(deadline, 0).unwrap();
+    let estimated_duration = TimeDelta::seconds(estimated_duration);
     storage
         .create_task(name, description, priority, estimated_duration, deadline)
         .await

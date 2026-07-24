@@ -1,4 +1,4 @@
-use chrono::NaiveDateTime;
+use chrono::{DateTime, Utc};
 use surrealdb::{types::RecordId, Error};
 
 use crate::{model::slot::Slot, Storage};
@@ -15,12 +15,12 @@ impl Storage {
     /// * The created slot
     pub async fn create_slot(
         &self,
-        starts_at: NaiveDateTime,
-        ends_at: NaiveDateTime,
+        starts_at: DateTime<Utc>,
+        ends_at: DateTime<Utc>,
     ) -> Result<Slot, Error> {
         let slot = Slot::new(
-            starts_at.and_utc(),
-            ends_at.and_utc(),
+            starts_at,
+            ends_at,
         );
 
         let created: Option<Slot> = self.db.create(SLOTS_TABLE).content(slot).await?;
