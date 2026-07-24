@@ -1,7 +1,7 @@
 use surrealdb::Error;
 
 use crate::{
-    task::{Scheduled, Task},
+    storage::model::task::{Scheduled, Task},
     Storage,
 };
 
