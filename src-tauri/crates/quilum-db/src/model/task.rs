@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, fmt::Debug, marker::PhantomData, time::Duration};
+use std::{cmp::Ordering, fmt::Debug, time::Duration};
 
 use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -95,6 +95,10 @@ impl TaskData {
         self.deadline
     }
 
+    pub fn scheduled_for(&self) -> Option<DateTime<Utc>> {
+        self.scheduled_for
+    }
+
     pub fn set_name(&mut self, name: String) {
         self.title = name;
     }
@@ -121,12 +125,6 @@ impl TaskData {
 
     pub fn set_completed(&mut self, completed: bool) {
         self.completed = completed;
-    }
-}
-
-impl Task<Scheduled> {
-    pub fn scheduled_for(&self) -> Option<DateTime<Utc>> {
-        self.scheduled_for
     }
 }
 
