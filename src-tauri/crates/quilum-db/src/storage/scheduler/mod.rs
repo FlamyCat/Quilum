@@ -1,9 +1,9 @@
 use surrealdb::Error;
 
 use crate::{
-    Storage,
     model::{slot::Slot, task::Task},
     slot::SLOTS_TABLE,
+    Storage,
 };
 
 impl Storage {
