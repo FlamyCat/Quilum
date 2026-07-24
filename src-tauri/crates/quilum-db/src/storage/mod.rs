@@ -13,6 +13,7 @@ mod timetable;
 use crate::{slot::Slot, task::Task, tasklist::TaskList};
 use serde::{Deserialize, Serialize};
 use surrealdb::{Surreal, engine::local::Db};
+use surrealdb::types::SurrealValue;
 
 /// Struct for returning slots with their scheduled tasks
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -22,7 +23,7 @@ pub struct SlotWithTasks {
 }
 
 /// Struct for returning task lists with their tasks
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, SurrealValue)]
 pub struct TaskListWithTasks {
     pub list: TaskList,
     pub tasks: Vec<Task>,
