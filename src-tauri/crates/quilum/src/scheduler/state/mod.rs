@@ -184,8 +184,8 @@ impl<'a> State<'a> {
                     let task = task_ref.task();
                     let latest = cmp::max(self.now, slot.starts_at());
                     let available_time = slot.ends_at() - latest;
-                    task.estimated_duration() <= available_time
-                        && task.deadline_as_datetime() >= latest + task.estimated_duration()
+                    task.estimated_duration_timedelta() <= available_time
+                        && task.deadline() >= latest + task.estimated_duration()
                 });
 
                 applicable_tasks.count() > 0
