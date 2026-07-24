@@ -8,7 +8,7 @@ impl Storage {
     ///
     /// # Returns
     /// * Optional focus session if active
-    pub async fn get_active_session(&self) -> Result<Option<Task<Scheduled>>, Error> {
+    pub async fn get_active_session(&self) -> Result<Option<Task>, Error> {
         let sql = "
             SELECT *
             FROM ONLY tasks
