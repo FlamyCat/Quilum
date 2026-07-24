@@ -3,7 +3,7 @@ use std::{path, path::PathBuf};
 use serde::{Deserialize, Serialize};
 use surrealdb::types::{RecordId, SurrealValue};
 
-use crate::storage::model::app_identifier::AppIdentifier;
+use crate::model::app_identifier::AppIdentifier;
 
 pub const BLOCKED_APPS_TABLE: &str = "blocked_apps";
 
