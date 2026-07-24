@@ -1,8 +1,8 @@
 use surrealdb::{types::RecordId, Error};
 
 use crate::{
-    storage::model::{
-        task::{Task, Unscheduled},
+    model::{
+        task::Task,
         tasklist::TaskList,
     }, tasklist::TASKLISTS_TABLE,
     Storage,
