@@ -1,7 +1,10 @@
+use std::cmp::Ordering;
+
 use chrono::{DateTime, NaiveDateTime, TimeDelta};
 use serde::{Deserialize, Serialize};
-use std::cmp::Ordering;
-use surrealdb::types::{RecordId, SurrealValue};
+use surrealdb::types::{RecordId, RecordIdKey, SurrealValue};
+
+const TASKS_TABLE: &str = "tasks";
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize, SurrealValue)]
 pub struct Task {
@@ -27,6 +30,24 @@ impl Task {
         DateTime::from_timestamp(self.deadline, 0)
             .unwrap_or_default()
             .naive_utc()
+    }
+
+    pub fn new(
+        name: String,
+        description: String,
+        priority: Priority,
+        estimated_duration: i64,
+        deadline: i64,
+    ) -> Self {
+        Self {
+            id: RecordId::new(TASKS_TABLE, RecordIdKey::ulid()),
+            name,
+            description,
+            priority,
+            estimated_duration,
+            deadline,
+            completed: false,
+        }
     }
 }
 
