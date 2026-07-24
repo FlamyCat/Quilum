@@ -3,7 +3,7 @@ use chrono::{NaiveDateTime, TimeDelta};
 use surrealdb::{types::RecordId, Error};
 
 use crate::{
-    storage::model::task::{Priority, Task, TaskData, Unscheduled, TASKS_TABLE},
+    model::task::{Priority, Task, TASKS_TABLE},
     Storage,
 };
 
