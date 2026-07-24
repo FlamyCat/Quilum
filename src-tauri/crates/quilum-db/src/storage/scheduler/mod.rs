@@ -1,13 +1,10 @@
 use surrealdb::Error;
 
 use crate::{
-    storage::model::{
-        slot::Slot,
-        task::{Task, TaskData, Unscheduled},
-    },
     Storage,
+    model::{slot::Slot, task::Task},
+    slot::SLOTS_TABLE,
 };
-use crate::slot::SLOTS_TABLE;
 
 impl Storage {
     /// Gets all uncompleted tasks that theoretically can be done on time.
@@ -33,9 +30,12 @@ impl Storage {
     /// # Returns
     /// * Vector of slots where ends_at > now
     pub async fn get_future_slots(&self) -> Result<Vec<Slot>, Error> {
-        let sql = format!("
+        let sql = format!(
+            "
             SELECT * FROM {} WHERE ends_at > time::now() ORDER BY starts_at ASC
-        ", SLOTS_TABLE);
+        ",
+            SLOTS_TABLE
+        );
 
         let slots = self.db.query(sql).await?.take(0)?;
         Ok(slots)
