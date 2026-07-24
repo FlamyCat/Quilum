@@ -91,10 +91,6 @@ impl TaskData {
         self.estimated_duration
     }
 
-    pub fn deadline_datetime(&self) -> DateTime<Utc> {
-        self.deadline
-    }
-
     pub fn scheduled_for(&self) -> Option<DateTime<Utc>> {
         self.scheduled_for
     }
