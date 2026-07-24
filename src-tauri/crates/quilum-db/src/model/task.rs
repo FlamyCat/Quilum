@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, fmt::Debug, time::Duration};
 
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use surrealdb::types::{RecordId, RecordIdKey, SurrealValue};
 
