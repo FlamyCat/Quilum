@@ -16,7 +16,7 @@ pub async fn create_task(
     priority: String,
     estimated_duration: i64,
     deadline: i64,
-) -> Result<Task<Unscheduled>, String> {
+) -> Result<Task, String> {
     let priority = match priority.as_str() {
         "Low" => Priority::Low,
         "Medium" => Priority::Medium,
