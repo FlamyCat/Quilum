@@ -181,8 +181,8 @@ impl<S> Task<S> {
 }
 
 impl Task<Scheduled> {
-    pub fn scheduled_for(&self) -> DateTime<Utc> {
-        self.data.scheduled_for.unwrap()
+    pub fn scheduled_for(&self) -> Option<DateTime<Utc>> {
+        self.data.scheduled_for
     }
 }
 
