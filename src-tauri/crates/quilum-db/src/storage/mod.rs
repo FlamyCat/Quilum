@@ -16,7 +16,7 @@ use surrealdb::{Surreal, engine::local::Db};
 use surrealdb::types::SurrealValue;
 
 /// Struct for returning slots with their scheduled tasks
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, SurrealValue)]
 pub struct SlotWithTasks {
     pub slot: Slot,
     pub tasks: Vec<(Task, i64)>,
