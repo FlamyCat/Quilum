@@ -112,7 +112,7 @@ pub fn check_and_restore_session(storage: Storage, app_handle: tauri::AppHandle)
         stop_blocking(&mut guard).await;
         drop(guard);
 
-        let Ok(Some((task, scheduled_for))) = storage.get_next_scheduled_task().await else {
+        let Ok(Some(task)) = storage.get_next_scheduled_task().await else {
             return;
         };
 
