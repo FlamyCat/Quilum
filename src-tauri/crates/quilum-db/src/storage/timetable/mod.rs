@@ -69,7 +69,7 @@ impl Storage {
         &self,
         start: NaiveDate,
         end: NaiveDate,
-    ) -> Result<Vec<Task<Scheduled>>, Error> {
+    ) -> Result<Vec<Task>, Error> {
         let range_start = start.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp();
         let range_end = end.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp();
 
