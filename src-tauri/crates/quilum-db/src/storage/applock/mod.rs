@@ -1,11 +1,11 @@
 use surrealdb::Error;
 
 use crate::{
+    Storage,
     model::{
         app_identifier::AppIdentifier,
-        blocked_app::{BlockedApp, BLOCKED_APPS_TABLE},
+        blocked_app::{BLOCKED_APPS_TABLE, BlockedApp},
     },
-    Storage,
 };
 
 // App blocking methods
@@ -60,7 +60,7 @@ impl Storage {
     /// # Returns
     /// * Vector of blocked apps
     pub async fn get_blocked_apps(&self) -> Result<Vec<BlockedApp>, Error> {
-        let sql = "SELECT * FROM blocked_app".to_string();
+        let sql = format!("SELECT * FROM {BLOCKED_APPS_TABLE}");
         let mut result = self.db.query(sql).await?;
         let apps: Vec<BlockedApp> = result.take(0).unwrap_or_default();
         Ok(apps)
@@ -98,7 +98,9 @@ impl Storage {
     /// # Returns
     /// * Success or error
     pub async fn delete_all_blocked_apps(&self) -> Result<(), Error> {
-        self.db.query("DELETE FROM blocked_app").await?;
+        self.db
+            .query(format!("DELETE FROM {BLOCKED_APPS_TABLE}"))
+            .await?;
         Ok(())
     }
 }
