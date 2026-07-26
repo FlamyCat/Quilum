@@ -127,7 +127,11 @@ impl Storage {
     ) -> Result<Vec<SlotWithTasks>, Error> {
         let sql = "
             SELECT
-                *,
+               {
+                   id: id,
+                   starts_at: starts_at,
+                   ends_at: ends_at,
+               } AS slot,
                 <-scheduled_in<-tasks AS tasks
             FROM slots
             WHERE
