@@ -706,7 +706,7 @@ async fn get_slots_with_tasks_date_range_filter() {
         "Should return only Slot A (May 3 is excluded)"
     );
     assert_eq!(slots_with_tasks[0].slot.id(), slot_a.id());
-    assert_eq!(slots_with_tasks[0].tasks[0].0.name(), "Task T1");
+    assert_eq!(slots_with_tasks[0].tasks[0].name(), "Task T1");
 }
 
 #[tokio::test]
