@@ -10,14 +10,14 @@ async fn task_list_crud() {
         .await
         .expect("Failed to create task list");
 
-    assert_eq!(task_list.title, "My Tasks");
+    assert_eq!(task_list.title(), "My Tasks");
     assert!(!format!("{}", task_list.id().table).is_empty());
 
     let read_list = storage
         .read_task_list(task_list.id())
         .await
         .expect("Failed to read task list");
-    assert_eq!(read_list.title, "My Tasks");
+    assert_eq!(read_list.title(), "My Tasks");
 
     let mut updated_list = read_list;
     updated_list.title = "Updated Tasks".to_string();
@@ -30,7 +30,7 @@ async fn task_list_crud() {
         .read_task_list(task_list.id())
         .await
         .expect("Failed to read updated task list");
-    assert_eq!(updated_read.title, "Updated Tasks");
+    assert_eq!(updated_read.title(), "Updated Tasks");
 
     storage
         .delete_task_list(task_list.id())
@@ -59,18 +59,19 @@ async fn relate_task_to_list() {
             NaiveDate::from_ymd_opt(2026, 5, 1)
                 .unwrap()
                 .and_hms_opt(17, 0, 0)
-                .unwrap(),
+                .unwrap()
+                .and_utc(),
         )
         .await
         .expect("Failed to create task");
 
     storage
-        .put_task_into_list(task.id(), task_list.id())
+        .put_task_into_list(task.id().clone(), task_list.id().clone())
         .await
         .expect("Failed to relate task to list");
 
     let tasks = storage
-        .get_tasks_in_list(task_list.id())
+        .get_tasks_in_list(task_list.id().clone())
         .await
         .expect("Failed to get tasks in list");
 
@@ -96,12 +97,13 @@ async fn get_all_task_lists_with_tasks() {
             NaiveDate::from_ymd_opt(2026, 5, 1)
                 .unwrap()
                 .and_hms_opt(0, 0, 0)
-                .unwrap(),
+                .unwrap()
+                .and_utc(),
         )
         .await
         .expect("Failed to create task 1A");
     storage
-        .put_task_into_list(task1a.id(), list1.id())
+        .put_task_into_list(task1a.id().clone(), list1.id().clone())
         .await
         .expect("Failed to relate task 1A");
 
@@ -114,12 +116,13 @@ async fn get_all_task_lists_with_tasks() {
             NaiveDate::from_ymd_opt(2026, 5, 1)
                 .unwrap()
                 .and_hms_opt(0, 0, 0)
-                .unwrap(),
+                .unwrap()
+                .and_utc(),
         )
         .await
         .expect("Failed to create task 1B");
     storage
-        .put_task_into_list(task1b.id(), list1.id())
+        .put_task_into_list(task1b.id().clone(), list1.id().clone())
         .await
         .expect("Failed to relate task 1B");
 
@@ -137,12 +140,13 @@ async fn get_all_task_lists_with_tasks() {
             NaiveDate::from_ymd_opt(2026, 5, 1)
                 .unwrap()
                 .and_hms_opt(0, 0, 0)
-                .unwrap(),
+                .unwrap()
+                .and_utc(),
         )
         .await
         .expect("Failed to create task 2A");
     storage
-        .put_task_into_list(task2a.id(), list2.id())
+        .put_task_into_list(task2a.id().clone(), list2.id().clone())
         .await
         .expect("Failed to relate task 2A");
 
@@ -195,12 +199,13 @@ async fn delete_task_list_deletes_tasks() {
             NaiveDate::from_ymd_opt(2026, 5, 1)
                 .unwrap()
                 .and_hms_opt(0, 0, 0)
-                .unwrap(),
+                .unwrap()
+                .and_utc(),
         )
         .await
         .expect("Failed to create task 1");
     storage
-        .put_task_into_list(task1.id(), task_list.id())
+        .put_task_into_list(task1.id().clone(), task_list.id().clone())
         .await
         .expect("Failed to relate task 1");
 
@@ -213,17 +218,18 @@ async fn delete_task_list_deletes_tasks() {
             NaiveDate::from_ymd_opt(2026, 5, 1)
                 .unwrap()
                 .and_hms_opt(0, 0, 0)
-                .unwrap(),
+                .unwrap()
+                .and_utc(),
         )
         .await
         .expect("Failed to create task 2");
     storage
-        .put_task_into_list(task2.id(), task_list.id())
+        .put_task_into_list(task2.id().clone(), task_list.id().clone())
         .await
         .expect("Failed to relate task 2");
 
     let tasks_before = storage
-        .get_tasks_in_list(task_list.id())
+        .get_tasks_in_list(task_list.id().clone())
         .await
         .expect("Failed to get tasks");
     assert_eq!(tasks_before.len(), 2, "Should have 2 tasks before delete");
