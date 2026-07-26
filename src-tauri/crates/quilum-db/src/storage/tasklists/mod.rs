@@ -1,10 +1,7 @@
 use surrealdb::{types::RecordId, Error};
 
 use crate::{
-    model::{
-        task::Task,
-        tasklist::TaskList,
-    }, tasklist::TASKLISTS_TABLE,
+    model::{task::Task, tasklist::TaskList}, tasklist::TASKLISTS_TABLE,
     Storage,
     TaskListWithTasks,
 };
@@ -67,10 +64,7 @@ impl Storage {
     ///
     /// # Returns
     /// * The tasks in the list
-    pub async fn get_tasks_in_list(
-        &self,
-        list_id: RecordId,
-    ) -> Result<Vec<Task>, Error> {
+    pub async fn get_tasks_in_list(&self, list_id: RecordId) -> Result<Vec<Task>, Error> {
         let sql = "SELECT ->contains->tasks AS tasks FROM $tasklist_id FETCH tasks";
         let tasks = self
             .db
