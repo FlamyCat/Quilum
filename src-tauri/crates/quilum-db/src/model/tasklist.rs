@@ -19,6 +19,9 @@ impl TaskList {
     }
 
     pub fn new(title: String) -> Self {
-        Self { id: RecordId::new(TASKLISTS_TABLE, RecordIdKey::ulid()), title }
+        Self {
+            id: RecordId::new(TASKLISTS_TABLE, RecordIdKey::ulid()),
+            title,
+        }
     }
 }
