@@ -1,4 +1,4 @@
-use crate::{Storage, task::Priority};
+use crate::{task::Priority, Storage};
 use chrono::{NaiveDate, TimeDelta};
 
 #[tokio::test]
