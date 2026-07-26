@@ -2,8 +2,9 @@ use chrono::{NaiveDate, TimeDelta};
 use surrealdb::Error;
 
 use crate::{
-    model::{event::Event, task::Task}, SlotWithTasks,
-    Storage,
+    SlotWithTasks, Storage,
+    event::EVENTS_TABLE,
+    model::{event::Event, task::Task},
 };
 
 impl Storage {
@@ -20,12 +21,13 @@ impl Storage {
         start: NaiveDate,
         end: NaiveDate,
     ) -> Result<Vec<Event>, Error> {
-        let range_start = start.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp();
-        let range_end = end.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp();
+        let range_start = start.and_hms_opt(0, 0, 0).unwrap().and_utc();
+        let range_end = end.and_hms_opt(0, 0, 0).unwrap().and_utc();
 
-        let sql = "
-            SELECT * FROM event WHERE starts_at IN $start..$end OR ends_at IN $start..$end
-        ";
+        let sql = format!(
+            "SELECT * FROM {} WHERE starts_at IN $start..$end OR ends_at IN $start..$end",
+            EVENTS_TABLE
+        );
 
         let mut result = self
             .db
@@ -34,8 +36,7 @@ impl Storage {
             .bind(("end", range_end))
             .await?;
 
-        let events = result.take(0).unwrap_or_default();
-        Ok(events)
+        result.take(0)
     }
 
     /// Gets events occurring on a specific date.
