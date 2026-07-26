@@ -18,7 +18,7 @@ use crate::{slot::Slot, task::Task, tasklist::TaskList};
 #[derive(Clone, Debug, Serialize, Deserialize, SurrealValue)]
 pub struct SlotWithTasks {
     pub slot: Slot,
-    pub tasks: Vec<(Task, i64)>,
+    pub tasks: Vec<Task>,
 }
 
 /// Struct for returning task lists with their tasks
