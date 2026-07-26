@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use chrono::{DateTime, TimeDelta, Utc};
 use surrealdb::{types::RecordId, Error};
 
@@ -31,7 +30,9 @@ impl Storage {
             name,
             description,
             priority,
-            estimated_duration.to_std().expect("Duration should be positive"),
+            estimated_duration
+                .to_std()
+                .expect("Duration should be positive"),
             deadline,
             false,
             None,
