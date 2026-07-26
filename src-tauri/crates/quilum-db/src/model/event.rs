@@ -50,7 +50,12 @@ impl Event {
         self.ends_at = ends_at;
     }
 
-    pub fn new(title: String, description: String, starts_at: DateTime<Utc>, ends_at: DateTime<Utc>) -> Self {
+    pub fn new(
+        title: String,
+        description: String,
+        starts_at: DateTime<Utc>,
+        ends_at: DateTime<Utc>,
+    ) -> Self {
         Self {
             id: RecordId::new(EVENTS_TABLE, RecordIdKey::ulid()),
             title,
