@@ -1,5 +1,6 @@
-use crate::{task::Priority, Storage};
 use chrono::{NaiveDate, TimeDelta};
+
+use crate::{task::Priority, Storage};
 
 #[tokio::test]
 async fn task_list_crud() {
