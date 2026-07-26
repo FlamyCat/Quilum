@@ -10,10 +10,10 @@ mod tasklists;
 mod tasks;
 mod timetable;
 
-use crate::{slot::Slot, task::Task, tasklist::TaskList};
 use serde::{Deserialize, Serialize};
-use surrealdb::{Surreal, engine::local::Db};
-use surrealdb::types::SurrealValue;
+use surrealdb::{engine::local::Db, types::SurrealValue, Surreal};
+
+use crate::{slot::Slot, task::Task, tasklist::TaskList};
 
 /// Struct for returning slots with their scheduled tasks
 #[derive(Clone, Debug, Serialize, Deserialize, SurrealValue)]
