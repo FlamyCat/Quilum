@@ -1,5 +1,6 @@
-use crate::{task::Priority, Storage};
 use chrono::TimeDelta;
+
+use crate::{task::Priority, Storage};
 
 #[tokio::test]
 async fn delete_task_slot_relations_basic() {
@@ -34,7 +35,9 @@ async fn delete_task_slot_relations_basic() {
 
     storage
         .unschedule_tasks(
-            [task1.id().clone(), task2.id().clone()].into_iter().collect(),
+            [task1.id().clone(), task2.id().clone()]
+                .into_iter()
+                .collect(),
         )
         .await
         .expect("Failed to delete task slot relations");
