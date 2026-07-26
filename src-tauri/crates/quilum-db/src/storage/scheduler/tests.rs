@@ -1,5 +1,6 @@
-use crate::{task::Priority, Storage};
 use chrono::TimeDelta;
+
+use crate::{task::Priority, Storage};
 
 #[tokio::test]
 async fn get_uncompleted_tasks_basic() {
