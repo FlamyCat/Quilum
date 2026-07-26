@@ -6,7 +6,7 @@ async fn delete_task_slot_relations_basic() {
     let storage = Storage::new_mem().await.expect("Failed to create storage");
 
     let now = chrono::Utc::now().naive_utc();
-    let future_date = (now.date() + chrono::Duration::days(1))
+    let future_date = (now.date() + TimeDelta::days(1))
         .and_hms_opt(10, 0, 0)
         .unwrap();
 
@@ -16,7 +16,7 @@ async fn delete_task_slot_relations_basic() {
             "Test task 1".to_string(),
             Priority::Medium,
             TimeDelta::hours(1),
-            future_date + chrono::Duration::days(2),
+            (future_date + TimeDelta::days(2)).and_utc(),
         )
         .await
         .expect("Failed to create task 1");
@@ -27,24 +27,26 @@ async fn delete_task_slot_relations_basic() {
             "Test task 2".to_string(),
             Priority::High,
             TimeDelta::hours(2),
-            future_date + chrono::Duration::days(2),
+            (future_date + TimeDelta::days(2)).and_utc(),
         )
         .await
         .expect("Failed to create task 2");
 
     storage
-        .unschedule_tasks(&[task1.id().clone(), task2.id().clone()])
+        .unschedule_tasks(
+            [task1.id().clone(), task2.id().clone()].into_iter().collect(),
+        )
         .await
         .expect("Failed to delete task slot relations");
 
     let read_task1 = storage
-        .read_task(&task1.id())
+        .read_task(task1.id())
         .await
         .expect("Failed to read task 1");
     assert_eq!(read_task1.name(), "Task 1");
 
     let read_task2 = storage
-        .read_task(&task2.id())
+        .read_task(task2.id())
         .await
         .expect("Failed to read task 2");
     assert_eq!(read_task2.name(), "Task 2");
@@ -55,7 +57,7 @@ async fn delete_task_slot_relations_no_relations() {
     let storage = Storage::new_mem().await.expect("Failed to create storage");
 
     let now = chrono::Utc::now().naive_utc();
-    let future_date = (now.date() + chrono::Duration::days(1))
+    let future_date = (now.date() + TimeDelta::days(1))
         .and_hms_opt(10, 0, 0)
         .unwrap();
 
@@ -65,18 +67,18 @@ async fn delete_task_slot_relations_no_relations() {
             "Test task".to_string(),
             Priority::Medium,
             TimeDelta::hours(1),
-            future_date + chrono::Duration::days(2),
+            (future_date + TimeDelta::days(2)).and_utc(),
         )
         .await
         .expect("Failed to create task");
 
     storage
-        .unschedule_tasks(&[task.id().clone()])
+        .unschedule_tasks([task.id().clone()].into_iter().collect())
         .await
         .expect("Failed to delete task slot relations");
 
     let read_task = storage
-        .read_task(&task.id())
+        .read_task(task.id())
         .await
         .expect("Failed to read task");
     assert_eq!(read_task.name(), "Task 1");
@@ -87,9 +89,10 @@ async fn delete_task_cleans_up_slot_relations() {
     let storage = Storage::new_mem().await.expect("Failed to create storage");
 
     let now = chrono::Utc::now().naive_utc();
-    let future_date = (now.date() + chrono::Duration::days(1))
+    let future_date = (now.date() + TimeDelta::days(1))
         .and_hms_opt(10, 0, 0)
-        .unwrap();
+        .unwrap()
+        .and_utc();
 
     let task = storage
         .create_task(
@@ -97,18 +100,18 @@ async fn delete_task_cleans_up_slot_relations() {
             "Test task".to_string(),
             Priority::Medium,
             TimeDelta::hours(1),
-            future_date + chrono::Duration::days(2),
+            future_date + TimeDelta::days(2),
         )
         .await
         .expect("Failed to create task");
 
     let slot = storage
-        .create_slot(future_date, future_date + chrono::Duration::hours(2))
+        .create_slot(future_date, future_date + TimeDelta::hours(2))
         .await
         .expect("Failed to create slot");
 
     storage
-        .schedule_task(&slot.id(), &task.id(), future_date)
+        .schedule_task(slot.id().clone(), task.id().clone(), future_date)
         .await
         .expect("Failed to relate task to slot");
 
@@ -129,9 +132,10 @@ async fn delete_slot_cleans_up_contains_relations() {
     let storage = Storage::new_mem().await.expect("Failed to create storage");
 
     let now = chrono::Utc::now().naive_utc();
-    let future_date = (now.date() + chrono::Duration::days(1))
+    let future_date = (now.date() + TimeDelta::days(1))
         .and_hms_opt(10, 0, 0)
-        .unwrap();
+        .unwrap()
+        .and_utc();
 
     let task1 = storage
         .create_task(
@@ -139,7 +143,7 @@ async fn delete_slot_cleans_up_contains_relations() {
             "Test task 1".to_string(),
             Priority::Medium,
             TimeDelta::hours(1),
-            future_date + chrono::Duration::days(2),
+            future_date + TimeDelta::days(2),
         )
         .await
         .expect("Failed to create task 1");
@@ -150,25 +154,25 @@ async fn delete_slot_cleans_up_contains_relations() {
             "Test task 2".to_string(),
             Priority::High,
             TimeDelta::hours(2),
-            future_date + chrono::Duration::days(2),
+            future_date + TimeDelta::days(2),
         )
         .await
         .expect("Failed to create task 2");
 
     let slot = storage
-        .create_slot(future_date, future_date + chrono::Duration::hours(4))
+        .create_slot(future_date, future_date + TimeDelta::hours(4))
         .await
         .expect("Failed to create slot");
 
     storage
-        .schedule_task(&slot.id(), &task1.id(), future_date)
+        .schedule_task(slot.id().clone(), task1.id().clone(), future_date)
         .await
         .expect("Failed to relate task 1 to slot");
     storage
         .schedule_task(
-            &slot.id(),
-            &task2.id(),
-            future_date + chrono::Duration::hours(1),
+            slot.id().clone(),
+            task2.id().clone(),
+            future_date + TimeDelta::hours(1),
         )
         .await
         .expect("Failed to relate task 2 to slot");
