@@ -1,11 +1,12 @@
-use chrono::{DateTime, Utc};
 use std::{sync::Arc, time::Duration};
+
+use applock::{BlockingSession, app_list::AppInfo, start_polling};
+use chrono::{DateTime, Utc};
 use tauri::State;
 use tauri_plugin_notification::NotificationExt;
 use tokio::{sync::Mutex, task::JoinHandle};
 
 use crate::db::Storage;
-use applock::{BlockingSession, app_list::AppInfo, start_polling};
 
 pub struct BlockingState {
     pub session: BlockingSession,
@@ -42,7 +43,9 @@ fn blocked_apps_to_info(blocked: Vec<quilum_db::blocked_app::BlockedApp>) -> Vec
         .collect()
 }
 
-async fn end_focus_session_internal(app_handle: tauri::AppHandle) -> tauri_plugin_notification::Result<()> {
+async fn end_focus_session_internal(
+    app_handle: tauri::AppHandle,
+) -> tauri_plugin_notification::Result<()> {
     app_handle
         .notification()
         .builder()
@@ -58,7 +61,6 @@ pub async fn start_focus_session(
     end_time: i64,
 ) -> Result<(), String> {
     let end_time = DateTime::from_timestamp(end_time, 0).ok_or("Invalid end time")?;
-    let now = Utc::now();
 
     let blocked = storage
         .get_blocked_apps()
@@ -102,7 +104,9 @@ pub async fn start_focus_session(
 
 #[tauri::command]
 pub async fn end_focus_session(app_handle: tauri::AppHandle) -> Result<(), String> {
-    end_focus_session_internal(app_handle).await.map_err(|e| e.to_string())
+    end_focus_session_internal(app_handle)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 pub fn check_and_restore_session(storage: Storage, app_handle: tauri::AppHandle) {
@@ -122,7 +126,9 @@ pub fn check_and_restore_session(storage: Storage, app_handle: tauri::AppHandle)
 
         let blocked_info = blocked_apps_to_info(blocked.clone());
         let now = Utc::now();
-        let scheduled_for = task.scheduled_for().expect("The task is expected to be scheduled at this point");
+        let scheduled_for = task
+            .scheduled_for()
+            .expect("The task is expected to be scheduled at this point");
         let end_timestamp = scheduled_for + task.estimated_duration;
         let task_name = task.name().to_string();
         let task_duration = task.estimated_duration;
