@@ -243,6 +243,9 @@ async fn delete_task_list_deletes_tasks() {
     let result = storage.read_task_list(task_list.id()).await;
     assert!(result.is_err(), "List should be deleted");
 
+    let task_result = storage.read_task(task1.id()).await;
+    assert!(task_result.is_err(), "Task 1 should be deleted");
+
     let all_lists = storage
         .get_all_task_lists_with_tasks()
         .await
