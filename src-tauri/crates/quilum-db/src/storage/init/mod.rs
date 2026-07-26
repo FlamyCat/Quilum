@@ -1,10 +1,11 @@
-use crate::Storage;
 use chrono::Local;
 use directories::ProjectDirs;
 use surrealdb::{
     engine::local::{Db, Mem, SurrealKv}, Error,
     Surreal,
 };
+
+use crate::Storage;
 
 impl Storage {
     /// Creates a new Storage instance with the given SurrealDB connection.
