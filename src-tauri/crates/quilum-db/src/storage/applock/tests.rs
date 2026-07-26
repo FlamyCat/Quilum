@@ -1,5 +1,6 @@
-use crate::{Storage, model::app_identifier::AppIdentifier};
 use std::path::PathBuf;
+
+use crate::{model::app_identifier::AppIdentifier, Storage};
 
 #[tokio::test]
 async fn blocked_apps_get_empty() {
