@@ -19,7 +19,6 @@ DEFINE FIELD OVERWRITE scheduled_for ON tasks TYPE option<datetime>;
 
 DEFINE TABLE OVERWRITE task_lists SCHEMAFULL TYPE NORMAL;
 DEFINE FIELD OVERWRITE title ON task_lists TYPE string ASSERT $value != "";
-DEFINE FIELD OVERWRITE description ON task_lists TYPE string DEFAULT "";
 
 DEFINE TABLE OVERWRITE blocked_apps SCHEMAFULL TYPE NORMAL;
 DEFINE FIELD OVERWRITE identifier ON blocked_apps TYPE string;
