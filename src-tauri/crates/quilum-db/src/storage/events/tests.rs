@@ -18,8 +18,8 @@ async fn event_crud() {
         .create_event(
             "Test Event".to_string(),
             "A test event".to_string(),
-            start_time,
-            end_time,
+            start_time.and_utc(),
+            end_time.and_utc(),
         )
         .await
         .expect("Failed to create event");
