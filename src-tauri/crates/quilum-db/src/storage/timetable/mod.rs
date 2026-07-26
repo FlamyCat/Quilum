@@ -25,7 +25,8 @@ impl Storage {
         let range_end = end.and_hms_opt(0, 0, 0).unwrap().and_utc();
 
         let sql = format!(
-            "SELECT * FROM {} WHERE starts_at IN $start..$end OR ends_at IN $start..$end",
+            "SELECT * FROM {} \
+            WHERE starts_at < $end AND ends_at > $start",
             EVENTS_TABLE
         );
 
