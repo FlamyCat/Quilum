@@ -1,5 +1,6 @@
-use crate::Storage;
 use chrono::NaiveDate;
+
+use crate::Storage;
 
 #[tokio::test]
 async fn event_crud() {
