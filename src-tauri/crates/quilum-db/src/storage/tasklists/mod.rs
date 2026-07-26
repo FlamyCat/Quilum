@@ -81,7 +81,14 @@ impl Storage {
     /// # Returns
     /// * Vector of task lists with their tasks
     pub async fn get_all_task_lists_with_tasks(&self) -> Result<Vec<TaskListWithTasks>, Error> {
-        let sql = "SELECT *, ->contains->tasks AS tasks FROM tasklists FETCH tasks";
+        let sql = "
+            SELECT {
+                id: id,
+                title: title,
+            } AS list,
+            ->contains->tasks AS tasks
+            FROM task_lists FETCH tasks
+        ";
         let lists = self.db.query(sql).await?.take(0)?;
 
         Ok(lists)
