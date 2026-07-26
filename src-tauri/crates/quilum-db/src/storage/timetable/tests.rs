@@ -1,6 +1,9 @@
 use chrono::{NaiveDate, TimeDelta};
 
-use crate::{task::Priority, Storage};
+use crate::{
+    Storage,
+    task::{Priority, Task},
+};
 
 #[tokio::test]
 async fn get_events_for_date_range_basic() {
@@ -227,8 +230,8 @@ async fn get_scheduled_tasks_basic() {
     assert_eq!(scheduled_tasks.len(), 1, "Should return 1 scheduled task");
     assert_eq!(scheduled_tasks[0].name(), "Test Task");
     assert_eq!(
-        scheduled_tasks[0].scheduled_for().unwrap().timestamp(),
-        scheduled_for.and_utc().timestamp()
+        scheduled_tasks[0].scheduled_for().unwrap(),
+        scheduled_for.and_utc()
     );
 }
 
@@ -314,7 +317,7 @@ async fn get_scheduled_tasks_multiple_in_slot() {
             )
             .await
             .expect("Failed to relate task to slot");
-        expected_scheduled_fors.push(scheduled_for.and_utc().timestamp());
+        expected_scheduled_fors.push(scheduled_for.and_utc());
     }
 
     let scheduled_tasks = storage
@@ -328,9 +331,9 @@ async fn get_scheduled_tasks_multiple_in_slot() {
     task_names.sort();
     assert_eq!(task_names, vec!["Task 1", "Task 2", "Task 3"]);
 
-    let mut scheduled_fors: Vec<i64> = scheduled_tasks
+    let mut scheduled_fors: Vec<_> = scheduled_tasks
         .iter()
-        .map(|st| st.scheduled_for().unwrap().timestamp())
+        .map(|st| st.scheduled_for().unwrap())
         .collect();
     scheduled_fors.sort();
     assert_eq!(scheduled_fors, expected_scheduled_fors);
@@ -474,10 +477,12 @@ async fn get_slots_with_tasks_basic() {
         slot_date.and_hms_opt(10, 0, 0).unwrap().and_utc()
     );
     assert_eq!(slots_with_tasks[0].tasks.len(), 1, "Should have 1 task");
-    assert_eq!(slots_with_tasks[0].tasks[0].0.name(), "Test Task");
+    assert_eq!(slots_with_tasks[0].tasks[0].name(), "Test Task");
     assert_eq!(
-        slots_with_tasks[0].tasks[0].1,
-        scheduled_for.and_utc().timestamp()
+        slots_with_tasks[0].tasks[0]
+            .scheduled_for()
+            .expect("scheduled_for is missing"),
+        scheduled_for.and_utc()
     );
 }
 
@@ -517,7 +522,7 @@ async fn get_slots_with_tasks_multiple_tasks() {
             )
             .await
             .expect("Failed to relate task to slot");
-        expected_scheduled_fors.push(scheduled_for.and_utc().timestamp());
+        expected_scheduled_fors.push(scheduled_for.and_utc());
     }
 
     let slots_with_tasks = storage
@@ -528,18 +533,14 @@ async fn get_slots_with_tasks_multiple_tasks() {
     assert_eq!(slots_with_tasks.len(), 1, "Should return 1 slot");
     assert_eq!(slots_with_tasks[0].tasks.len(), 3, "Should have 3 tasks");
 
-    let mut task_names: Vec<&str> = slots_with_tasks[0]
-        .tasks
-        .iter()
-        .map(|(t, _)| t.name())
-        .collect();
+    let mut task_names: Vec<_> = slots_with_tasks[0].tasks.iter().map(Task::name).collect();
     task_names.sort();
     assert_eq!(task_names, vec!["Task 1", "Task 2", "Task 3"]);
 
-    let mut scheduled_fors: Vec<i64> = slots_with_tasks[0]
+    let mut scheduled_fors: Vec<_> = slots_with_tasks[0]
         .tasks
         .iter()
-        .map(|(_, sf)| *sf)
+        .map(|t| t.scheduled_for().expect("Scheduled for is missing"))
         .collect();
     scheduled_fors.sort();
     assert_eq!(scheduled_fors, expected_scheduled_fors);
@@ -806,8 +807,8 @@ async fn get_today_timetable_basic() {
     assert_eq!(scheduled_tasks.len(), 1, "Should have 1 scheduled task");
     assert_eq!(scheduled_tasks[0].name(), "Today's Task");
     assert_eq!(
-        scheduled_tasks[0].scheduled_for().unwrap().timestamp(),
-        scheduled_for.and_utc().timestamp()
+        scheduled_tasks[0].scheduled_for().unwrap(),
+        scheduled_for.and_utc()
     );
 }
 
@@ -1033,12 +1034,8 @@ async fn get_next_scheduled_task_basic() {
         "Should return earliest scheduled task"
     );
     assert_eq!(
-        task.scheduled_for().unwrap().timestamp(),
-        slot_date
-            .and_hms_opt(10, 0, 0)
-            .unwrap()
-            .and_utc()
-            .timestamp()
+        task.scheduled_for().unwrap(),
+        slot_date.and_hms_opt(10, 0, 0).unwrap().and_utc()
     );
 }
 

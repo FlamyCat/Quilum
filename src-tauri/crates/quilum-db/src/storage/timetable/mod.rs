@@ -68,8 +68,8 @@ impl Storage {
         start: NaiveDate,
         end: NaiveDate,
     ) -> Result<Vec<Task>, Error> {
-        let range_start = start.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp();
-        let range_end = end.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp();
+        let range_start = start.and_hms_opt(0, 0, 0).unwrap().and_utc();
+        let range_end = end.and_hms_opt(0, 0, 0).unwrap().and_utc();
 
         let sql = "
             SELECT *
@@ -139,18 +139,11 @@ impl Storage {
             .query(sql)
             .bind((
                 "start",
-                start
-                    .and_hms_opt(0, 0, 0)
-                    .unwrap_or_default()
-                    .and_utc()
-                    .timestamp(),
+                start.and_hms_opt(0, 0, 0).unwrap_or_default().and_utc(),
             ))
             .bind((
                 "end",
-                end.and_hms_opt(0, 0, 0)
-                    .unwrap_or_default()
-                    .and_utc()
-                    .timestamp(),
+                end.and_hms_opt(0, 0, 0).unwrap_or_default().and_utc(),
             ))
             .await?
             .take(0)
