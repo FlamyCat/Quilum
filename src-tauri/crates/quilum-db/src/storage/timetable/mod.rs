@@ -131,8 +131,7 @@ impl Storage {
                 <-scheduled_in<-tasks AS tasks
             FROM slots
             WHERE
-                starts_at IN $start..$end
-                OR ends_at IN $start..$end
+                starts_at < $end AND ends_at > $start
             FETCH tasks
         ";
 
