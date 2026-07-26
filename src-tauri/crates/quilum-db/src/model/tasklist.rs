@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use surrealdb::types::{RecordId, RecordIdKey, SurrealValue};
 
-pub const TASKLISTS_TABLE: &str = "tasklists";
+pub const TASKLISTS_TABLE: &str = "task_lists";
 
 #[derive(Clone, Debug, Serialize, Deserialize, SurrealValue)]
 pub struct TaskList {
