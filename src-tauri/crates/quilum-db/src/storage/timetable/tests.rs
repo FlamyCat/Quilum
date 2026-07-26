@@ -11,8 +11,8 @@ async fn get_events_for_date_range_basic() {
         .create_event(
             "Event A".to_string(),
             "On May 1".to_string(),
-            date.and_hms_opt(10, 0, 0).unwrap(),
-            date.and_hms_opt(12, 0, 0).unwrap(),
+            date.and_hms_opt(10, 0, 0).unwrap().and_utc(),
+            date.and_hms_opt(12, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create event A");
@@ -24,11 +24,13 @@ async fn get_events_for_date_range_basic() {
             NaiveDate::from_ymd_opt(2026, 5, 3)
                 .unwrap()
                 .and_hms_opt(10, 0, 0)
-                .unwrap(),
+                .unwrap()
+                .and_utc(),
             NaiveDate::from_ymd_opt(2026, 5, 3)
                 .unwrap()
                 .and_hms_opt(12, 0, 0)
-                .unwrap(),
+                .unwrap()
+                .and_utc(),
         )
         .await
         .expect("Failed to create event B");
@@ -40,11 +42,13 @@ async fn get_events_for_date_range_basic() {
             NaiveDate::from_ymd_opt(2026, 5, 5)
                 .unwrap()
                 .and_hms_opt(10, 0, 0)
-                .unwrap(),
+                .unwrap()
+                .and_utc(),
             NaiveDate::from_ymd_opt(2026, 5, 5)
                 .unwrap()
                 .and_hms_opt(12, 0, 0)
-                .unwrap(),
+                .unwrap()
+                .and_utc(),
         )
         .await
         .expect("Failed to create event C");
@@ -71,11 +75,11 @@ async fn get_events_for_date_range_overlapping() {
             NaiveDate::from_ymd_opt(2026, 5, 1)
                 .unwrap()
                 .and_hms_opt(20, 0, 0)
-                .unwrap(),
+                .unwrap().and_utc(),
             NaiveDate::from_ymd_opt(2026, 5, 3)
                 .unwrap()
                 .and_hms_opt(6, 0, 0)
-                .unwrap(),
+                .unwrap().and_utc(),
         )
         .await
         .expect("Failed to create event");
@@ -102,8 +106,8 @@ async fn get_events_for_date_single() {
         .create_event(
             "Event 1".to_string(),
             "On May 1".to_string(),
-            date1.and_hms_opt(10, 0, 0).unwrap(),
-            date1.and_hms_opt(12, 0, 0).unwrap(),
+            date1.and_hms_opt(10, 0, 0).unwrap().and_utc(),
+            date1.and_hms_opt(12, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create event 1");
@@ -112,8 +116,8 @@ async fn get_events_for_date_single() {
         .create_event(
             "Event 2".to_string(),
             "On May 2".to_string(),
-            date2.and_hms_opt(10, 0, 0).unwrap(),
-            date2.and_hms_opt(12, 0, 0).unwrap(),
+            date2.and_hms_opt(10, 0, 0).unwrap().and_utc(),
+            date2.and_hms_opt(12, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create event 2");
@@ -122,8 +126,8 @@ async fn get_events_for_date_single() {
         .create_event(
             "Event 3".to_string(),
             "On May 3".to_string(),
-            date3.and_hms_opt(10, 0, 0).unwrap(),
-            date3.and_hms_opt(12, 0, 0).unwrap(),
+            date3.and_hms_opt(10, 0, 0).unwrap().and_utc(),
+            date3.and_hms_opt(12, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create event 3");
@@ -162,8 +166,8 @@ async fn get_events_for_date_multiple_same_day() {
             .create_event(
                 format!("Event {}", i),
                 format!("On May 1, event {}", i),
-                date.and_hms_opt(i as u32 * 2, 0, 0).unwrap(),
-                date.and_hms_opt(i as u32 * 2 + 1, 0, 0).unwrap(),
+                date.and_hms_opt(i as u32 * 2, 0, 0).unwrap().and_utc(),
+                date.and_hms_opt(i as u32 * 2 + 1, 0, 0).unwrap().and_utc(),
             )
             .await
             .expect("Failed to create event");
@@ -184,8 +188,8 @@ async fn get_scheduled_tasks_basic() {
     let slot_date = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap();
     let slot = storage
         .create_slot(
-            slot_date.and_hms_opt(10, 0, 0).unwrap(),
-            slot_date.and_hms_opt(12, 0, 0).unwrap(),
+            slot_date.and_hms_opt(10, 0, 0).unwrap().and_utc(),
+            slot_date.and_hms_opt(12, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create slot");
@@ -196,15 +200,15 @@ async fn get_scheduled_tasks_basic() {
             "A scheduled task".to_string(),
             Priority::Medium,
             TimeDelta::hours(1),
-            slot_date.and_hms_opt(0, 0, 0).unwrap(),
+            slot_date.and_hms_opt(0, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create task");
-    assert_eq!(task.completed, false);
+    assert_eq!(task.completed(), false);
 
     let scheduled_for = slot_date.and_hms_opt(10, 30, 0).unwrap();
     storage
-        .schedule_task(&slot.id(), &task.id(), scheduled_for)
+        .schedule_task(slot.id().clone(), task.id().clone(), scheduled_for.and_utc())
         .await
         .expect("Failed to relate task to slot");
 
@@ -214,8 +218,8 @@ async fn get_scheduled_tasks_basic() {
         .expect("Failed to query scheduled tasks");
 
     assert_eq!(scheduled_tasks.len(), 1, "Should return 1 scheduled task");
-    assert_eq!(scheduled_tasks[0].0.name(), "Test Task");
-    assert_eq!(scheduled_tasks[0].1, scheduled_for.and_utc().timestamp());
+    assert_eq!(scheduled_tasks[0].name(), "Test Task");
+    assert_eq!(scheduled_tasks[0].scheduled_for().unwrap().timestamp(), scheduled_for.and_utc().timestamp());
 }
 
 #[tokio::test]
@@ -225,8 +229,8 @@ async fn get_scheduled_tasks_wrong_date() {
     let slot_date = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap();
     let slot = storage
         .create_slot(
-            slot_date.and_hms_opt(10, 0, 0).unwrap(),
-            slot_date.and_hms_opt(12, 0, 0).unwrap(),
+            slot_date.and_hms_opt(10, 0, 0).unwrap().and_utc(),
+            slot_date.and_hms_opt(12, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create slot");
@@ -237,17 +241,17 @@ async fn get_scheduled_tasks_wrong_date() {
             "A scheduled task".to_string(),
             Priority::Medium,
             TimeDelta::hours(1),
-            slot_date.and_hms_opt(0, 0, 0).unwrap(),
+            slot_date.and_hms_opt(0, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create task");
-    assert_eq!(task.completed, false);
+    assert_eq!(task.completed(), false);
 
     storage
         .schedule_task(
-            &slot.id(),
-            &task.id(),
-            slot_date.and_hms_opt(10, 0, 0).unwrap(),
+            slot.id().clone(),
+            task.id().clone(),
+            slot_date.and_hms_opt(10, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to relate task to slot");
@@ -271,8 +275,8 @@ async fn get_scheduled_tasks_multiple_in_slot() {
     let slot_date = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap();
     let slot = storage
         .create_slot(
-            slot_date.and_hms_opt(10, 0, 0).unwrap(),
-            slot_date.and_hms_opt(14, 0, 0).unwrap(),
+            slot_date.and_hms_opt(10, 0, 0).unwrap().and_utc(),
+            slot_date.and_hms_opt(14, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create slot");
@@ -285,15 +289,15 @@ async fn get_scheduled_tasks_multiple_in_slot() {
                 format!("Scheduled task {}", i),
                 Priority::Medium,
                 TimeDelta::hours(1),
-                slot_date.and_hms_opt(0, 0, 0).unwrap(),
+                slot_date.and_hms_opt(0, 0, 0).unwrap().and_utc(),
             )
             .await
             .expect("Failed to create task");
-        assert_eq!(task.completed, false);
+        assert_eq!(task.completed(), false);
 
         let scheduled_for = slot_date.and_hms_opt(10 + (i - 1) as u32, 0, 0).unwrap();
         storage
-            .schedule_task(&slot.id(), &task.id(), scheduled_for)
+            .schedule_task(slot.id().clone(), task.id().clone(), scheduled_for.and_utc())
             .await
             .expect("Failed to relate task to slot");
         expected_scheduled_fors.push(scheduled_for.and_utc().timestamp());
@@ -306,11 +310,11 @@ async fn get_scheduled_tasks_multiple_in_slot() {
 
     assert_eq!(scheduled_tasks.len(), 3, "Should return all 3 tasks");
 
-    let mut task_names: Vec<&str> = scheduled_tasks.iter().map(|st| st.0.name()).collect();
+    let mut task_names: Vec<&str> = scheduled_tasks.iter().map(|st| st.name()).collect();
     task_names.sort();
     assert_eq!(task_names, vec!["Task 1", "Task 2", "Task 3"]);
 
-    let mut scheduled_fors: Vec<i64> = scheduled_tasks.iter().map(|st| st.1).collect();
+    let mut scheduled_fors: Vec<i64> = scheduled_tasks.iter().map(|st| st.scheduled_for().unwrap().timestamp()).collect();
     scheduled_fors.sort();
     assert_eq!(scheduled_fors, expected_scheduled_fors);
 }
@@ -322,8 +326,8 @@ async fn get_scheduled_tasks_date_range_filter() {
     let date1 = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap();
     let slot_a = storage
         .create_slot(
-            date1.and_hms_opt(10, 0, 0).unwrap(),
-            date1.and_hms_opt(12, 0, 0).unwrap(),
+            date1.and_hms_opt(10, 0, 0).unwrap().and_utc(),
+            date1.and_hms_opt(12, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create slot A");
@@ -334,16 +338,14 @@ async fn get_scheduled_tasks_date_range_filter() {
             "In slot A".to_string(),
             Priority::Medium,
             TimeDelta::hours(1),
-            date1.and_hms_opt(0, 0, 0).unwrap(),
+            date1.and_hms_opt(0, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create T1");
-    assert_eq!(task_t1.completed, false);
+    assert_eq!(task_t1.completed(), false);
     storage
-        .schedule_task(
-            &slot_a.id(),
-            &task_t1.id(),
-            date1.and_hms_opt(10, 0, 0).unwrap(),
+        .schedule_task(slot_a.id().clone(), task_t1.id().clone(),
+                       date1.and_hms_opt(10, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to relate T1 to slot A");
@@ -351,8 +353,8 @@ async fn get_scheduled_tasks_date_range_filter() {
     let date2 = NaiveDate::from_ymd_opt(2026, 5, 3).unwrap();
     let slot_b = storage
         .create_slot(
-            date2.and_hms_opt(10, 0, 0).unwrap(),
-            date2.and_hms_opt(12, 0, 0).unwrap(),
+            date2.and_hms_opt(10, 0, 0).unwrap().and_utc(),
+            date2.and_hms_opt(12, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create slot B");
@@ -363,16 +365,14 @@ async fn get_scheduled_tasks_date_range_filter() {
             "In slot B".to_string(),
             Priority::Medium,
             TimeDelta::hours(1),
-            date2.and_hms_opt(0, 0, 0).unwrap(),
+            date2.and_hms_opt(0, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create T2");
-    assert_eq!(task_t2.completed, false);
+    assert_eq!(task_t2.completed(), false);
     storage
-        .schedule_task(
-            &slot_b.id(),
-            &task_t2.id(),
-            date2.and_hms_opt(10, 0, 0).unwrap(),
+        .schedule_task(slot_b.id().clone(), task_t2.id().clone(),
+                       date2.and_hms_opt(10, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to relate T2 to slot B");
@@ -387,7 +387,7 @@ async fn get_scheduled_tasks_date_range_filter() {
         1,
         "Should return only T1 (May 3 is excluded)"
     );
-    assert_eq!(scheduled_tasks[0].0.name(), "Task T1");
+    assert_eq!(scheduled_tasks[0].name(), "Task T1");
 }
 
 #[tokio::test]
@@ -414,8 +414,8 @@ async fn get_slots_with_tasks_basic() {
     let slot_date = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap();
     let slot = storage
         .create_slot(
-            slot_date.and_hms_opt(10, 0, 0).unwrap(),
-            slot_date.and_hms_opt(12, 0, 0).unwrap(),
+            slot_date.and_hms_opt(10, 0, 0).unwrap().and_utc(),
+            slot_date.and_hms_opt(12, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create slot");
@@ -426,15 +426,15 @@ async fn get_slots_with_tasks_basic() {
             "A scheduled task".to_string(),
             Priority::Medium,
             TimeDelta::hours(1),
-            slot_date.and_hms_opt(0, 0, 0).unwrap(),
+            slot_date.and_hms_opt(0, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create task");
-    assert_eq!(task.completed, false);
+    assert_eq!(task.completed(), false);
 
     let scheduled_for = slot_date.and_hms_opt(10, 30, 0).unwrap();
     storage
-        .schedule_task(&slot.id(), &task.id(), scheduled_for)
+        .schedule_task(slot.id().clone(), task.id().clone(), scheduled_for.and_utc())
         .await
         .expect("Failed to relate task to slot");
 
@@ -446,7 +446,7 @@ async fn get_slots_with_tasks_basic() {
     assert_eq!(slots_with_tasks.len(), 1, "Should return 1 slot");
     assert_eq!(
         slots_with_tasks[0].slot.starts_at(),
-        slot_date.and_hms_opt(10, 0, 0).unwrap()
+        slot_date.and_hms_opt(10, 0, 0).unwrap().and_utc()
     );
     assert_eq!(slots_with_tasks[0].tasks.len(), 1, "Should have 1 task");
     assert_eq!(slots_with_tasks[0].tasks[0].0.name(), "Test Task");
@@ -463,8 +463,8 @@ async fn get_slots_with_tasks_multiple_tasks() {
     let slot_date = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap();
     let slot = storage
         .create_slot(
-            slot_date.and_hms_opt(10, 0, 0).unwrap(),
-            slot_date.and_hms_opt(14, 0, 0).unwrap(),
+            slot_date.and_hms_opt(10, 0, 0).unwrap().and_utc(),
+            slot_date.and_hms_opt(14, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create slot");
@@ -477,15 +477,15 @@ async fn get_slots_with_tasks_multiple_tasks() {
                 format!("Scheduled task {}", i),
                 Priority::Medium,
                 TimeDelta::hours(1),
-                slot_date.and_hms_opt(0, 0, 0).unwrap(),
+                slot_date.and_hms_opt(0, 0, 0).unwrap().and_utc(),
             )
             .await
             .expect("Failed to create task");
-        assert_eq!(task.completed, false);
+        assert_eq!(task.completed(), false);
 
         let scheduled_for = slot_date.and_hms_opt(10 + (i - 1) as u32, 0, 0).unwrap();
         storage
-            .schedule_task(&slot.id(), &task.id(), scheduled_for)
+            .schedule_task(slot.id().clone(), task.id().clone(), scheduled_for.and_utc())
             .await
             .expect("Failed to relate task to slot");
         expected_scheduled_fors.push(scheduled_for.and_utc().timestamp());
@@ -524,8 +524,8 @@ async fn get_slots_with_tasks_multiple_slots() {
 
     let slot_a = storage
         .create_slot(
-            slot_date.and_hms_opt(10, 0, 0).unwrap(),
-            slot_date.and_hms_opt(12, 0, 0).unwrap(),
+            slot_date.and_hms_opt(10, 0, 0).unwrap().and_utc(),
+            slot_date.and_hms_opt(12, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create slot A");
@@ -537,17 +537,17 @@ async fn get_slots_with_tasks_multiple_slots() {
                 format!("In slot A"),
                 Priority::Medium,
                 TimeDelta::hours(1),
-                slot_date.and_hms_opt(0, 0, 0).unwrap(),
+                slot_date.and_hms_opt(0, 0, 0).unwrap().and_utc(),
             )
             .await
             .expect("Failed to create task");
-        assert_eq!(task.completed, false);
+        assert_eq!(task.completed(), false);
 
         storage
             .schedule_task(
-                &slot_a.id(),
-                &task.id(),
-                slot_date.and_hms_opt(10 + (i - 1) as u32, 0, 0).unwrap(),
+                slot_a.id().clone(),
+                task.id().clone(),
+                slot_date.and_hms_opt(10 + (i - 1) as u32, 0, 0).unwrap().and_utc(),
             )
             .await
             .expect("Failed to relate task to slot A");
@@ -555,8 +555,8 @@ async fn get_slots_with_tasks_multiple_slots() {
 
     let slot_b = storage
         .create_slot(
-            slot_date.and_hms_opt(14, 0, 0).unwrap(),
-            slot_date.and_hms_opt(16, 0, 0).unwrap(),
+            slot_date.and_hms_opt(14, 0, 0).unwrap().and_utc(),
+            slot_date.and_hms_opt(16, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create slot B");
@@ -567,17 +567,15 @@ async fn get_slots_with_tasks_multiple_slots() {
             "In slot B".to_string(),
             Priority::Medium,
             TimeDelta::hours(1),
-            slot_date.and_hms_opt(0, 0, 0).unwrap(),
+            slot_date.and_hms_opt(0, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create task");
-    assert_eq!(task_b.completed, false);
+    assert_eq!(task_b.completed(), false);
 
     storage
-        .schedule_task(
-            &slot_b.id(),
-            &task_b.id(),
-            slot_date.and_hms_opt(14, 0, 0).unwrap(),
+        .schedule_task(slot_b.id().clone(), task_b.id().clone(),
+                       slot_date.and_hms_opt(14, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to relate task to slot B");
@@ -609,8 +607,8 @@ async fn get_slots_with_tasks_date_range_filter() {
     let date1 = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap();
     let slot_a = storage
         .create_slot(
-            date1.and_hms_opt(10, 0, 0).unwrap(),
-            date1.and_hms_opt(12, 0, 0).unwrap(),
+            date1.and_hms_opt(10, 0, 0).unwrap().and_utc(),
+            date1.and_hms_opt(12, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create slot A");
@@ -621,15 +619,13 @@ async fn get_slots_with_tasks_date_range_filter() {
             "In slot A".to_string(),
             Priority::Medium,
             TimeDelta::hours(1),
-            date1.and_hms_opt(0, 0, 0).unwrap(),
+            date1.and_hms_opt(0, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create T1");
     storage
-        .schedule_task(
-            &slot_a.id(),
-            &task_t1.id(),
-            date1.and_hms_opt(10, 0, 0).unwrap(),
+        .schedule_task(slot_a.id().clone(), task_t1.id().clone(),
+                       date1.and_hms_opt(10, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to relate T1 to slot A");
@@ -637,8 +633,8 @@ async fn get_slots_with_tasks_date_range_filter() {
     let date2 = NaiveDate::from_ymd_opt(2026, 5, 3).unwrap();
     let slot_b = storage
         .create_slot(
-            date2.and_hms_opt(10, 0, 0).unwrap(),
-            date2.and_hms_opt(12, 0, 0).unwrap(),
+            date2.and_hms_opt(10, 0, 0).unwrap().and_utc(),
+            date2.and_hms_opt(12, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create slot B");
@@ -649,15 +645,13 @@ async fn get_slots_with_tasks_date_range_filter() {
             "In slot B".to_string(),
             Priority::Medium,
             TimeDelta::hours(1),
-            date2.and_hms_opt(0, 0, 0).unwrap(),
+            date2.and_hms_opt(0, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create T2");
     storage
-        .schedule_task(
-            &slot_b.id(),
-            &task_t2.id(),
-            date2.and_hms_opt(10, 0, 0).unwrap(),
+        .schedule_task(slot_b.id().clone(), task_t2.id().clone(),
+                       date2.and_hms_opt(10, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to relate T2 to slot B");
@@ -700,8 +694,8 @@ async fn get_slots_with_tasks_slot_without_tasks() {
     let slot_date = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap();
     let _slot = storage
         .create_slot(
-            slot_date.and_hms_opt(10, 0, 0).unwrap(),
-            slot_date.and_hms_opt(12, 0, 0).unwrap(),
+            slot_date.and_hms_opt(10, 0, 0).unwrap().and_utc(),
+            slot_date.and_hms_opt(12, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create slot");
@@ -728,16 +722,16 @@ async fn get_today_timetable_basic() {
         .create_event(
             "Today's Event".to_string(),
             "An event today".to_string(),
-            today.and_hms_opt(9, 0, 0).unwrap(),
-            today.and_hms_opt(10, 0, 0).unwrap(),
+            today.and_hms_opt(9, 0, 0).unwrap().and_utc(),
+            today.and_hms_opt(10, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create event");
 
     let slot = storage
         .create_slot(
-            today.and_hms_opt(10, 0, 0).unwrap(),
-            today.and_hms_opt(12, 0, 0).unwrap(),
+            today.and_hms_opt(10, 0, 0).unwrap().and_utc(),
+            today.and_hms_opt(12, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create slot");
@@ -748,15 +742,15 @@ async fn get_today_timetable_basic() {
             "A task for today".to_string(),
             Priority::Medium,
             TimeDelta::hours(1),
-            today.and_hms_opt(0, 0, 0).unwrap(),
+            today.and_hms_opt(0, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create task");
-    assert_eq!(task.completed, false);
+    assert_eq!(task.completed(), false);
 
     let scheduled_for = today.and_hms_opt(10, 30, 0).unwrap();
     storage
-        .schedule_task(&slot.id(), &task.id(), scheduled_for)
+        .schedule_task(slot.id().clone(), task.id().clone(), scheduled_for.and_utc())
         .await
         .expect("Failed to relate task to slot");
 
@@ -768,8 +762,8 @@ async fn get_today_timetable_basic() {
     assert_eq!(events.len(), 1, "Should have 1 event");
     assert_eq!(events[0].name(), "Today's Event");
     assert_eq!(scheduled_tasks.len(), 1, "Should have 1 scheduled task");
-    assert_eq!(scheduled_tasks[0].0.name(), "Today's Task");
-    assert_eq!(scheduled_tasks[0].1, scheduled_for.and_utc().timestamp());
+    assert_eq!(scheduled_tasks[0].name(), "Today's Task");
+    assert_eq!(scheduled_tasks[0].scheduled_for().unwrap().timestamp(), scheduled_for.and_utc().timestamp());
 }
 
 #[tokio::test]
@@ -798,16 +792,16 @@ async fn get_week_timetable_basic() {
         .create_event(
             "Event A".to_string(),
             "On May 1".to_string(),
-            week_start.and_hms_opt(10, 0, 0).unwrap(),
-            week_start.and_hms_opt(12, 0, 0).unwrap(),
+            week_start.and_hms_opt(10, 0, 0).unwrap().and_utc(),
+            week_start.and_hms_opt(12, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create event A");
 
     let slot_b = storage
         .create_slot(
-            week_start.and_hms_opt(14, 0, 0).unwrap(),
-            week_start.and_hms_opt(18, 0, 0).unwrap(),
+            week_start.and_hms_opt(14, 0, 0).unwrap().and_utc(),
+            week_start.and_hms_opt(18, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create slot B");
@@ -819,17 +813,15 @@ async fn get_week_timetable_basic() {
                 format!("In slot B"),
                 Priority::Medium,
                 TimeDelta::hours(1),
-                week_start.and_hms_opt(0, 0, 0).unwrap(),
+                week_start.and_hms_opt(0, 0, 0).unwrap().and_utc(),
             )
             .await
             .expect("Failed to create task");
-        assert_eq!(task.completed, false);
+        assert_eq!(task.completed(), false);
 
         storage
-            .schedule_task(
-                &slot_b.id(),
-                &task.id(),
-                week_start.and_hms_opt(14 + (i - 1) as u32, 0, 0).unwrap(),
+            .schedule_task(slot_b.id().clone(), task.id().clone(),
+                           week_start.and_hms_opt(14 + (i - 1) as u32, 0, 0).unwrap().and_utc(),
             )
             .await
             .expect("Failed to relate task to slot B");
@@ -842,11 +834,11 @@ async fn get_week_timetable_basic() {
             NaiveDate::from_ymd_opt(2026, 5, 5)
                 .unwrap()
                 .and_hms_opt(10, 0, 0)
-                .unwrap(),
+                .unwrap().and_utc(),
             NaiveDate::from_ymd_opt(2026, 5, 5)
                 .unwrap()
                 .and_hms_opt(12, 0, 0)
-                .unwrap(),
+                .unwrap().and_utc(),
         )
         .await
         .expect("Failed to create event C");
@@ -872,8 +864,8 @@ async fn get_week_timetable_excludes_next_week() {
 
     let _slot_a = storage
         .create_slot(
-            week_start.and_hms_opt(10, 0, 0).unwrap(),
-            week_start.and_hms_opt(12, 0, 0).unwrap(),
+            week_start.and_hms_opt(10, 0, 0).unwrap().and_utc(),
+            week_start.and_hms_opt(12, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create slot A");
@@ -881,8 +873,8 @@ async fn get_week_timetable_excludes_next_week() {
     let slot_b_date = NaiveDate::from_ymd_opt(2026, 5, 8).unwrap();
     let slot_b = storage
         .create_slot(
-            slot_b_date.and_hms_opt(10, 0, 0).unwrap(),
-            slot_b_date.and_hms_opt(12, 0, 0).unwrap(),
+            slot_b_date.and_hms_opt(10, 0, 0).unwrap().and_utc(),
+            slot_b_date.and_hms_opt(12, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create slot B");
@@ -893,17 +885,15 @@ async fn get_week_timetable_excludes_next_week() {
             "In slot B (next week)".to_string(),
             Priority::Medium,
             TimeDelta::hours(1),
-            slot_b_date.and_hms_opt(0, 0, 0).unwrap(),
+            slot_b_date.and_hms_opt(0, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create task");
-    assert_eq!(task_b.completed, false);
+    assert_eq!(task_b.completed(), false);
 
     storage
-        .schedule_task(
-            &slot_b.id(),
-            &task_b.id(),
-            slot_b_date.and_hms_opt(10, 0, 0).unwrap(),
+        .schedule_task(slot_b.id().clone(), task_b.id().clone(),
+                       slot_b_date.and_hms_opt(10, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to relate task to slot B");
@@ -929,8 +919,8 @@ async fn get_next_scheduled_task_basic() {
 
     let slot = storage
         .create_slot(
-            slot_date.and_hms_opt(10, 0, 0).unwrap(),
-            slot_date.and_hms_opt(12, 0, 0).unwrap(),
+            slot_date.and_hms_opt(10, 0, 0).unwrap().and_utc(),
+            slot_date.and_hms_opt(12, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create slot");
@@ -941,7 +931,7 @@ async fn get_next_scheduled_task_basic() {
             "First task".to_string(),
             Priority::Medium,
             TimeDelta::hours(1),
-            slot_date.and_hms_opt(0, 0, 0).unwrap(),
+            slot_date.and_hms_opt(0, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create task 1");
@@ -952,25 +942,21 @@ async fn get_next_scheduled_task_basic() {
             "Second task".to_string(),
             Priority::High,
             TimeDelta::hours(2),
-            slot_date.and_hms_opt(0, 0, 0).unwrap(),
+            slot_date.and_hms_opt(0, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create task 2");
 
     storage
-        .schedule_task(
-            &slot.id(),
-            &task1.id(),
-            slot_date.and_hms_opt(11, 0, 0).unwrap(),
+        .schedule_task(slot.id().clone(), task1.id().clone(),
+                       slot_date.and_hms_opt(11, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to relate task 1 to slot");
 
     storage
-        .schedule_task(
-            &slot.id(),
-            &task2.id(),
-            slot_date.and_hms_opt(10, 0, 0).unwrap(),
+        .schedule_task(slot.id().clone(), task2.id().clone(),
+                       slot_date.and_hms_opt(10, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to relate task 2 to slot");
@@ -981,7 +967,7 @@ async fn get_next_scheduled_task_basic() {
         .expect("Failed to get next scheduled task");
 
     assert!(result.is_some(), "Should return a task");
-    let (task, scheduled_for) = result.unwrap();
+    let task = result.unwrap();
 
     assert_eq!(
         task.name(),
@@ -989,7 +975,7 @@ async fn get_next_scheduled_task_basic() {
         "Should return earliest scheduled task"
     );
     assert_eq!(
-        scheduled_for,
+        task.scheduled_for().unwrap().timestamp(),
         slot_date
             .and_hms_opt(10, 0, 0)
             .unwrap()
@@ -1021,8 +1007,8 @@ async fn get_next_scheduled_task_past_only() {
 
     let slot = storage
         .create_slot(
-            slot_date.and_hms_opt(10, 0, 0).unwrap(),
-            slot_date.and_hms_opt(12, 0, 0).unwrap(),
+            slot_date.and_hms_opt(10, 0, 0).unwrap().and_utc(),
+            slot_date.and_hms_opt(12, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create slot");
@@ -1033,16 +1019,16 @@ async fn get_next_scheduled_task_past_only() {
             "Already passed".to_string(),
             Priority::Medium,
             TimeDelta::hours(1),
-            slot_date.and_hms_opt(0, 0, 0).unwrap(),
+            slot_date.and_hms_opt(0, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to create task");
 
     storage
         .schedule_task(
-            &slot.id(),
-            &task.id(),
-            slot_date.and_hms_opt(10, 0, 0).unwrap(),
+            slot.id().clone(),
+            task.id().clone(),
+            slot_date.and_hms_opt(10, 0, 0).unwrap().and_utc(),
         )
         .await
         .expect("Failed to relate task to slot");
