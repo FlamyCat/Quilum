@@ -1,7 +1,9 @@
-use serde::{Deserialize, Serialize};
-use serde::{Deserializer, Serializer};
-use std::hash::{Hash, Hasher};
-use std::path::PathBuf;
+use std::{
+    hash::{Hash, Hasher},
+    path::PathBuf,
+};
+
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Platform-specific application identifier for blocking.
 /// Serializes/deserializes to/from string for SurrealDB compatibility.
