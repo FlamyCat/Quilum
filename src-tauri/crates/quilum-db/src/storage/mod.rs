@@ -1,7 +1,6 @@
 mod applock;
 mod events;
 mod focus;
-mod helpers;
 mod init;
 mod relations;
 mod scheduler;
@@ -11,7 +10,7 @@ mod tasks;
 mod timetable;
 
 use serde::{Deserialize, Serialize};
-use surrealdb::{engine::local::Db, types::SurrealValue, Surreal};
+use surrealdb::{Surreal, engine::local::Db, types::SurrealValue};
 
 use crate::{slot::Slot, task::Task, tasklist::TaskList};
 
