@@ -1,10 +1,12 @@
-use crate::model::{plan::Plan, slot::Slot, task::Task};
-use chrono::{DateTime, TimeDelta, Utc};
 use std::{
     cmp,
     collections::{BTreeMap, BTreeSet, VecDeque},
 };
+
+use chrono::{DateTime, TimeDelta, Utc};
 use surrealdb::types::RecordId;
+
+use crate::model::{plan::Plan, slot::Slot, task::Task};
 
 /// Обертка вокруг &Task, которая реализует `Ord` для использования в `BTreeSet`.
 #[derive(Clone, Copy, Debug)]

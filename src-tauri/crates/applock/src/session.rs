@@ -1,4 +1,3 @@
-use chrono::{DateTime, Utc};
 use std::{
     collections::HashSet,
     sync::{
@@ -6,6 +5,8 @@ use std::{
         atomic::{AtomicBool, Ordering},
     },
 };
+
+use chrono::{DateTime, Utc};
 
 use crate::{app_list::AppInfo, model::AppIdentifier};
 

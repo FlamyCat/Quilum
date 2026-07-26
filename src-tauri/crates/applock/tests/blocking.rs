@@ -5,6 +5,7 @@ use std::{
     thread,
     time::Duration,
 };
+
 use sysinfo::{System, UpdateKind};
 
 fn build_dummy() -> std::path::PathBuf {
@@ -71,8 +72,7 @@ fn cleanup_dummies() {
 #[test]
 #[cfg(target_os = "linux")]
 fn test_dummy_gets_killed_by_path() {
-    use applock::model::AppIdentifier;
-    use applock::process_polling::ProcessPoller;
+    use applock::{model::AppIdentifier, process_polling::ProcessPoller};
 
     let _pid = spawn_dummy();
     let dummies_before = get_dummy_pids();
@@ -97,8 +97,7 @@ fn test_dummy_gets_killed_by_path() {
 #[test]
 #[cfg(target_os = "linux")]
 fn test_dummy_gets_killed_by_name() {
-    use applock::model::AppIdentifier;
-    use applock::process_polling::ProcessPoller;
+    use applock::{model::AppIdentifier, process_polling::ProcessPoller};
 
     let _pid = spawn_dummy();
     let dummies_before = get_dummy_pids();

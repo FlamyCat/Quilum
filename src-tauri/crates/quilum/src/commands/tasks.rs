@@ -1,10 +1,11 @@
 use chrono::{DateTime, TimeDelta};
 use quilum_db::{
-    model::task::{Priority, Task},
     Storage,
+    model::task::{Priority, Task},
 };
 use surrealdb::types::RecordId;
 use tauri::State;
+
 use crate::commands::session::check_and_restore_session;
 
 #[tauri::command]

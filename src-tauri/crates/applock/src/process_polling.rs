@@ -4,6 +4,7 @@ use std::{
     sync::{Arc, Mutex, RwLock},
     time::Duration,
 };
+
 use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, RefreshKind, System, UpdateKind};
 use tokio::task::JoinHandle;
 

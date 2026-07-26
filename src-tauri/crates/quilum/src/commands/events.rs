@@ -1,10 +1,7 @@
 use chrono::{DateTime, Utc};
-use tauri::State;
-use quilum_db::{
-    event::Event,
-    Storage
-};
+use quilum_db::{Storage, event::Event};
 use surrealdb::types::RecordId;
+use tauri::State;
 
 #[tauri::command]
 pub async fn create_event(

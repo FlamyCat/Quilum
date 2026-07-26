@@ -1,5 +1,6 @@
-use crate::model::app_identifier::AppIdentifier;
 use serde::{Deserialize, Serialize};
+
+use crate::model::app_identifier::AppIdentifier;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppInfo {

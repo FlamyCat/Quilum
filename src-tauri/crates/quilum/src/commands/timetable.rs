@@ -1,11 +1,6 @@
-use tauri::State;
 use chrono::NaiveDate;
-use quilum_db::{
-    event::Event,
-    SlotWithTasks,
-    Storage,
-    task::Task
-};
+use quilum_db::{SlotWithTasks, Storage, event::Event, task::Task};
+use tauri::State;
 
 #[tauri::command]
 pub async fn today_timetable(

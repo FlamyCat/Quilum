@@ -5,9 +5,8 @@ use std::{
     str::FromStr,
 };
 
-use regex::Regex;
-
 use desktop_edit::Desktop;
+use regex::Regex;
 
 use crate::{app_list::types::AppInfo, model::AppIdentifier};
 

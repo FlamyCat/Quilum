@@ -1,6 +1,8 @@
 use std::collections::HashSet;
-use tauri::State;
+
 use quilum_db::Storage;
+use tauri::State;
+
 use crate::SchedulerResult;
 
 #[tauri::command]
@@ -8,10 +10,10 @@ pub async fn run_scheduler(
     storage: State<'_, Storage>,
     app_handle: tauri::AppHandle,
 ) -> Result<SchedulerResult, String> {
-    use crate::scheduler::Scheduler;
     use chrono::Utc;
     use surrealdb::types::{RecordId, RecordIdKey};
-    use crate::commands::session::check_and_restore_session;
+
+    use crate::{commands::session::check_and_restore_session, scheduler::Scheduler};
 
     let tasks = storage
         .get_uncompleted_tasks()

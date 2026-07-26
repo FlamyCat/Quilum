@@ -1,9 +1,3 @@
-use std::fs;
-use std::path::Path;
-
-use crate::app_list::types::AppInfo;
-use crate::model::AppIdentifier;
-
 #[cfg(target_os = "macos")]
 pub fn get_installed_apps() -> Vec<AppInfo> {
     let mut apps = Vec::new();

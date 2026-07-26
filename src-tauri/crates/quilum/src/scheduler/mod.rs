@@ -1,9 +1,12 @@
 mod state;
 
-use crate::db::Storage;
-use crate::model::{plan::Plan, slot::Slot, task::Task};
-use chrono::{Local, DateTime, Utc};
+use chrono::{DateTime, Local, Utc};
 use state::State;
+
+use crate::{
+    db::Storage,
+    model::{plan::Plan, slot::Slot, task::Task},
+};
 
 pub(crate) struct Scheduler<'a> {
     tasks: &'a [Task],

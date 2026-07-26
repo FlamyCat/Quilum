@@ -1,4 +1,3 @@
-use crate::app_list::AppInfo;
 use std::path::PathBuf;
 
 mod app_list;
@@ -6,17 +5,14 @@ mod app_list;
 pub use app_list::get_installed_apps;
 
 fn get_start_menu_paths() -> Vec<PathBuf> {
-    use windows::Win32::UI::Shell::{
-        FOLDERID_CommonStartMenu, FOLDERID_StartMenu, SHGetKnownFolderPath,
+    use windows::{
+        Win32::UI::Shell::{FOLDERID_CommonStartMenu, FOLDERID_StartMenu, SHGetKnownFolderPath},
+        core::GUID,
     };
-    use windows::core::GUID;
 
     let mut paths = Vec::new();
 
-    let folder_ids = [
-        FOLDERID_StartMenu,
-        FOLDERID_CommonStartMenu,
-    ];
+    let folder_ids = [FOLDERID_StartMenu, FOLDERID_CommonStartMenu];
 
     for &folder_id in &folder_ids {
         unsafe {

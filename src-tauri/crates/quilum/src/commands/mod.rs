@@ -1,8 +1,8 @@
 pub mod app_blocking;
-pub mod session;
-pub mod timetable;
 pub mod events;
-pub mod slots;
-pub mod tasks;
-pub mod tasklists;
 pub mod scheduler;
+pub mod session;
+pub mod slots;
+pub mod tasklists;
+pub mod tasks;
+pub mod timetable;

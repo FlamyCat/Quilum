@@ -1,6 +1,6 @@
-use crate::app_list::AppInfo;
-use crate::model::AppIdentifier;
 use std::path::PathBuf;
+
+use crate::{app_list::AppInfo, model::AppIdentifier};
 
 pub fn get_installed_apps() -> Vec<AppInfo> {
     let mut apps = Vec::new();

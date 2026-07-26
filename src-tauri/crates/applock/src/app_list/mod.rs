@@ -9,12 +9,11 @@ mod windows;
 
 use std::path::PathBuf;
 
-pub use types::AppInfo;
-
 #[cfg(target_os = "linux")]
 pub use linux::get_installed_apps;
 #[cfg(target_os = "macos")]
 pub use macos::get_installed_apps;
+pub use types::AppInfo;
 #[cfg(windows)]
 pub use windows::get_installed_apps;
 

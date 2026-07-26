@@ -1,11 +1,12 @@
 use std::path::PathBuf;
-use tauri::State;
 
-use crate::db::Storage;
 use applock::{
     app_list::{AppInfo, get_installed_apps as get_apps},
     model::AppIdentifier,
 };
+use tauri::State;
+
+use crate::db::Storage;
 
 #[derive(serde::Deserialize)]
 pub struct AppInfoRaw {
