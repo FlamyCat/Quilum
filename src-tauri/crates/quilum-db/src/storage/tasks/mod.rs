@@ -61,8 +61,7 @@ impl Storage {
     /// # Returns
     /// * Success or error
     pub async fn update_task(&self, task: Task) -> Result<(), Error> {
-        let key = Self::record_id_key(&task.id());
-        let _: Option<Task> = self.db.update((TASKS_TABLE, key)).content(task).await?;
+        let _: Option<Task> = self.db.update(task.id()).content(task).await?;
         Ok(())
     }
 
