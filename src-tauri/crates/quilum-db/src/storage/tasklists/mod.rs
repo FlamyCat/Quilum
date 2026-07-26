@@ -52,8 +52,18 @@ impl Storage {
     ///
     /// # Returns
     /// * Success or error
-    pub async fn delete_task_list(&self, id: &RecordId) -> Result<(), Error> {
-        let _: Option<TaskList> = self.db.delete(id).await?;
+    pub async fn delete_task_list(&self, id: RecordId) -> Result<(), Error> {
+        let sql = "
+           BEGIN TRANSACTION;
+
+           DELETE $list->contains->tasks;
+           DELETE $list;
+
+           COMMIT;
+        ";
+
+        self.db.query(sql).bind(("list", id)).await?;
+
         Ok(())
     }
 
@@ -64,15 +74,14 @@ impl Storage {
     ///
     /// # Returns
     /// * The tasks in the list
-    pub async fn get_tasks_in_list(&self, list_id: RecordId) -> Result<Vec<Task>, Error> {
+    pub async fn get_tasks_in_list(&self, list_id: RecordId) -> Result<Option<Vec<Task>>, Error> {
         let sql = "SELECT VALUE ->contains->tasks AS tasks FROM $tasklist_id FETCH tasks";
         let tasks = self
             .db
             .query(sql)
             .bind(("tasklist_id", list_id))
             .await?
-            .take::<Option<Vec<_>>>(0)?
-            .unwrap_or_default();
+            .take::<Option<Vec<_>>>(0)?;
 
         Ok(tasks)
     }

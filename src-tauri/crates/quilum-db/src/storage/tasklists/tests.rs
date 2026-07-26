@@ -1,6 +1,6 @@
 use chrono::{NaiveDate, TimeDelta};
 
-use crate::{task::Priority, Storage};
+use crate::{Storage, task::Priority};
 
 #[tokio::test]
 async fn task_list_crud() {
@@ -34,7 +34,7 @@ async fn task_list_crud() {
     assert_eq!(updated_read.title(), "Updated Tasks");
 
     storage
-        .delete_task_list(task_list.id())
+        .delete_task_list(task_list.id().clone())
         .await
         .expect("Failed to delete task list");
 
@@ -74,7 +74,8 @@ async fn relate_task_to_list() {
     let tasks = storage
         .get_tasks_in_list(task_list.id().clone())
         .await
-        .expect("Failed to get tasks in list");
+        .expect("Failed to get tasks in list")
+        .expect("Task list should exist");
 
     assert_eq!(tasks.len(), 1, "Should have 1 task");
     assert_eq!(tasks[0].name(), "Implement feature");
@@ -232,11 +233,12 @@ async fn delete_task_list_deletes_tasks() {
     let tasks_before = storage
         .get_tasks_in_list(task_list.id().clone())
         .await
-        .expect("Failed to get tasks");
+        .expect("Failed to get tasks")
+        .expect("Task list should exist");
     assert_eq!(tasks_before.len(), 2, "Should have 2 tasks before delete");
 
     storage
-        .delete_task_list(task_list.id())
+        .delete_task_list(task_list.id().clone())
         .await
         .expect("Failed to delete task list");
 
