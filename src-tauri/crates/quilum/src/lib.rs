@@ -2,8 +2,12 @@
 
 mod commands;
 mod db;
+#[cfg(target_os = "linux")]
+mod graphics;
 mod model;
 mod scheduler;
+
+use std::env;
 
 use chrono::DateTime;
 use quilum_db::storage::Storage;
@@ -54,6 +58,23 @@ struct SchedulerResult {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Fixes empty window bug on Linux + NVIDIA + nouveau.
+    #[cfg(target_os = "linux")]
+    {
+        let disable_dmabuf_renderer_variable = "WEBKIT_DISABLE_DMABUF_RENDERER";
+
+        // Allows the user to override the variable.
+        let variable_not_set = env::var_os(disable_dmabuf_renderer_variable).is_none();
+
+        if graphics::has_nvidia_nouveau() && variable_not_set {
+            // Safety: there are no other threads concurrently accessing the variable
+            // at this point.
+            unsafe {
+                env::set_var(disable_dmabuf_renderer_variable, "1");
+            }
+        }
+    }
+
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
