@@ -5,9 +5,8 @@ mod app_list;
 pub use app_list::get_installed_apps;
 
 fn get_start_menu_paths() -> Vec<PathBuf> {
-    use windows::{
-        Win32::UI::Shell::{FOLDERID_CommonStartMenu, FOLDERID_StartMenu, SHGetKnownFolderPath},
-        core::GUID,
+    use windows::Win32::UI::Shell::{
+        FOLDERID_CommonStartMenu, FOLDERID_StartMenu, SHGetKnownFolderPath,
     };
 
     let mut paths = Vec::new();
