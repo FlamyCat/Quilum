@@ -121,8 +121,10 @@ name = "applock"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "codepage",
  "desktop-edit",
  "dirs",
+ "encoding_rs",
  "lnk",
  "plist",
  "quilum-db",
@@ -133,6 +135,7 @@ dependencies = [
  "sysinfo 0.39.5",
  "tokio",
  "windows 0.62.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -963,6 +966,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c0f78a02292a74a88ac736019ab962ece0bc380e3f977bf72e376c5d78ff0678"
 dependencies = [
  "cc",
+]
+
+[[package]]
+name = "codepage"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "48f68d061bc2828ae826206326e61251aca94c1e4a5305cf52d9138639c918b4"
+dependencies = [
+ "encoding_rs",
 ]
 
 [[package]]
