@@ -1,61 +1,82 @@
-use std::path::PathBuf;
+use std::{
+    collections::HashSet,
+    path::{Path, PathBuf},
+};
 
-mod app_list;
+use winreg::{HKCU, HKLM, RegKey};
 
-pub use app_list::get_installed_apps;
+use crate::{app_list::AppInfo, model::AppIdentifier};
 
-fn get_start_menu_paths() -> Vec<PathBuf> {
-    use windows::Win32::UI::Shell::{
-        FOLDERID_CommonStartMenu, FOLDERID_StartMenu, SHGetKnownFolderPath,
-    };
-
-    let mut paths = Vec::new();
-
-    let folder_ids = [FOLDERID_StartMenu, FOLDERID_CommonStartMenu];
-
-    for &folder_id in &folder_ids {
-        unsafe {
-            let folder_path_result = SHGetKnownFolderPath(
-                &folder_id,
-                windows::Win32::UI::Shell::KNOWN_FOLDER_FLAG(0),
-                None,
-            );
-
-            if let Ok(path_ptr) = folder_path_result {
-                let wide_str = path_ptr.as_wide();
-                if !wide_str.is_empty() {
-                    let path = String::from_utf16_lossy(wide_str);
-                    let mut path_buf = PathBuf::from(path);
-                    path_buf.push("Programs");
-                    paths.push(path_buf);
-                }
-                windows::Win32::System::Com::CoTaskMemFree(Some(
-                    path_ptr.as_ptr() as *const std::ffi::c_void
-                ));
-            }
-        }
-    }
-
-    paths
+pub fn get_installed_apps() -> Vec<AppInfo> {
+    collect_from_registry()
 }
 
-fn scan_for_lnk_files(dir: &PathBuf, max_depth: usize) -> Vec<PathBuf> {
-    let mut results = Vec::new();
+fn collect_from_registry() -> Vec<AppInfo> {
+    let mut seen = HashSet::new();
 
-    if max_depth == 0 {
-        return results;
+    uninstall_roots()
+        .into_iter()
+        .flat_map(|root| {
+            let names: Vec<_> = root.enum_keys().flatten().collect();
+            names
+                .into_iter()
+                .filter_map(move |name| root.open_subkey(name).ok())
+        })
+        .filter_map(|entry| parse_or_discard_entry(&entry))
+        .filter(|info| seen.insert(info.identifier.clone()))
+        .collect()
+}
+
+fn uninstall_roots() -> Vec<RegKey> {
+    [HKLM, HKCU]
+        .into_iter()
+        .flat_map(|root| {
+            [
+                r"Software\Microsoft\Windows\CurrentVersion\Uninstall",
+                r"Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall",
+            ]
+                .into_iter()
+                .map(move |sub| root.open_subkey(sub))
+        })
+        .flatten()
+        .collect()
+}
+
+fn parse_or_discard_entry(entry: &RegKey) -> Option<AppInfo> {
+    if is_system_component(entry) {
+        return None;
     }
 
-    if let Ok(entries) = std::fs::read_dir(dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_dir() {
-                results.extend(scan_for_lnk_files(&path, max_depth - 1));
-            } else if path.extension().is_some_and(|ext| ext == "lnk") {
-                results.push(path);
-            }
-        }
-    }
+    let display_name = read_display_name(entry)?;
+    let executable = read_executable_path(entry)?;
 
-    results
+    Some(AppInfo::new(AppIdentifier::Path(executable), display_name))
+}
+
+fn is_system_component(entry: &RegKey) -> bool {
+    entry
+        .get_value::<u32, _>("SystemComponent")
+        .is_ok_and(|value| value == 1)
+}
+
+fn read_display_name(entry: &RegKey) -> Option<String> {
+    entry
+        .get_value::<String, _>("DisplayName")
+        .ok()
+        .filter(|name| !name.is_empty())
+}
+
+fn read_executable_path(entry: &RegKey) -> Option<PathBuf> {
+    let icon = entry.get_value::<String, _>("DisplayIcon").ok()?;
+    let path = Path::new(strip_icon_index(&icon));
+    is_exe(path).then_some(path.to_path_buf())
+}
+
+fn strip_icon_index(icon: &str) -> &str {
+    icon.split_once(',').map_or(icon, |(path, _)| path)
+}
+
+fn is_exe(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("exe"))
 }
