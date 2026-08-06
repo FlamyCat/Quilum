@@ -1,54 +1,82 @@
-use std::path::PathBuf;
+use std::{
+    collections::HashSet,
+    path::{Path, PathBuf},
+};
 
-use lnk::{Encoding, encoding::UTF_16LE};
-use windows_sys::Win32::Globalization;
+use winreg::{HKCU, HKLM, RegKey};
 
 use crate::{app_list::AppInfo, model::AppIdentifier};
 
 pub fn get_installed_apps() -> Vec<AppInfo> {
-    let mut apps = Vec::new();
-    let start_menu_paths = super::get_start_menu_paths();
-
-    let fallback_encoding = system_encoding().unwrap_or(&UTF_16LE);
-
-    for start_menu_path in start_menu_paths {
-        let lnk_files = super::scan_for_lnk_files(&start_menu_path, 3);
-
-        for lnk_path in lnk_files {
-            if let Some(app_info) = parse_lnk_shortcut(&lnk_path, fallback_encoding) {
-                apps.push(app_info);
-            }
-        }
-    }
-
-    apps
+    collect_from_registry()
 }
 
-fn parse_lnk_shortcut(lnk_path: &PathBuf, fallback_encoding: Encoding) -> Option<AppInfo> {
-    let shell_link = match lnk::ShellLink::open(lnk_path, fallback_encoding) {
-        Ok(link) => link,
-        Err(_) => return None,
-    };
+fn collect_from_registry() -> Vec<AppInfo> {
+    let mut seen = HashSet::new();
 
-    let target_path = match shell_link.link_target() {
-        Some(path) => PathBuf::from(path),
-        None => return None,
-    };
+    uninstall_roots()
+        .into_iter()
+        .flat_map(|root| {
+            let names: Vec<_> = root.enum_keys().flatten().collect();
+            names
+                .into_iter()
+                .filter_map(move |name| root.open_subkey(name).ok())
+        })
+        .filter_map(|entry| parse_or_discard_entry(&entry))
+        .filter(|info| seen.insert(info.identifier.clone()))
+        .collect()
+}
 
-    if target_path.extension().is_none_or(|ext| ext != "exe") {
+fn uninstall_roots() -> Vec<RegKey> {
+    [HKLM, HKCU]
+        .into_iter()
+        .flat_map(|root| {
+            [
+                r"Software\Microsoft\Windows\CurrentVersion\Uninstall",
+                r"Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall",
+            ]
+                .into_iter()
+                .map(move |sub| root.open_subkey(sub))
+        })
+        .flatten()
+        .collect()
+}
+
+fn parse_or_discard_entry(entry: &RegKey) -> Option<AppInfo> {
+    if is_system_component(entry) {
         return None;
     }
 
-    let display_name = lnk_path
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("Unknown")
-        .to_string();
+    let display_name = read_display_name(entry)?;
+    let executable = read_executable_path(entry)?;
 
-    Some(AppInfo::new(AppIdentifier::Path(target_path), display_name))
+    Some(AppInfo::new(AppIdentifier::Path(executable), display_name))
 }
 
-fn system_encoding() -> Option<&'static encoding_rs::Encoding> {
-    let acp = unsafe { Globalization::GetACP() };
-    codepage::to_encoding(acp as u16)
+fn is_system_component(entry: &RegKey) -> bool {
+    entry
+        .get_value::<u32, _>("SystemComponent")
+        .is_ok_and(|value| value == 1)
+}
+
+fn read_display_name(entry: &RegKey) -> Option<String> {
+    entry
+        .get_value::<String, _>("DisplayName")
+        .ok()
+        .filter(|name| !name.is_empty())
+}
+
+fn read_executable_path(entry: &RegKey) -> Option<PathBuf> {
+    let icon = entry.get_value::<String, _>("DisplayIcon").ok()?;
+    let path = Path::new(strip_icon_index(&icon));
+    is_exe(path).then_some(path.to_path_buf())
+}
+
+fn strip_icon_index(icon: &str) -> &str {
+    icon.split_once(',').map_or(icon, |(path, _)| path)
+}
+
+fn is_exe(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("exe"))
 }
