@@ -1,4 +1,4 @@
-use chrono::DateTime;
+use chrono::{DateTime, Utc};
 use quilum_db::{Storage, slot::Slot};
 use surrealdb::types::RecordId;
 use tauri::State;
@@ -6,11 +6,9 @@ use tauri::State;
 #[tauri::command]
 pub async fn create_slot(
     storage: State<'_, Storage>,
-    starts_at: i64,
-    ends_at: i64,
+    starts_at: DateTime<Utc>,
+    ends_at: DateTime<Utc>,
 ) -> Result<Slot, String> {
-    let starts_at = DateTime::from_timestamp(starts_at, 0).unwrap();
-    let ends_at = DateTime::from_timestamp(ends_at, 0).unwrap();
     storage
         .create_slot(starts_at, ends_at)
         .await
