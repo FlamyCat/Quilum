@@ -1,16 +1,15 @@
 <script lang="ts">
     import Page from "$lib/components/Page.svelte";
     import TaskCard from "$lib/components/TaskCard.svelte";
-    import { ListPlus, Trash2, CalendarClock } from "@lucide/svelte";
+    import { CalendarClock, ListPlus, Trash2 } from "@lucide/svelte";
     import {
-        get_all_task_lists,
-        update_task_list,
         delete_task_list,
-        update_task,
-        run_scheduler,
+        get_all_task_lists,
         getKeyString,
+        run_scheduler,
         type TaskListWithTasks,
-        type Task,
+        update_task,
+        update_task_list,
     } from "$lib/api";
     import { goto } from "$app/navigation";
     import { fade } from "svelte/transition";
@@ -131,12 +130,7 @@
             if (task) {
                 try {
                     await update_task({
-                        id: task.id,
-                        name: task.name,
-                        description: task.description,
-                        priority: task.priority,
-                        estimated_duration: task.estimated_duration,
-                        deadline: task.deadline,
+                        ...task,
                         completed,
                     });
                     task.completed = completed;
@@ -276,8 +270,7 @@
                         >
                             {#each listTasks as task (task.id.table + ":" + getKeyString(task.id.key))}
                                 {@const taskId = `${task.id.table}:${getKeyString(task.id.key)}`}
-                                <TaskCard
-                                    title={task.name}
+                                <TaskCard title={task.title}
                                     description={task.description || undefined}
                                     startTime={null}
                                     endTime={null}
