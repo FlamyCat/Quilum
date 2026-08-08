@@ -1,11 +1,11 @@
 <script lang="ts">
     import type { Task } from "$lib/api";
-    import { getKeyString } from "$lib/api";
+    import { durationSeconds, getKeyString } from "$lib/api";
     import TaskCard from "./TaskCard.svelte";
 
     type Props = {
-        slot: { starts_at: number; ends_at: number };
-        tasks: [Task, number][];
+        slot: { starts_at: string; ends_at: string };
+        tasks: Task[];
         onTaskToggle?: (taskId: string, completed: boolean) => Promise<void>;
         displayStart: Date;
         displayEnd: Date;
@@ -52,18 +52,20 @@
             <span>{formatDateTime(displayEnd)}</span>
         </div>
     {/if}
-    {#each tasks as [task, scheduled_for]}
-        <TaskCard
-            title={task.name}
-            description={task.description}
-            startTime={new Date(scheduled_for * 1000)}
-            endTime={new Date((scheduled_for + task.estimated_duration) * 1000)}
-            completed={task.completed ?? false}
-            onToggle={onTaskToggle ? async (completed) => {
-                await onTaskToggle(getTaskId(task), completed);
-            } : undefined}
-            showTime={true}
-            href={"/tasks/edit?id=" + task.id.table + ":" + getKeyString(task.id.key)}
-        />
+    {#each tasks as task}
+        {#if task.scheduled_for}
+            {@const start = new Date(task.scheduled_for)}
+            {@const end = new Date(start.getTime() + durationSeconds(task.estimated_duration) * 1000)}
+            <TaskCard title={task.title}
+                      description={task.description}
+                      startTime={start}
+                      endTime={end}
+                      completed={task.completed ?? false}
+                      onToggle={onTaskToggle ? async (completed) => {
+                    await onTaskToggle(getTaskId(task), completed);
+                } : undefined}
+                      showTime={true}
+                      href={"/tasks/edit?id=" + task.id.table + ":" + getKeyString(task.id.key)} />
+        {/if}
     {/each}
 </div>
