@@ -2,14 +2,10 @@
     import Page from "$lib/components/Page.svelte";
     import EventCard from "$lib/components/EventCard.svelte";
     import TaskCard from "$lib/components/TaskCard.svelte";
-    import { today_timetable, update_task, getKeyString, type Task } from "$lib/api";
+    import { type Duration, durationSeconds, getKeyString, type Task, today_timetable, update_task } from "$lib/api";
 
     function getTodayISO(): string {
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
+        return new Date().toISOString().slice(0, 10);
     }
 
     interface TimelineItem {
@@ -23,8 +19,9 @@
         taskIdTable?: string;
         taskIdKey?: string;
         priority?: string;
-        estimatedDuration?: number;
-        deadline?: number;
+        estimatedDuration?: Duration;
+        deadline?: string;
+        scheduledFor?: string;
     }
 
     let items: TimelineItem[] = $state([]);
@@ -37,8 +34,8 @@
             const [events, scheduledTasks] = await today_timetable(today);
 
             const eventItems: TimelineItem[] = events.map(e => {
-                const eventStart = new Date(e.starts_at * 1000);
-                const eventEnd = new Date(e.ends_at * 1000);
+                const eventStart = new Date(e.starts_at);
+                const eventEnd = new Date(e.ends_at);
                 const todayStart = new Date();
                 todayStart.setHours(0, 0, 0, 0);
                 const todayEnd = new Date(todayStart);
@@ -49,7 +46,7 @@
 
                 return {
                     id: `${e.id.table}:${getKeyString(e.id.key)}`,
-                    title: e.name,
+                    title: e.title,
                     description: e.description || undefined,
                     start: startsToday ? eventStart : null,
                     end: endsToday ? eventEnd : null,
@@ -57,22 +54,29 @@
                 };
             });
 
-            const taskItems: TimelineItem[] = scheduledTasks.map(([task, scheduled_for]) => {
-                return {
-                    id: `${task.id.table}:${getKeyString(task.id.key)}`,
-                    title: task.name,
-                    description: task.description || undefined,
-                    start: new Date(scheduled_for * 1000),
-                    end: new Date((scheduled_for + task.estimated_duration) * 1000),
-                    type: "task" as const,
-                    completed: task.completed ?? false,
-                    taskIdTable: task.id.table,
-                    taskIdKey: task.id.key,
-                    priority: task.priority,
-                    estimatedDuration: task.estimated_duration,
-                    deadline: task.deadline,
-                };
-            });
+            const taskItems: TimelineItem[] = scheduledTasks
+                .map((task): TimelineItem | null => {
+                    if (!task.scheduled_for) return null;
+                    const start = new Date(task.scheduled_for);
+                    const end = new Date(start.getTime() + durationSeconds(task.estimated_duration) * 1000);
+
+                    return {
+                        id: `${task.id.table}:${getKeyString(task.id.key)}`,
+                        title: task.title,
+                        description: task.description || undefined,
+                        start,
+                        end,
+                        type: "task" as const,
+                        completed: task.completed ?? false,
+                        taskIdTable: task.id.table,
+                        taskIdKey: task.id.key,
+                        priority: task.priority,
+                        estimatedDuration: task.estimated_duration,
+                        deadline: task.deadline,
+                        scheduledFor: task.scheduled_for,
+                    };
+                })
+                .filter((item): item is TimelineItem => item !== null);
 
             items = [...eventItems, ...taskItems].sort((a, b) => {
                 if (a.start === null && b.start === null) return 0;
@@ -93,12 +97,13 @@
 
         const task: Task = {
             id: { table: item.taskIdTable, key: item.taskIdKey },
-            name: item.title,
+            title: item.title,
             description: item.description || "",
-            priority: item.priority || "medium",
-            estimated_duration: item.estimatedDuration || 0,
-            deadline: item.deadline || 0,
+            priority: item.priority || "Medium",
+            estimated_duration: item.estimatedDuration || { secs: 0, nanos: 0 },
+            deadline: item.deadline || "",
             completed,
+            scheduled_for: item.scheduledFor ?? null,
         };
 
         try {
