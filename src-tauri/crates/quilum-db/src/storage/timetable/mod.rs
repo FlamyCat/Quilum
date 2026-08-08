@@ -77,7 +77,8 @@ impl Storage {
             FROM tasks
             WHERE
                 scheduled_for != NONE
-                AND scheduled_for IN $start..$end
+                AND scheduled_for + estimated_duration >= $start
+                AND scheduled_for < $end
         ";
 
         self.db
