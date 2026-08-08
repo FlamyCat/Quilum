@@ -1,4 +1,4 @@
-use chrono::{DateTime, TimeDelta};
+use chrono::{DateTime, TimeDelta, Utc};
 use quilum_db::{
     Storage,
     model::task::{Priority, Task},
@@ -15,7 +15,7 @@ pub async fn create_task(
     description: String,
     priority: String,
     estimated_duration: i64,
-    deadline: i64,
+    deadline: DateTime<Utc>,
 ) -> Result<Task, String> {
     let priority = match priority.as_str() {
         "Low" => Priority::Low,
@@ -23,7 +23,6 @@ pub async fn create_task(
         "High" => Priority::High,
         _ => return Err("Invalid priority".to_string()),
     };
-    let deadline = DateTime::from_timestamp(deadline, 0).unwrap();
     let estimated_duration = TimeDelta::seconds(estimated_duration);
     storage
         .create_task(name, description, priority, estimated_duration, deadline)
