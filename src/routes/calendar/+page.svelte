@@ -87,8 +87,8 @@
     interface CalendarSlot {
         type: "slot";
         id: string;
-        slot: { starts_at: number; ends_at: number };
-        tasks: [Task, number][];
+        slot: ApiSlot;
+        tasks: Task[];
         displayStart: Date;
         displayEnd: Date;
         startedBefore: boolean;
@@ -113,8 +113,8 @@
                 id: `${e.id.table}:${getKeyString(e.id.key)}`,
                 title: e.title,
                 description: e.description || undefined,
-                displayStart: new Date(e.starts_at * 1000),
-                displayEnd: new Date(e.ends_at * 1000),
+                displayStart: new Date(e.starts_at),
+                displayEnd: new Date(e.ends_at),
                 startedBefore: false,
                 href: `/calendar/edit-event?id=${e.id.table}:${getKeyString(e.id.key)}`,
             }));
@@ -159,13 +159,13 @@
 
         const daySlots: CalendarSlot[] = slotsWithTasks
             .filter((swt) => {
-                const slotStarts = swt.slot.starts_at * 1000;
-                const slotEnds = swt.slot.ends_at * 1000;
+                const slotStarts = new Date(swt.slot.starts_at).getTime();
+                const slotEnds = new Date(swt.slot.ends_at).getTime();
                 return slotStarts < nextDayTs && slotEnds > dayStartTs;
             })
             .map((swt) => {
-                const slotStarts = swt.slot.starts_at * 1000;
-                const slotEnds = swt.slot.ends_at * 1000;
+                const slotStarts = new Date(swt.slot.starts_at).getTime();
+                const slotEnds = new Date(swt.slot.ends_at).getTime();
 
                 const startedBefore = slotStarts < dayStartTs;
                 const endsAfter = slotEnds >= nextDayTs;
@@ -178,17 +178,16 @@
                     : new Date(slotEnds);
 
                 const filteredTasks = swt.tasks
-                    .filter(([_, scheduledFor]) => {
-                        return (
-                            scheduledFor >= dayStartTs / 1000 &&
-                            scheduledFor < nextDayTs / 1000
-                        );
+                    .filter((task) => {
+                        if (!task.scheduled_for) return false;
+                        const scheduledTs = new Date(task.scheduled_for).getTime();
+                        return scheduledTs >= dayStartTs && scheduledTs < nextDayTs;
                     })
                     .sort((a, b) => {
-                        const aStart = a[1];
-                        const bStart = b[1];
-                        const aEnd = aStart + (a[0].estimated_duration || 0);
-                        const bEnd = bStart + (b[0].estimated_duration || 0);
+                        const aStart = new Date(a.scheduled_for!).getTime();
+                        const bStart = new Date(b.scheduled_for!).getTime();
+                        const aEnd = aStart + durationSeconds(a.estimated_duration) * 1000;
+                        const bEnd = bStart + durationSeconds(b.estimated_duration) * 1000;
                         const startDiff = aStart - bStart;
                         return startDiff !== 0 ? startDiff : aEnd - bEnd;
                     });
@@ -226,7 +225,7 @@
         completed: boolean,
     ): Promise<void> {
         const dayTasks = slotsWithTasks.flatMap((swt) =>
-            swt.tasks.map(([task, _]) => ({
+            swt.tasks.map((task) => ( {
                 task,
                 id: `${task.id.table}:${getKeyString(task.id.key)}`,
             })),
@@ -234,18 +233,8 @@
         const found = dayTasks.find((t) => t.id === taskId);
         if (!found) return;
 
-        const taskObj: Task = {
-            id: found.task.id,
-            name: found.task.name,
-            description: found.task.description,
-            priority: found.task.priority,
-            estimated_duration: found.task.estimated_duration,
-            deadline: found.task.deadline,
-            completed,
-        };
-
         try {
-            await update_task(taskObj);
+            await update_task({ ...found.task, completed });
             found.task.completed = completed;
         } catch (err) {
             console.error("Не удалось обновить задачу:", err);
