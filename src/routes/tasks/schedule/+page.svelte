@@ -76,7 +76,7 @@
                             {#each discardedTasks as task}
                                 <div class="p-3">
                                     <p class="font-medium text-black dark:text-white">
-                                        {task.name}
+                                        {task.title}
                                     </p>
                                     {#if task.description}
                                         <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
