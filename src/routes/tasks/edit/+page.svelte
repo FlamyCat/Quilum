@@ -1,11 +1,10 @@
 <script lang="ts">
     import Page from "$lib/components/Page.svelte";
-    import { read_task, update_task, delete_task, getKeyString } from "$lib/api";
-    import { goto } from "$app/navigation";
+    import type { Task } from "$lib/api";
+    import { delete_task, durationSeconds, read_task, secondsToDuration, update_task } from "$lib/api";
     import DateTimePicker from "$lib/components/DateTimePicker.svelte";
     import { CalendarDate, type DateValue } from "@internationalized/date";
     import { onMount } from "svelte";
-    import type { Task } from "$lib/api";
     import * as Select from "$lib/components/ui/select/index.js";
 
     let name = $state("");
@@ -47,12 +46,12 @@
         try {
             const task: Task = await read_task(taskId.table, taskId.key);
             loadedTask = task;
-            name = task.name;
+            name = task.title;
             description = task.description || "";
             priority = task.priority || "Medium";
-            estimatedDurationMinutes = Math.round(task.estimated_duration / 60);
+            estimatedDurationMinutes = Math.round(durationSeconds(task.estimated_duration) / 60);
 
-            const deadlineDateObj = new Date(task.deadline * 1000);
+            const deadlineDateObj = new Date(task.deadline);
             deadlineDate = new CalendarDate(
                 deadlineDateObj.getFullYear(),
                 deadlineDateObj.getMonth() + 1,
@@ -80,7 +79,7 @@
             return;
         }
 
-        if (estimatedDurationMinutes <= 0) {
+        if (!estimatedDurationMinutes || estimatedDurationMinutes <= 0) {
             errorMessage = "Длительность должна быть больше 0";
             return;
         }
@@ -93,17 +92,15 @@
             parseInt(deadlineTime.split(":")[1]),
         );
 
-        const deadlineTimestamp = Math.floor(deadlineDateTime.getTime() / 1000);
         const estimatedDurationSeconds = estimatedDurationMinutes * 60;
 
         const updatedTask: Task = {
-            id: loadedTask!.id,
-            name: name.trim(),
+            ...loadedTask!,
+            title: name.trim(),
             description: description.trim(),
             priority,
-            estimated_duration: estimatedDurationSeconds,
-            deadline: deadlineTimestamp,
-            completed: loadedTask!.completed,
+            estimated_duration: secondsToDuration(estimatedDurationSeconds),
+            deadline: deadlineDateTime.toISOString(),
         };
 
         update_task(updatedTask)
