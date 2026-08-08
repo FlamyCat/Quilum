@@ -1,22 +1,16 @@
 <script lang="ts">
     import Page from "$lib/components/Page.svelte";
     import EventCard from "$lib/components/EventCard.svelte";
-    import TaskCard from "$lib/components/TaskCard.svelte";
     import Slot from "$lib/components/Slot.svelte";
+    import { CalendarPlus, ChevronLeft, ChevronRight, Circle, CopyPlus } from "@lucide/svelte";
     import {
-        ChevronLeft,
-        ChevronRight,
-        Circle,
-        CalendarPlus,
-        CopyPlus,
-    } from "@lucide/svelte";
-    import {
-        week_timetable,
-        update_task,
+        durationSeconds,
         getKeyString,
-        type Task,
         type Slot as ApiSlot,
         type SlotWithTasks,
+        type Task,
+        update_task,
+        week_timetable,
     } from "$lib/api";
 
     function getWeekStart(date: Date): Date {
