@@ -1,6 +1,6 @@
 <script lang="ts">
     import Page from "$lib/components/Page.svelte";
-    import { create_task, relate_task_to_list, getKeyString } from "$lib/api";
+    import { create_task, getKeyString, relate_task_to_list } from "$lib/api";
     import { goto } from "$app/navigation";
     import DateTimePicker from "$lib/components/DateTimePicker.svelte";
     import { CalendarDate, type DateValue } from "@internationalized/date";
@@ -70,7 +70,6 @@
             parseInt(deadlineTime.split(":")[1]),
         );
 
-        const deadlineTimestamp = Math.floor(deadlineDateTime.getTime() / 1000);
         const estimatedDurationSeconds = estimatedDurationMinutes * 60;
 
         create_task(
@@ -78,7 +77,7 @@
             description.trim(),
             priority,
             estimatedDurationSeconds,
-            deadlineTimestamp,
+            deadlineDateTime.toISOString(),
         )
             .then((task) => {
                 return relate_task_to_list(
