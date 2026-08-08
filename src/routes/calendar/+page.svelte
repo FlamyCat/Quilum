@@ -117,7 +117,7 @@
             events = weekEvents.map((e) => ({
                 type: "event" as const,
                 id: `${e.id.table}:${getKeyString(e.id.key)}`,
-                title: e.name,
+                title: e.title,
                 description: e.description || undefined,
                 displayStart: new Date(e.starts_at * 1000),
                 displayEnd: new Date(e.ends_at * 1000),
