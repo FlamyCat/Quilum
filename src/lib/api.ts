@@ -2,31 +2,46 @@ import { invoke } from "@tauri-apps/api/core";
 
 export interface Event {
   id: { table: string; key: string };
-  name: string;
+  title: string;
   description: string;
-  starts_at: number;
-  ends_at: number;
+  starts_at: string;
+  ends_at: string;
 }
 
 export interface Slot {
   id: { table: string; key: string };
-  starts_at: number;
-  ends_at: number;
+  starts_at: string;
+  ends_at: string;
+}
+
+export interface Duration {
+  secs: number;
+  nanos: number;
 }
 
 export interface Task {
   id: { table: string; key: string };
-  name: string;
+  title: string;
   description: string;
   priority: string;
-  estimated_duration: number;
-  deadline: number;
+  estimated_duration: Duration;
+  deadline: string;
   completed?: boolean;
+  scheduled_for?: string | null;
+}
+
+export function durationSeconds(d: Duration): number {
+  return d.secs + d.nanos / 1e9;
+}
+
+export function secondsToDuration(secs: number): Duration {
+  const whole = Math.floor(secs);
+  return { secs: whole, nanos: Math.round(( secs - whole ) * 1e9) };
 }
 
 export interface SlotWithTasks {
   slot: Slot;
-  tasks: [Task, number][];
+  tasks: Task[];
 }
 
 export interface TaskList {
@@ -48,7 +63,7 @@ export function getKeyString(key: unknown): string {
 
 export async function today_timetable(
   today: string,
-): Promise<[Event[], [Task, number][]]> {
+): Promise<[Event[], Task[]]> {
   return await invoke("today_timetable", { today });
 }
 
@@ -61,8 +76,8 @@ export async function week_timetable(
 export async function create_event(
   name: string,
   description: string,
-  starts_at: number,
-  ends_at: number,
+  starts_at: string,
+  ends_at: string,
 ): Promise<Event> {
   return await invoke("create_event", {
     name,
@@ -91,8 +106,8 @@ export async function delete_event(
 }
 
 export async function create_slot(
-  starts_at: number,
-  ends_at: number,
+    starts_at: string,
+    ends_at: string,
 ): Promise<Slot> {
   return await invoke("create_slot", { startsAt: starts_at, endsAt: ends_at });
 }
@@ -120,7 +135,7 @@ export async function create_task(
   description: string,
   priority: string,
   estimated_duration: number,
-  deadline: number,
+  deadline: string,
 ): Promise<Task> {
   return await invoke("create_task", {
     name,
@@ -154,7 +169,7 @@ export async function relate_task_to_slot(
   slot_id_key: string,
   task_id_table: string,
   task_id_key: string,
-  scheduled_for: number,
+  scheduled_for: string,
 ): Promise<void> {
   return await invoke("relate_task_to_slot", {
     slotIdTable: slot_id_table,
