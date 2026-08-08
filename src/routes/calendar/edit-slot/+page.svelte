@@ -1,7 +1,6 @@
 <script lang="ts">
     import Page from "$lib/components/Page.svelte";
-    import { read_slot, update_slot, delete_slot, getKeyString } from "$lib/api";
-    import { goto } from "$app/navigation";
+    import { delete_slot, getKeyString, read_slot, update_slot } from "$lib/api";
     import { page } from "$app/stores";
     import DateTimePicker from "$lib/components/DateTimePicker.svelte";
     import { CalendarDate, type DateValue } from "@internationalized/date";
@@ -9,7 +8,7 @@
 
     let loading = $state(true);
     let error = $state("");
-    let slot = $state<{ id: { table: string; key: string }; starts_at: number; ends_at: number } | null>(null);
+    let slot = $state<{ id: { table: string; key: string }; starts_at: string; ends_at: string } | null>(null);
 
     let startDate = $state<DateValue | undefined>(undefined);
     let startTime = $state("");
@@ -41,8 +40,8 @@
         read_slot(id_table, id_key)
             .then((data) => {
                 slot = data;
-                const startDateObj = new Date(data.starts_at * 1000);
-                const endDateObj = new Date(data.ends_at * 1000);
+                const startDateObj = new Date(data.starts_at);
+                const endDateObj = new Date(data.ends_at);
 
                 startDate = new CalendarDate(
                     startDateObj.getFullYear(),
@@ -97,8 +96,8 @@
 
         update_slot({
             id: slot.id,
-            starts_at: Math.floor(startDateTime.getTime() / 1000),
-            ends_at: Math.floor(endDateTime.getTime() / 1000),
+            starts_at: startDateTime.toISOString(),
+            ends_at: endDateTime.toISOString(),
         })
             .then(() => {
                 window.history.back();

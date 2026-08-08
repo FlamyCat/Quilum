@@ -1,7 +1,6 @@
 <script lang="ts">
     import Page from "$lib/components/Page.svelte";
-    import { read_event, update_event, delete_event, getKeyString, type Event as CalendarEvent } from "$lib/api";
-    import { goto } from "$app/navigation";
+    import { delete_event, type Event as CalendarEvent, getKeyString, read_event, update_event } from "$lib/api";
     import { page } from "$app/stores";
     import DateTimePicker from "$lib/components/DateTimePicker.svelte";
     import { CalendarDate, type DateValue } from "@internationalized/date";
@@ -43,10 +42,10 @@
         read_event(idTable, idKey)
             .then((event) => {
                 eventData = event;
-                name = event.name;
+                name = event.title;
                 description = event.description;
 
-                const startDateTime = new Date(event.starts_at * 1000);
+                const startDateTime = new Date(event.starts_at);
                 startDate = new CalendarDate(
                     startDateTime.getFullYear(),
                     startDateTime.getMonth() + 1,
@@ -54,7 +53,7 @@
                 ) as DateValue;
                 startTime = `${String(startDateTime.getHours()).padStart(2, "0")}:${String(startDateTime.getMinutes()).padStart(2, "0")}`;
 
-                const endDateTime = new Date(event.ends_at * 1000);
+                const endDateTime = new Date(event.ends_at);
                 endDate = new CalendarDate(
                     endDateTime.getFullYear(),
                     endDateTime.getMonth() + 1,
@@ -113,10 +112,10 @@
 
         update_event({
             id: eventData.id,
-            name: name.trim(),
+            title: name.trim(),
             description: description.trim(),
-            starts_at: Math.floor(startDateTime.getTime() / 1000),
-            ends_at: Math.floor(endDateTime.getTime() / 1000),
+            starts_at: startDateTime.toISOString(),
+            ends_at: endDateTime.toISOString(),
         })
             .then(() => {
                 window.history.back();
