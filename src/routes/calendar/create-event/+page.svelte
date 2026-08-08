@@ -71,8 +71,8 @@
         create_event(
             name.trim(),
             description.trim(),
-            Math.floor(startDateTime.getTime() / 1000),
-            Math.floor(endDateTime.getTime() / 1000),
+            startDateTime.toISOString(),
+            endDateTime.toISOString(),
         ).then(() => {
             goto("/calendar");
         }).catch((err) => {
