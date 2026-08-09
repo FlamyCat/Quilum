@@ -1,3 +1,9 @@
+use std::{fs, path::Path};
+
+use quilum_db::app_identifier::AppIdentifier;
+
+use crate::app_list::AppInfo;
+
 #[cfg(target_os = "macos")]
 pub fn get_installed_apps() -> Vec<AppInfo> {
     let mut apps = Vec::new();
