@@ -1,4 +1,4 @@
-use chrono::{NaiveDate, TimeDelta};
+use chrono::{DateTime, FixedOffset, NaiveDate, TimeDelta, Utc};
 use surrealdb::Error;
 
 use crate::{
@@ -6,6 +6,18 @@ use crate::{
     event::EVENTS_TABLE,
     model::{event::Event, task::Task},
 };
+
+/// Converts a calendar date into the UTC instant of its local midnight,
+/// using the given timezone offset. This makes "a date" mean "that date's
+/// local day", so day ranges cover the whole local day regardless of the
+/// machine's timezone.
+fn local_midnight_utc(date: NaiveDate, offset: FixedOffset) -> DateTime<Utc> {
+    date.and_hms_opt(0, 0, 0)
+        .unwrap()
+        .and_local_timezone(offset)
+        .unwrap()
+        .with_timezone(&Utc)
+}
 
 impl Storage {
     /// Gets events overlapping a date range (inclusive start, exclusive end).
@@ -20,9 +32,10 @@ impl Storage {
         &self,
         start: NaiveDate,
         end: NaiveDate,
+        offset: FixedOffset,
     ) -> Result<Vec<Event>, Error> {
-        let range_start = start.and_hms_opt(0, 0, 0).unwrap().and_utc();
-        let range_end = end.and_hms_opt(0, 0, 0).unwrap().and_utc();
+        let range_start = local_midnight_utc(start, offset);
+        let range_end = local_midnight_utc(end, offset);
 
         let sql = format!(
             "SELECT * FROM {} \
@@ -48,9 +61,13 @@ impl Storage {
     ///
     /// # Returns
     /// * Vector of events occurring on the date
-    pub async fn get_events_for_date(&self, date: NaiveDate) -> Result<Vec<Event>, Error> {
+    pub async fn get_events_for_date(
+        &self,
+        date: NaiveDate,
+        offset: FixedOffset,
+    ) -> Result<Vec<Event>, Error> {
         let next_day = date + TimeDelta::days(1);
-        self.get_events_for_date_range(date, next_day).await
+        self.get_events_for_date_range(date, next_day, offset).await
     }
 }
 
@@ -68,9 +85,10 @@ impl Storage {
         &self,
         start: NaiveDate,
         end: NaiveDate,
+        offset: FixedOffset,
     ) -> Result<Vec<Task>, Error> {
-        let range_start = start.and_hms_opt(0, 0, 0).unwrap().and_utc();
-        let range_end = end.and_hms_opt(0, 0, 0).unwrap().and_utc();
+        let range_start = local_midnight_utc(start, offset);
+        let range_end = local_midnight_utc(end, offset);
 
         let sql = "
             SELECT *
@@ -125,6 +143,7 @@ impl Storage {
         &self,
         start: NaiveDate,
         end: NaiveDate,
+        offset: FixedOffset,
     ) -> Result<Vec<SlotWithTasks>, Error> {
         let sql = "
             SELECT
@@ -142,14 +161,8 @@ impl Storage {
 
         self.db
             .query(sql)
-            .bind((
-                "start",
-                start.and_hms_opt(0, 0, 0).unwrap_or_default().and_utc(),
-            ))
-            .bind((
-                "end",
-                end.and_hms_opt(0, 0, 0).unwrap_or_default().and_utc(),
-            ))
+            .bind(("start", local_midnight_utc(start, offset)))
+            .bind(("end", local_midnight_utc(end, offset)))
             .await?
             .take(0)
     }
@@ -164,12 +177,13 @@ impl Storage {
     pub async fn get_today_timetable(
         &self,
         today: NaiveDate,
+        offset: FixedOffset,
     ) -> Result<(Vec<Event>, Vec<Task>), Error> {
         let tomorrow = today + TimeDelta::days(1);
 
-        let events = self.get_events_for_date(today).await?;
+        let events = self.get_events_for_date(today, offset).await?;
         let scheduled_tasks = self
-            .get_scheduled_tasks_for_date_range(today, tomorrow)
+            .get_scheduled_tasks_for_date_range(today, tomorrow, offset)
             .await?;
 
         Ok((events, scheduled_tasks))
@@ -186,12 +200,15 @@ impl Storage {
     pub async fn get_week_timetable(
         &self,
         week_start: NaiveDate,
+        offset: FixedOffset,
     ) -> Result<(Vec<Event>, Vec<SlotWithTasks>), Error> {
         let week_end = week_start + TimeDelta::days(7);
 
-        let events = self.get_events_for_date_range(week_start, week_end).await?;
+        let events = self
+            .get_events_for_date_range(week_start, week_end, offset)
+            .await?;
         let slots_with_tasks = self
-            .get_slots_with_tasks_for_date_range(week_start, week_end)
+            .get_slots_with_tasks_for_date_range(week_start, week_end, offset)
             .await?;
 
         Ok((events, slots_with_tasks))

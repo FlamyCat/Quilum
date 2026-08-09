@@ -1,9 +1,20 @@
-use chrono::{NaiveDate, TimeDelta};
+use std::time::Duration;
+
+use chrono::{FixedOffset, NaiveDate, TimeDelta};
 
 use crate::{
     Storage,
     task::{Priority, Task},
 };
+
+fn utc_offset() -> FixedOffset {
+    FixedOffset::east_opt(0).unwrap()
+}
+
+fn utc_plus_3_offset() -> FixedOffset {
+    let offset = Duration::from_hours(3).as_secs();
+    FixedOffset::east_opt(offset as i32).unwrap()
+}
 
 #[tokio::test]
 async fn get_events_for_date_range_basic() {
@@ -60,7 +71,7 @@ async fn get_events_for_date_range_basic() {
     let start = NaiveDate::from_ymd_opt(2026, 5, 2).unwrap();
     let end = NaiveDate::from_ymd_opt(2026, 5, 4).unwrap();
     let events = storage
-        .get_events_for_date_range(start, end)
+        .get_events_for_date_range(start, end, utc_offset())
         .await
         .expect("Failed to query events");
 
@@ -92,7 +103,7 @@ async fn get_events_for_date_range_overlapping() {
 
     let date = NaiveDate::from_ymd_opt(2026, 5, 2).unwrap();
     let events = storage
-        .get_events_for_date(date)
+        .get_events_for_date(date, utc_offset())
         .await
         .expect("Failed to query events");
 
@@ -139,7 +150,7 @@ async fn get_events_for_date_single() {
         .expect("Failed to create event 3");
 
     let events = storage
-        .get_events_for_date(date2)
+        .get_events_for_date(date2, utc_offset())
         .await
         .expect("Failed to query events");
 
@@ -154,7 +165,7 @@ async fn get_events_for_date_range_empty() {
     let start = NaiveDate::from_ymd_opt(2026, 5, 10).unwrap();
     let end = NaiveDate::from_ymd_opt(2026, 5, 20).unwrap();
     let events = storage
-        .get_events_for_date_range(start, end)
+        .get_events_for_date_range(start, end, utc_offset())
         .await
         .expect("Failed to query events");
 
@@ -180,7 +191,7 @@ async fn get_events_for_date_multiple_same_day() {
     }
 
     let events = storage
-        .get_events_for_date(date)
+        .get_events_for_date(date, utc_offset())
         .await
         .expect("Failed to query events");
 
@@ -223,7 +234,7 @@ async fn get_scheduled_tasks_basic() {
         .expect("Failed to relate task to slot");
 
     let scheduled_tasks = storage
-        .get_scheduled_tasks_for_date_range(slot_date, slot_date + TimeDelta::days(1))
+        .get_scheduled_tasks_for_date_range(slot_date, slot_date + TimeDelta::days(1), utc_offset())
         .await
         .expect("Failed to query scheduled tasks");
 
@@ -271,7 +282,11 @@ async fn get_scheduled_tasks_wrong_date() {
 
     let wrong_date = NaiveDate::from_ymd_opt(2026, 5, 2).unwrap();
     let scheduled_tasks = storage
-        .get_scheduled_tasks_for_date_range(wrong_date, wrong_date + TimeDelta::days(1))
+        .get_scheduled_tasks_for_date_range(
+            wrong_date,
+            wrong_date + TimeDelta::days(1),
+            utc_offset(),
+        )
         .await
         .expect("Failed to query scheduled tasks");
 
@@ -321,7 +336,7 @@ async fn get_scheduled_tasks_multiple_in_slot() {
     }
 
     let scheduled_tasks = storage
-        .get_scheduled_tasks_for_date_range(slot_date, slot_date + TimeDelta::days(1))
+        .get_scheduled_tasks_for_date_range(slot_date, slot_date + TimeDelta::days(1), utc_offset())
         .await
         .expect("Failed to query scheduled tasks");
 
@@ -402,7 +417,7 @@ async fn get_scheduled_tasks_date_range_filter() {
         .expect("Failed to relate T2 to slot B");
 
     let scheduled_tasks = storage
-        .get_scheduled_tasks_for_date_range(date1, date2)
+        .get_scheduled_tasks_for_date_range(date1, date2, utc_offset())
         .await
         .expect("Failed to query scheduled tasks");
 
@@ -421,7 +436,7 @@ async fn get_scheduled_tasks_empty_result() {
     let start = NaiveDate::from_ymd_opt(2026, 5, 10).unwrap();
     let end = NaiveDate::from_ymd_opt(2026, 5, 20).unwrap();
     let scheduled_tasks = storage
-        .get_scheduled_tasks_for_date_range(start, end)
+        .get_scheduled_tasks_for_date_range(start, end, utc_offset())
         .await
         .expect("Failed to query scheduled tasks");
 
@@ -467,7 +482,11 @@ async fn get_slots_with_tasks_basic() {
         .expect("Failed to relate task to slot");
 
     let slots_with_tasks = storage
-        .get_slots_with_tasks_for_date_range(slot_date, slot_date + TimeDelta::days(1))
+        .get_slots_with_tasks_for_date_range(
+            slot_date,
+            slot_date + TimeDelta::days(1),
+            utc_offset(),
+        )
         .await
         .expect("Failed to query slots with tasks");
 
@@ -526,7 +545,11 @@ async fn get_slots_with_tasks_multiple_tasks() {
     }
 
     let slots_with_tasks = storage
-        .get_slots_with_tasks_for_date_range(slot_date, slot_date + TimeDelta::days(1))
+        .get_slots_with_tasks_for_date_range(
+            slot_date,
+            slot_date + TimeDelta::days(1),
+            utc_offset(),
+        )
         .await
         .expect("Failed to query slots with tasks");
 
@@ -616,7 +639,11 @@ async fn get_slots_with_tasks_multiple_slots() {
         .expect("Failed to relate task to slot B");
 
     let slots_with_tasks = storage
-        .get_slots_with_tasks_for_date_range(slot_date, slot_date + TimeDelta::days(1))
+        .get_slots_with_tasks_for_date_range(
+            slot_date,
+            slot_date + TimeDelta::days(1),
+            utc_offset(),
+        )
         .await
         .expect("Failed to query slots with tasks");
 
@@ -696,7 +723,7 @@ async fn get_slots_with_tasks_date_range_filter() {
         .expect("Failed to relate T2 to slot B");
 
     let slots_with_tasks = storage
-        .get_slots_with_tasks_for_date_range(date1, date2)
+        .get_slots_with_tasks_for_date_range(date1, date2, utc_offset())
         .await
         .expect("Failed to query slots with tasks");
 
@@ -716,7 +743,7 @@ async fn get_slots_with_tasks_empty_result() {
     let start = NaiveDate::from_ymd_opt(2026, 5, 10).unwrap();
     let end = NaiveDate::from_ymd_opt(2026, 5, 20).unwrap();
     let slots_with_tasks = storage
-        .get_slots_with_tasks_for_date_range(start, end)
+        .get_slots_with_tasks_for_date_range(start, end, utc_offset())
         .await
         .expect("Failed to query slots with tasks");
 
@@ -740,7 +767,11 @@ async fn get_slots_with_tasks_slot_without_tasks() {
         .expect("Failed to create slot");
 
     let slots_with_tasks = storage
-        .get_slots_with_tasks_for_date_range(slot_date, slot_date + TimeDelta::days(1))
+        .get_slots_with_tasks_for_date_range(
+            slot_date,
+            slot_date + TimeDelta::days(1),
+            utc_offset(),
+        )
         .await
         .expect("Failed to query slots with tasks");
 
@@ -798,7 +829,7 @@ async fn get_today_timetable_basic() {
         .expect("Failed to relate task to slot");
 
     let (events, scheduled_tasks) = storage
-        .get_today_timetable(today)
+        .get_today_timetable(today, utc_offset())
         .await
         .expect("Failed to get today timetable");
 
@@ -818,7 +849,7 @@ async fn get_today_timetable_empty() {
     let today = NaiveDate::from_ymd_opt(2026, 5, 10).unwrap();
 
     let (events, scheduled_tasks) = storage
-        .get_today_timetable(today)
+        .get_today_timetable(today, utc_offset())
         .await
         .expect("Failed to get today timetable");
 
@@ -897,7 +928,7 @@ async fn get_week_timetable_basic() {
         .expect("Failed to create event C");
 
     let (events, slots_with_tasks) = storage
-        .get_week_timetable(week_start)
+        .get_week_timetable(week_start, utc_offset())
         .await
         .expect("Failed to get week timetable");
 
@@ -954,7 +985,7 @@ async fn get_week_timetable_excludes_next_week() {
         .expect("Failed to relate task to slot B");
 
     let (_, slots_with_tasks) = storage
-        .get_week_timetable(week_start)
+        .get_week_timetable(week_start, utc_offset())
         .await
         .expect("Failed to get week timetable");
 
@@ -1096,5 +1127,114 @@ async fn get_next_scheduled_task_past_only() {
     assert!(
         result.is_none(),
         "Should return None when only past tasks exist"
+    );
+}
+
+#[tokio::test]
+async fn get_today_timetable_includes_local_early_morning() {
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
+    let today = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap();
+    let previous_evening = today - TimeDelta::days(1);
+
+    // Local 00:30 on `today` at UTC+3 == 21:30 UTC on the previous day.
+    let _event = storage
+        .create_event(
+            "Early Event".to_string(),
+            "Starts at local 00:30".to_string(),
+            previous_evening.and_hms_opt(21, 30, 0).unwrap().and_utc(),
+            previous_evening.and_hms_opt(22, 0, 0).unwrap().and_utc(),
+        )
+        .await
+        .expect("Failed to create event");
+
+    let slot = storage
+        .create_slot(
+            previous_evening.and_hms_opt(21, 30, 0).unwrap().and_utc(),
+            previous_evening.and_hms_opt(22, 30, 0).unwrap().and_utc(),
+        )
+        .await
+        .expect("Failed to create slot");
+
+    let task = storage
+        .create_task(
+            "Early Task".to_string(),
+            "Scheduled for local 00:30".to_string(),
+            Priority::Medium,
+            TimeDelta::hours(1),
+            today.and_hms_opt(0, 0, 0).unwrap().and_utc(),
+        )
+        .await
+        .expect("Failed to create task");
+
+    storage
+        .schedule_task(
+            slot.id().clone(),
+            task.id().clone(),
+            previous_evening.and_hms_opt(21, 30, 0).unwrap().and_utc(),
+        )
+        .await
+        .expect("Failed to relate task to slot");
+
+    // With the local (UTC+3) offset, the whole local day is covered.
+    let (events, scheduled_tasks) = storage
+        .get_today_timetable(today, utc_plus_3_offset())
+        .await
+        .expect("Failed to get today timetable");
+
+    assert_eq!(events.len(), 1, "Early event should be included");
+    assert_eq!(events[0].name(), "Early Event");
+    assert_eq!(scheduled_tasks.len(), 1, "Early task should be included");
+    assert_eq!(scheduled_tasks[0].name(), "Early Task");
+
+    // With a UTC offset, the same instant falls outside the UTC-day window.
+    let (events, scheduled_tasks) = storage
+        .get_today_timetable(today, utc_offset())
+        .await
+        .expect("Failed to get today timetable");
+
+    assert!(
+        events.is_empty(),
+        "Event should be excluded under UTC-day semantics"
+    );
+    assert!(
+        scheduled_tasks.is_empty(),
+        "Task should be excluded under UTC-day semantics"
+    );
+}
+
+#[tokio::test]
+async fn get_week_timetable_includes_local_early_morning() {
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
+    let week_start = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap();
+    let previous_evening = week_start - TimeDelta::days(1);
+
+    // Local 00:30 on the week's first day at UTC+3 == 21:30 UTC on the day before.
+    let _slot = storage
+        .create_slot(
+            previous_evening.and_hms_opt(21, 30, 0).unwrap().and_utc(),
+            previous_evening.and_hms_opt(22, 0, 0).unwrap().and_utc(),
+        )
+        .await
+        .expect("Failed to create slot");
+
+    let (_, slots_with_tasks) = storage
+        .get_week_timetable(week_start, utc_plus_3_offset())
+        .await
+        .expect("Failed to get week timetable");
+
+    assert_eq!(
+        slots_with_tasks.len(),
+        1,
+        "Early slot should be included under local-day semantics"
+    );
+
+    let (_, slots_with_tasks) = storage
+        .get_week_timetable(week_start, utc_offset())
+        .await
+        .expect("Failed to get week timetable");
+
+    assert!(
+        slots_with_tasks.is_empty(),
+        "Slot should be excluded under UTC-day semantics"
     );
 }
