@@ -10,7 +10,7 @@ use tokio::task::JoinHandle;
 
 use crate::model::AppIdentifier;
 
-fn get_exe_path(process: &sysinfo::Process) -> std::path::PathBuf {
+fn get_exe_path(process: &sysinfo::Process) -> PathBuf {
     process
         .exe()
         .map(|p| p.to_path_buf())
