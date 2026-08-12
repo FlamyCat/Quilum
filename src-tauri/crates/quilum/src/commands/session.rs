@@ -176,7 +176,7 @@ fn start_blocking(
     task_name: String,
     task_duration: Duration,
 ) {
-    let duration_minutes = task_duration.as_secs();
+    let duration_minutes = task_duration.as_secs() / 60;
     let notification_body = format!(
         "Начался период концентрации: \"{}\" ({} мин.). Отвлекающие приложения заблокированы!",
         task_name, duration_minutes
