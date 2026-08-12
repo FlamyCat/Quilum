@@ -121,9 +121,12 @@
                                 : 'hover:bg-slate-100 dark:hover:bg-slate-700 dark:bg-slate-800 dark:border-slate-500'}"
                                 onclick={() =>
                                 toggleApp(app.identifier, app.display_name)}>
-                            <span class="dark:text-white">{app.display_name}</span>
+                            <span class="min-w-0 flex flex-col">
+                                <span class="dark:text-white">{app.display_name}</span>
+                                <span class="text-sm text-gray-500 truncate">{app.identifier}</span>
+                            </span>
                             {#if isBlocked(app.identifier)}
-                                <span class="text-red-500 text-sm">Заблокировано</span>
+                                <span class="text-red-500 text-sm shrink-0">Заблокировано</span>
                             {/if}
                         </button>
                     {/each}
