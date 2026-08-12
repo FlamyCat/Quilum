@@ -13,6 +13,13 @@
     let loading = $state(true);
     let saving = $state(false);
     let error = $state("");
+    let searchQuery = $state("");
+
+    const filteredApps = $derived(
+        installedApps.filter((app) =>
+            app.display_name.toLowerCase().includes(searchQuery.toLowerCase()),
+        ),
+    );
 
     async function loadData() {
         try {
@@ -100,8 +107,13 @@
                 <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">
                     Выберите приложения, которые нужно блокировать во время периода фокусировки </p>
 
+                <input type="text"
+                       class="w-full mb-4 p-4 rounded-lg bg-slate-100 dark:bg-slate-800 dark:border-slate-500 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                       placeholder="Поиск..."
+                       bind:value={searchQuery} />
+
                 <div class="flex-1 overflow-y-auto space-y-2 mb-4">
-                    {#each installedApps as app (app.identifier)}
+                    {#each filteredApps as app (app.identifier)}
                         <button class="w-full text-left p-3 rounded-lg border transition-colors flex items-center justify-between {isBlocked(
                                 app.identifier,
                             )
