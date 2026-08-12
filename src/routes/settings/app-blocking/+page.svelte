@@ -22,7 +22,21 @@
                 invoke<AppInfo[]>("get_installed_apps"),
                 invoke<AppInfo[]>("get_blocked_apps"),
             ]);
-            installedApps = installed;
+            installedApps = installed.toSorted((a, b) => {
+                // Ignore upper and lowercase
+                const nameA = a.display_name.toUpperCase();
+                const nameB = b.display_name.toUpperCase();
+
+                if (nameA < nameB) {
+                    return -1;
+                }
+
+                if (nameA > nameB) {
+                    return 1;
+                }
+
+                return 0;
+            });
             blockedApps = blocked;
         } catch (e) {
             error = String(e);
@@ -56,10 +70,10 @@
         try {
             saving = true;
             error = "";
-            const apps = blockedApps.map((app) => ({
+            const apps = blockedApps.map((app) => ( {
                 identifier: app.identifier,
                 display_name: app.display_name,
-            }));
+            } ));
             await invoke("update_blocked_apps", { apps });
         } catch (e) {
             error = String(e);
@@ -75,9 +89,7 @@
     {#snippet body()}
         <div class="flex flex-col h-full max-w-2xl p-4">
             {#if error}
-                <div
-                    class="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg"
-                >
+                <div class="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg">
                     {error}
                 </div>
             {/if}
@@ -86,36 +98,28 @@
                 <div class="text-center py-8 text-gray-500">Загрузка...</div>
             {:else}
                 <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">
-                    Выберите приложения, которые нужно блокировать во время
-                    периода фокусировки
-                </p>
+                    Выберите приложения, которые нужно блокировать во время периода фокусировки </p>
 
                 <div class="flex-1 overflow-y-auto space-y-2 mb-4">
                     {#each installedApps as app (app.identifier)}
-                        <button
-                            class="w-full text-left p-3 rounded-lg border transition-colors flex items-center justify-between {isBlocked(
+                        <button class="w-full text-left p-3 rounded-lg border transition-colors flex items-center justify-between {isBlocked(
                                 app.identifier,
                             )
                                 ? 'bg-red-50 dark:bg-red-900/20 dark:hover:bg-red-800/30 border-red-200 dark:border-red-800'
                                 : 'hover:bg-slate-100 dark:hover:bg-slate-700 dark:bg-slate-800 dark:border-slate-500'}"
-                            onclick={() =>
-                                toggleApp(app.identifier, app.display_name)}
-                        >
+                                onclick={() =>
+                                toggleApp(app.identifier, app.display_name)}>
                             <span class="dark:text-white">{app.display_name}</span>
                             {#if isBlocked(app.identifier)}
-                                <span class="text-red-500 text-sm"
-                                    >Заблокировано</span
-                                >
+                                <span class="text-red-500 text-sm">Заблокировано</span>
                             {/if}
                         </button>
                     {/each}
                 </div>
 
-                <button
-                    class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
-                    disabled={saving}
-                    onclick={saveChanges}
-                >
+                <button class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
+                        disabled={saving}
+                        onclick={saveChanges}>
                     {saving ? "Сохранение..." : "Сохранить"}
                 </button>
             {/if}
