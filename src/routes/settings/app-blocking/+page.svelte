@@ -105,7 +105,7 @@
                 <div class="text-center py-8 text-gray-500">Загрузка...</div>
             {:else}
                 <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">
-                    Выберите приложения, которые нужно блокировать во время периода фокусировки </p>
+                    Выберите приложения, которые нужно блокировать во время периода концентрации </p>
 
                 <input type="text"
                        class="w-full mb-4 p-4 rounded-lg bg-slate-100 dark:bg-slate-800 dark:border-slate-500 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"

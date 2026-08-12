@@ -42,7 +42,9 @@ pub async fn update_blocked_apps(
     let focus_session_is_active = focus_session_is_active(&storage).await?;
 
     if focus_session_is_active {
-        return Err("Невозможно изменить список приложений во время фокус сессии".to_string());
+        return Err(
+            "Невозможно изменить список приложений во время периода концентрации".to_string(),
+        );
     }
 
     storage
