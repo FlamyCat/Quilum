@@ -1,6 +1,5 @@
 <script lang="ts">
     import Page from "$lib/components/Page.svelte";
-    import PageTitle from "$lib/components/PageTitle.svelte";
     import { invoke } from "@tauri-apps/api/core";
     import { onMount } from "svelte";
 
@@ -62,10 +61,8 @@
                 display_name: app.display_name,
             }));
             await invoke("update_blocked_apps", { apps });
-            await loadData();
         } catch (e) {
             error = String(e);
-            await loadData();
         } finally {
             saving = false;
         }
