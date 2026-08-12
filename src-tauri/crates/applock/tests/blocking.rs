@@ -7,9 +7,12 @@ use std::{
     time::Duration,
 };
 
+use std::{path::PathBuf, process::Command, thread, time::Duration};
+
+use applock::{AppBlocker, app_list::AppInfo};
 use sysinfo::{System, UpdateKind};
 
-fn build_dummy() -> std::path::PathBuf {
+fn build_dummy() -> PathBuf {
     let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     let crates_dir = manifest.parent().unwrap();
     let src_tauri_dir = crates_dir.parent().unwrap();
@@ -21,7 +24,7 @@ fn build_dummy() -> std::path::PathBuf {
     if !dummy_bin.exists() {
         let status = Command::new("cargo")
             .args(["build", "--bin", "applock-test-dummy"])
-            .current_dir(&src_tauri_dir)
+            .current_dir(src_tauri_dir)
             .status()
             .expect("Failed to build applock-test-dummy");
         assert!(status.success(), "Failed to build applock-test-dummy");
@@ -39,7 +42,7 @@ fn spawn_dummy() -> sysinfo::Pid {
     sysinfo::Pid::from_u32(child.id())
 }
 
-fn get_dummy_pids() -> Vec<(sysinfo::Pid, std::path::PathBuf)> {
+fn get_dummy_pids() -> Vec<(sysinfo::Pid, PathBuf)> {
     let mut sys = System::new_with_specifics(
         sysinfo::RefreshKind::nothing().with_processes(
             sysinfo::ProcessRefreshKind::nothing()
@@ -61,6 +64,30 @@ fn get_dummy_pids() -> Vec<(sysinfo::Pid, std::path::PathBuf)> {
             )
         })
         .collect()
+}
+
+/// Number of dummy processes still alive, i.e. not a zombie or a dead process.
+fn count_running_dummies() -> usize {
+    let mut sys = System::new_with_specifics(
+        sysinfo::RefreshKind::nothing().with_processes(
+            sysinfo::ProcessRefreshKind::nothing()
+                .with_cmd(UpdateKind::Always)
+                .with_exe(UpdateKind::Always),
+        ),
+    );
+    sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+    sys.processes()
+        .values()
+        .filter(|process| {
+            let name = process.name().to_string_lossy().to_lowercase();
+            name.contains("applock-test-du")
+                && !name.contains("test_dummy")
+                && !matches!(
+                    process.status(),
+                    sysinfo::ProcessStatus::Zombie | sysinfo::ProcessStatus::Dead
+                )
+        })
+        .count()
 }
 
 fn cleanup_dummies() {
