@@ -68,23 +68,28 @@ impl ProcessPoller {
     }
 }
 
+pub type OnKill = Arc<dyn Fn(usize) + Send + Sync>;
+
 pub fn start_polling(
     blocked: Arc<RwLock<HashSet<PathBuf>>>,
     poll_interval: Duration,
     stop_flag: Arc<std::sync::atomic::AtomicBool>,
+    on_kill: Option<OnKill>,
 ) -> JoinHandle<()> {
     let poller = ProcessPoller::new(blocked.clone());
 
     tokio::spawn(async move {
         poller.scan_and_kill();
-
         loop {
             tokio::select! {
                 _ = tokio::time::sleep(poll_interval) => {
                     if stop_flag.load(std::sync::atomic::Ordering::SeqCst) {
                         break;
                     }
-                    poller.scan_and_kill();
+                    let killed = poller.scan_and_kill();
+                    if killed > 0 && let Some(on_kill) = &on_kill {
+                        on_kill(killed);
+                    }
                 }
                 _ = tokio::time::sleep(Duration::from_secs(1)) => {
                     if stop_flag.load(std::sync::atomic::Ordering::SeqCst) {

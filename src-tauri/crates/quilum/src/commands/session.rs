@@ -1,4 +1,10 @@
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
+    time::Duration,
+};
 
 use applock::{BlockingSession, app_list::AppInfo, start_polling};
 use chrono::{DateTime, Utc};
@@ -54,6 +60,38 @@ async fn end_focus_session_internal(
         .show()
 }
 
+fn build_on_kill(
+    app_handle: tauri::AppHandle,
+    end_time: DateTime<Utc>,
+) -> Option<Arc<dyn Fn(usize) + Send + Sync>> {
+    let last_notify_at = Arc::new(AtomicU64::new(0));
+    let last_notify_clone = last_notify_at.clone();
+
+    Some(Arc::new(move |killed: usize| {
+        if killed == 0 {
+            return;
+        }
+
+        let now = Utc::now().timestamp() as u64;
+        let prev = last_notify_clone.load(Ordering::SeqCst);
+        if now.saturating_sub(prev) < 5 {
+            return;
+        }
+        last_notify_clone.store(now, Ordering::SeqCst);
+
+        let remaining = ((end_time - Utc::now()).num_seconds().max(0) as f64 / 60.0).ceil() as i64;
+        let _ = app_handle
+            .notification()
+            .builder()
+            .title("Сосредоточьтесь на работе!")
+            .body(format!(
+                "Активен период концентрации. Осталось {} мин.",
+                remaining
+            ))
+            .show();
+    }))
+}
+
 #[tauri::command]
 pub async fn start_focus_session(
     storage: State<'_, Storage>,
@@ -79,7 +117,8 @@ pub async fn start_focus_session(
     let stop_flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let poll_interval = Duration::from_millis(300);
 
-    let handle = start_polling(blocked_set, poll_interval, stop_flag.clone());
+    let on_kill = build_on_kill(app_handle.clone(), end_time);
+    let handle = start_polling(blocked_set, poll_interval, stop_flag.clone(), on_kill);
     let end_time_for_task = end_time;
 
     *guard = Some(BlockingState {
@@ -200,7 +239,8 @@ fn start_blocking(
         let stop_flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let poll_interval = Duration::from_millis(300);
 
-        let handle = start_polling(blocked_set, poll_interval, stop_flag.clone());
+        let on_kill = build_on_kill(app_handle.clone(), end_time);
+        let handle = start_polling(blocked_set, poll_interval, stop_flag.clone(), on_kill);
         let end_time_for_task = end_time;
         let app_handle_clone = app_handle.clone();
 
