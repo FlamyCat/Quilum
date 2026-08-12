@@ -1,9 +1,6 @@
 use std::path::PathBuf;
 
-use applock::{
-    app_list::{AppInfo, get_installed_apps as get_apps},
-    model::AppIdentifier,
-};
+use applock::app_list::{AppInfo, get_installed_apps as get_apps};
 use tauri::State;
 
 use crate::db::Storage;
@@ -54,14 +51,8 @@ pub async fn update_blocked_apps(
         .map_err(|e| e.to_string())?;
 
     for app in apps {
-        let app_identifier = if app.identifier.contains('/') || app.identifier.contains('\\') {
-            AppIdentifier::Path(PathBuf::from(&app.identifier))
-        } else {
-            AppIdentifier::BundleId(app.identifier.clone())
-        };
-
         storage
-            .upsert_blocked_app(app_identifier, &app.display_name)
+            .upsert_blocked_app(&PathBuf::from(&app.identifier), &app.display_name)
             .await
             .map_err(|e| e.to_string())?;
     }

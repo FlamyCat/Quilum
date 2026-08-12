@@ -1,9 +1,3 @@
-use std::{fs, path::Path};
-
-use quilum_db::app_identifier::AppIdentifier;
-
-use crate::app_list::AppInfo;
-
 #[cfg(target_os = "macos")]
 pub fn get_installed_apps() -> Vec<AppInfo> {
     let mut apps = Vec::new();
@@ -71,10 +65,7 @@ fn parse_app_bundle(app_path: &Path) -> Option<AppInfo> {
         return None;
     }
 
-    Some(AppInfo::new(
-        AppIdentifier::Path(executable_path),
-        display_name,
-    ))
+    Some(AppInfo::new(executable_path, display_name))
 }
 
 #[cfg(target_os = "macos")]
@@ -122,14 +113,8 @@ fn parse_info_plist(info_plist_path: &Path, app_path: &Path) -> Option<AppInfo> 
         if !fallback_path.exists() {
             return None;
         }
-        Some(AppInfo::new(
-            AppIdentifier::Path(fallback_path),
-            display_name,
-        ))
+        Some(AppInfo::new(fallback_path, display_name))
     } else {
-        Some(AppInfo::new(
-            AppIdentifier::Path(executable_path),
-            display_name,
-        ))
+        Some(AppInfo::new(executable_path, display_name))
     }
 }

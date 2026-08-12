@@ -1,9 +1,7 @@
-use std::{path, path::PathBuf};
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 use surrealdb::types::{RecordId, SurrealValue};
-
-use crate::model::app_identifier::AppIdentifier;
 
 pub const BLOCKED_APPS_TABLE: &str = "blocked_apps";
 
@@ -15,12 +13,8 @@ pub struct BlockedApp {
 }
 
 impl BlockedApp {
-    pub fn app_identifier(&self) -> AppIdentifier {
-        if self.identifier.contains(path::MAIN_SEPARATOR) {
-            AppIdentifier::Path(PathBuf::from(self.identifier.clone()))
-        } else {
-            AppIdentifier::BundleId(self.identifier.clone())
-        }
+    pub fn app_identifier(&self) -> PathBuf {
+        PathBuf::from(&self.identifier)
     }
 
     pub fn new(identifier: String, display_name: String) -> Self {

@@ -1,5 +1,6 @@
 use std::{
     collections::HashSet,
+    path::PathBuf,
     sync::{
         Arc, RwLock,
         atomic::{AtomicBool, Ordering},
@@ -8,11 +9,11 @@ use std::{
 
 use chrono::{DateTime, Utc};
 
-use crate::{app_list::AppInfo, model::AppIdentifier};
+use crate::app_list::AppInfo;
 
 #[derive(Clone)]
 pub struct BlockingSession {
-    blocked_apps: Arc<RwLock<HashSet<AppIdentifier>>>,
+    blocked_apps: Arc<RwLock<HashSet<PathBuf>>>,
     active: Arc<AtomicBool>,
     end_time: Arc<RwLock<Option<DateTime<Utc>>>>,
 }
@@ -64,7 +65,7 @@ impl BlockingSession {
     }
 
     /// Get the blocked apps set for cloning into blocking layers.
-    pub fn blocked_apps(&self) -> Arc<RwLock<HashSet<AppIdentifier>>> {
+    pub fn blocked_apps(&self) -> Arc<RwLock<HashSet<PathBuf>>> {
         self.blocked_apps.clone()
     }
 

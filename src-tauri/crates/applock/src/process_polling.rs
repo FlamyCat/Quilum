@@ -8,8 +8,6 @@ use std::{
 use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, RefreshKind, System, UpdateKind};
 use tokio::task::JoinHandle;
 
-use crate::model::AppIdentifier;
-
 fn get_exe_path(process: &sysinfo::Process) -> PathBuf {
     process
         .exe()
@@ -19,11 +17,11 @@ fn get_exe_path(process: &sysinfo::Process) -> PathBuf {
 
 pub struct ProcessPoller {
     sys: Mutex<System>,
-    blocked: Arc<RwLock<HashSet<AppIdentifier>>>,
+    blocked: Arc<RwLock<HashSet<PathBuf>>>,
 }
 
 impl ProcessPoller {
-    pub fn new(blocked: Arc<RwLock<HashSet<AppIdentifier>>>) -> Self {
+    pub fn new(blocked: Arc<RwLock<HashSet<PathBuf>>>) -> Self {
         let sys = System::new_with_specifics(
             RefreshKind::nothing().with_processes(
                 ProcessRefreshKind::nothing()
@@ -49,24 +47,16 @@ impl ProcessPoller {
         for (_pid, process) in sys.processes() {
             let exe_path = get_exe_path(process);
 
-            for blocked_app in blocked.iter() {
-                let matches = match blocked_app {
-                    AppIdentifier::Path(blocked_path) => {
-                        let Some(blocked_file_name) = blocked_path.file_name() else {
-                            continue;
-                        };
-
-                        let Some(process_file_name) = exe_path.file_name() else {
-                            continue;
-                        };
-
-                        let file_names_match = process_file_name == blocked_file_name;
-                        file_names_match
-                    }
-                    AppIdentifier::BundleId(_) => false,
+            for blocked_path in blocked.iter() {
+                let Some(blocked_file_name) = blocked_path.file_name() else {
+                    continue;
                 };
 
-                if matches {
+                let Some(process_file_name) = exe_path.file_name() else {
+                    continue;
+                };
+
+                if process_file_name == blocked_file_name {
                     let _ = process.kill();
                     killed += 1;
                     break;
@@ -79,7 +69,7 @@ impl ProcessPoller {
 }
 
 pub fn start_polling(
-    blocked: Arc<RwLock<HashSet<AppIdentifier>>>,
+    blocked: Arc<RwLock<HashSet<PathBuf>>>,
     poll_interval: Duration,
     stop_flag: Arc<std::sync::atomic::AtomicBool>,
 ) -> JoinHandle<()> {

@@ -1,5 +1,6 @@
 use std::{
     collections::HashSet,
+    path::PathBuf,
     process::Command,
     sync::{Arc, RwLock},
     thread,
@@ -72,16 +73,15 @@ fn cleanup_dummies() {
 #[test]
 #[cfg(target_os = "linux")]
 fn test_dummy_gets_killed_by_path() {
-    use applock::{model::AppIdentifier, process_polling::ProcessPoller};
+    use applock::process_polling::ProcessPoller;
 
     let _pid = spawn_dummy();
     let dummies_before = get_dummy_pids();
     assert!(!dummies_before.is_empty(), "Dummy should be running");
     let (_dummy_pid, exe_path) = dummies_before.into_iter().next().unwrap();
 
-    let blocked = AppIdentifier::Path(exe_path.clone());
-    let blocked_set: Arc<RwLock<HashSet<AppIdentifier>>> =
-        Arc::new(RwLock::new(HashSet::from([blocked])));
+    let blocked_set: Arc<RwLock<HashSet<PathBuf>>> =
+        Arc::new(RwLock::new(HashSet::from([exe_path.clone()])));
 
     let poller = ProcessPoller::new(blocked_set.clone());
     let killed = poller.scan_and_kill();
@@ -97,15 +97,16 @@ fn test_dummy_gets_killed_by_path() {
 #[test]
 #[cfg(target_os = "linux")]
 fn test_dummy_gets_killed_by_name() {
-    use applock::{model::AppIdentifier, process_polling::ProcessPoller};
+    use applock::process_polling::ProcessPoller;
 
     let _pid = spawn_dummy();
     let dummies_before = get_dummy_pids();
     assert!(!dummies_before.is_empty(), "Dummy should be running");
 
-    let blocked = AppIdentifier::Path(std::path::PathBuf::from("applock-test-dummy"));
-    let blocked_set: Arc<RwLock<HashSet<AppIdentifier>>> =
-        Arc::new(RwLock::new(HashSet::from([blocked])));
+    let blocked_set: Arc<RwLock<HashSet<PathBuf>>> =
+        Arc::new(RwLock::new(HashSet::from([PathBuf::from(
+            "applock-test-dummy",
+        )])));
 
     let poller = ProcessPoller::new(blocked_set.clone());
     let killed = poller.scan_and_kill();

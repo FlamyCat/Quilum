@@ -1,11 +1,10 @@
+use std::path::Path;
+
 use surrealdb::Error;
 
 use crate::{
     Storage,
-    model::{
-        app_identifier::AppIdentifier,
-        blocked_app::{BLOCKED_APPS_TABLE, BlockedApp},
-    },
+    model::blocked_app::{BLOCKED_APPS_TABLE, BlockedApp},
 };
 
 // App blocking methods
@@ -13,20 +12,17 @@ impl Storage {
     /// Adds an app to the blocked apps list.
     ///
     /// # Arguments
-    /// * `identifier` - The app identifier (path or bundle ID)
+    /// * `exe_path` - The path to app executable
     /// * `display_name` - The display name of the app
     ///
     /// # Returns
     /// * The created blocked app record
     pub async fn add_blocked_app(
         &self,
-        identifier: AppIdentifier,
+        exe_path: &Path,
         display_name: &str,
     ) -> Result<BlockedApp, Error> {
-        let id_str = match identifier {
-            AppIdentifier::Path(p) => p.to_string_lossy().to_string(),
-            AppIdentifier::BundleId(s) => s,
-        };
+        let id_str = exe_path.to_string_lossy().to_string();
 
         let blocked_app = BlockedApp::new(id_str, display_name.to_string());
         let created: Option<BlockedApp> = self
@@ -41,15 +37,12 @@ impl Storage {
     /// Removes an app from the blocked apps list.
     ///
     /// # Arguments
-    /// * `identifier` - The app identifier to remove
+    /// * `exe_path` - The path to the executable of the app to be removed
     ///
     /// # Returns
     /// * Success or error
-    pub async fn remove_blocked_app(&self, identifier: &AppIdentifier) -> Result<(), Error> {
-        let id_str = match identifier {
-            AppIdentifier::Path(p) => p.to_string_lossy().to_string(),
-            AppIdentifier::BundleId(s) => s.clone(),
-        };
+    pub async fn remove_blocked_app(&self, exe_path: &Path) -> Result<(), Error> {
+        let id_str = exe_path.to_string_lossy().to_string();
 
         let _: Option<BlockedApp> = self.db.delete((BLOCKED_APPS_TABLE, id_str)).await?;
         Ok(())
@@ -69,20 +62,17 @@ impl Storage {
     /// Upserts (creates or updates) a blocked app.
     ///
     /// # Arguments
-    /// * `identifier` - The app identifier (path or bundle ID)
+    /// * `exe_path` - The path to the executable of the app
     /// * `display_name` - The display name of the app
     ///
     /// # Returns
     /// * The upserted blocked app record
     pub async fn upsert_blocked_app(
         &self,
-        identifier: AppIdentifier,
+        exe_path: &Path,
         display_name: &str,
     ) -> surrealdb::Result<BlockedApp> {
-        let id_str = match &identifier {
-            AppIdentifier::Path(p) => p.to_string_lossy().to_string(),
-            AppIdentifier::BundleId(s) => s.clone(),
-        };
+        let id_str = exe_path.to_string_lossy().to_string();
 
         let blocked_app = BlockedApp::new(id_str.clone(), display_name.to_string());
 
