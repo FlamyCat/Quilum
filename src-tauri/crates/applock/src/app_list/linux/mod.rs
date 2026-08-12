@@ -115,7 +115,7 @@ fn extract_binary_from_exec(exec_cmd: &str) -> Option<PathBuf> {
         return None;
     }
 
-    let first_token = tokens.get(0)?;
+    let first_token = tokens.first()?;
     let exe_name = Path::new(first_token)
         .file_name()
         .and_then(|s| s.to_str())

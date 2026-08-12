@@ -44,7 +44,7 @@ impl ProcessPoller {
         sys.refresh_processes(ProcessesToUpdate::All, true);
 
         let mut killed = 0;
-        for (_pid, process) in sys.processes() {
+        for process in sys.processes().values() {
             let exe_path = get_exe_path(process);
 
             for blocked_path in blocked.iter() {
