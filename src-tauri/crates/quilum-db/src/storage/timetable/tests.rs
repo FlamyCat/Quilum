@@ -1131,6 +1131,34 @@ async fn get_next_scheduled_task_past_only() {
 }
 
 #[tokio::test]
+async fn get_next_scheduled_task_ignores_unscheduled() {
+    let storage = Storage::new_mem().await.expect("Failed to create storage");
+
+    let slot_date = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap();
+
+    let _task = storage
+        .create_task(
+            "Unscheduled Task".to_string(),
+            "Never scheduled, scheduled_for is NONE".to_string(),
+            Priority::Medium,
+            TimeDelta::hours(1),
+            slot_date.and_hms_opt(0, 0, 0).unwrap().and_utc(),
+        )
+        .await
+        .expect("Failed to create task");
+
+    let result = storage
+        .get_next_scheduled_task()
+        .await
+        .expect("Failed to get next scheduled task");
+
+    assert!(
+        result.is_none(),
+        "Should return None and not error on tasks without scheduled_for"
+    );
+}
+
+#[tokio::test]
 async fn get_today_timetable_includes_local_early_morning() {
     let storage = Storage::new_mem().await.expect("Failed to create storage");
     let today = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap();

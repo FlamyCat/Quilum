@@ -1,6 +1,6 @@
 use surrealdb::Error;
 
-use crate::{model::task::Task, Storage};
+use crate::{Storage, model::task::Task};
 
 // Focus session methods
 impl Storage {
@@ -13,7 +13,8 @@ impl Storage {
             SELECT *
             FROM ONLY tasks
             WHERE
-                scheduled_for + estimated_duration >= time::now()
+                scheduled_for != NONE
+                AND scheduled_for + estimated_duration >= time::now()
                 AND completed == false
             ORDER BY scheduled_for
             LIMIT 1;
@@ -22,3 +23,6 @@ impl Storage {
         self.db.query(sql).await?.take(0)
     }
 }
+
+#[cfg(test)]
+mod tests;
