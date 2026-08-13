@@ -1,11 +1,9 @@
-use std::{
-    collections::HashSet,
-    path::PathBuf,
-    process::Command,
-    sync::{Arc, RwLock},
-    thread,
-    time::Duration,
-};
+//! Integration tests for the app blocker.
+//!
+//! These tests spawn a dummy process (an infinite sleep loop) and verify that
+//! [`AppBlocker`] kills it when the dummy is included in the blocked
+//! list. A SIGKILLed, unreaped dummy lingers in the process table as a zombie,
+//! so the tests assert on the process *status* rather than mere presence.
 
 use std::{path::PathBuf, process::Command, thread, time::Duration};
 
@@ -97,52 +95,62 @@ fn cleanup_dummies() {
     thread::sleep(Duration::from_millis(100));
 }
 
+/// Give the blocker enough time to run a couple of poll cycles.
+fn wait_for_kill() {
+    thread::sleep(Duration::from_millis(1000));
+}
+
 #[test]
 #[cfg(target_os = "linux")]
 fn test_dummy_gets_killed_by_path() {
-    use applock::process_polling::ProcessPoller;
-
     let _pid = spawn_dummy();
     let dummies_before = get_dummy_pids();
     assert!(!dummies_before.is_empty(), "Dummy should be running");
     let (_dummy_pid, exe_path) = dummies_before.into_iter().next().unwrap();
 
-    let blocked_set: Arc<RwLock<HashSet<PathBuf>>> =
-        Arc::new(RwLock::new(HashSet::from([exe_path.clone()])));
+    let blocker = AppBlocker::spawn();
+    blocker
+        .start(vec![AppInfo::new(exe_path, "test".to_string())], None)
+        .unwrap();
 
-    let poller = ProcessPoller::new(blocked_set.clone());
-    let killed = poller.scan_and_kill();
+    wait_for_kill();
 
-    assert!(
-        killed > 0,
-        "scan_and_kill should call kill() on matched processes"
+    assert_eq!(
+        count_running_dummies(),
+        0,
+        "blocker should have killed the matched process"
     );
 
+    blocker.stop().unwrap();
     cleanup_dummies();
 }
 
 #[test]
 #[cfg(target_os = "linux")]
 fn test_dummy_gets_killed_by_name() {
-    use applock::process_polling::ProcessPoller;
-
     let _pid = spawn_dummy();
     let dummies_before = get_dummy_pids();
     assert!(!dummies_before.is_empty(), "Dummy should be running");
 
-    let blocked_set: Arc<RwLock<HashSet<PathBuf>>> =
-        Arc::new(RwLock::new(HashSet::from([PathBuf::from(
-            "applock-test-dummy",
-        )])));
+    let blocker = AppBlocker::spawn();
+    blocker
+        .start(
+            vec![AppInfo::new(
+                PathBuf::from("applock-test-dummy"),
+                "test".to_string(),
+            )],
+            None,
+        )
+        .unwrap();
 
-    let poller = ProcessPoller::new(blocked_set.clone());
-    let killed = poller.scan_and_kill();
+    wait_for_kill();
 
-    assert!(
-        killed > 0,
-        "scan_and_kill should call kill() on matched processes (got {})",
-        killed
+    assert_eq!(
+        count_running_dummies(),
+        0,
+        "blocker should have killed the matched process"
     );
 
+    blocker.stop().unwrap();
     cleanup_dummies();
 }

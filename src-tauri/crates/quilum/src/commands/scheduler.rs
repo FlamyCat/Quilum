@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use applock::AppBlocker;
 use quilum_db::Storage;
 use tauri::State;
 
@@ -7,6 +8,7 @@ use crate::SchedulerResult;
 
 #[tauri::command]
 pub async fn run_scheduler(
+    blocker: State<'_, AppBlocker>,
     storage: State<'_, Storage>,
     app_handle: tauri::AppHandle,
 ) -> Result<SchedulerResult, String> {
@@ -66,7 +68,11 @@ pub async fn run_scheduler(
         .await
         .map_err(|e| e.to_string())?;
 
-    check_and_restore_session(storage.inner().clone(), app_handle.clone());
+    check_and_restore_session(
+        blocker.inner().clone(),
+        storage.inner().clone(),
+        app_handle.clone(),
+    );
 
     let scheduled_count = plan.tasks().len();
     let discarded_ids: Vec<String> = plan

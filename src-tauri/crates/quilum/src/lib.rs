@@ -9,6 +9,7 @@ mod scheduler;
 
 use std::env;
 
+use applock::AppBlocker;
 use chrono::{DateTime, Utc};
 use quilum_db::storage::Storage;
 use surrealdb::types::RecordId;
@@ -107,11 +108,14 @@ pub fn run() {
             commands::session::end_focus_session,
         ])
         .setup(|app| {
+            let blocker = AppBlocker::spawn();
+            app.manage(blocker.clone());
+
             let storage = tauri::async_runtime::block_on(Storage::new_surrealkv())
                 .expect("Failed to initialize database");
             app.manage(storage.clone());
 
-            commands::session::check_and_restore_session(storage, app.handle().clone());
+            commands::session::check_and_restore_session(blocker, storage, app.handle().clone());
 
             Ok(())
         })

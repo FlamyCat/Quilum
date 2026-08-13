@@ -1,28 +1,26 @@
-use std::{
-    collections::HashSet,
-    path::PathBuf,
-    sync::{Arc, Mutex, RwLock},
-    time::Duration,
-};
+//! Process scanning and killing for the application blocker.
+//!
+//! [`ProcessPoller`] owns a [`System`] and can kill any running
+//! process whose file name matches one of a given blocked list. It is consumed
+//! by exactly one worker thread (see [`crate::blocker`]), so it needs no
+//! synchronization.
+
+use std::{collections::HashSet, ffi::OsStr, path::PathBuf, sync::Arc};
 
 use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, RefreshKind, System, UpdateKind};
-use tokio::task::JoinHandle;
 
-fn get_exe_path(process: &sysinfo::Process) -> PathBuf {
-    process
-        .exe()
-        .map(|p| p.to_path_buf())
-        .unwrap_or_else(|| PathBuf::from(process.name()))
-}
+/// Callback invoked from the worker thread when blocked processes are killed;
+/// the argument is the number of processes killed in a single scan.
+pub type OnKill = Arc<dyn Fn(usize) + Send + Sync>;
 
-pub struct ProcessPoller {
-    sys: Mutex<System>,
-    blocked: Arc<RwLock<HashSet<PathBuf>>>,
+/// Polls the running processes and kills any that match a blocked list.
+pub(crate) struct ProcessPoller {
+    system: System,
 }
 
 impl ProcessPoller {
-    pub fn new(blocked: Arc<RwLock<HashSet<PathBuf>>>) -> Self {
-        let sys = System::new_with_specifics(
+    pub(crate) fn new() -> Self {
+        let system = System::new_with_specifics(
             RefreshKind::nothing().with_processes(
                 ProcessRefreshKind::nothing()
                     .without_tasks()
@@ -30,73 +28,33 @@ impl ProcessPoller {
                     .with_exe(UpdateKind::Always),
             ),
         );
-        Self {
-            sys: Mutex::new(sys),
-            blocked,
-        }
+        Self { system }
     }
 
-    /// Scan running processes and kill any that are blocked.
-    /// Returns the number of processes killed.
-    pub fn scan_and_kill(&self) -> usize {
-        let blocked = self.blocked.read().unwrap();
-        let mut sys = self.sys.lock().unwrap();
-        sys.refresh_processes(ProcessesToUpdate::All, true);
+    /// Scan the running processes and kill any whose file name matches one of
+    /// the blocked apps' file names. Returns the number of processes killed.
+    pub(crate) fn scan_and_kill(&mut self, blocked: &HashSet<PathBuf>) -> usize {
+        let blocked_names: HashSet<&OsStr> =
+            blocked.iter().filter_map(|path| path.file_name()).collect();
 
-        let mut killed = 0;
-        for process in sys.processes().values() {
-            let exe_path = get_exe_path(process);
+        self.system.refresh_processes(ProcessesToUpdate::All, true);
 
-            for blocked_path in blocked.iter() {
-                let Some(blocked_file_name) = blocked_path.file_name() else {
-                    continue;
-                };
-
-                let Some(process_file_name) = exe_path.file_name() else {
-                    continue;
-                };
-
-                if process_file_name == blocked_file_name {
-                    let _ = process.kill();
-                    killed += 1;
-                    break;
-                }
-            }
-        }
-
-        killed
+        self.system
+            .processes()
+            .values()
+            .filter(|process| {
+                process_name(process).is_some_and(|name| blocked_names.contains(name))
+            })
+            .map(|process| process.kill() as usize)
+            .sum()
     }
 }
 
-pub type OnKill = Arc<dyn Fn(usize) + Send + Sync>;
-
-pub fn start_polling(
-    blocked: Arc<RwLock<HashSet<PathBuf>>>,
-    poll_interval: Duration,
-    stop_flag: Arc<std::sync::atomic::AtomicBool>,
-    on_kill: Option<OnKill>,
-) -> JoinHandle<()> {
-    let poller = ProcessPoller::new(blocked.clone());
-
-    tokio::spawn(async move {
-        poller.scan_and_kill();
-        loop {
-            tokio::select! {
-                _ = tokio::time::sleep(poll_interval) => {
-                    if stop_flag.load(std::sync::atomic::Ordering::SeqCst) {
-                        break;
-                    }
-                    let killed = poller.scan_and_kill();
-                    if killed > 0 && let Some(on_kill) = &on_kill {
-                        on_kill(killed);
-                    }
-                }
-                _ = tokio::time::sleep(Duration::from_secs(1)) => {
-                    if stop_flag.load(std::sync::atomic::Ordering::SeqCst) {
-                        break;
-                    }
-                }
-            }
-        }
-    })
+/// The process's executable file name, falling back to the process name when
+/// the executable path cannot be resolved.
+fn process_name(process: &sysinfo::Process) -> Option<&OsStr> {
+    process
+        .exe()
+        .and_then(|path| path.file_name())
+        .or_else(|| Some(process.name()))
 }

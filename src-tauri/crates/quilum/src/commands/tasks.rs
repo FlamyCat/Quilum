@@ -1,3 +1,4 @@
+use applock::AppBlocker;
 use chrono::{DateTime, TimeDelta, Utc};
 use quilum_db::{
     Storage,
@@ -42,12 +43,17 @@ pub async fn read_task(
 
 #[tauri::command]
 pub async fn update_task(
+    blocker: State<'_, AppBlocker>,
     storage: State<'_, Storage>,
     app_handle: tauri::AppHandle,
     task: Task,
 ) -> Result<(), String> {
     let result = storage.update_task(task).await.map_err(|e| e.to_string());
-    check_and_restore_session(storage.inner().clone(), app_handle.clone());
+    check_and_restore_session(
+        blocker.inner().clone(),
+        storage.inner().clone(),
+        app_handle.clone(),
+    );
     result
 }
 
