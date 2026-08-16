@@ -65,7 +65,7 @@ pub enum Event<R> {
 
 /// A command sent from an [`AppBlocker`] handle to the worker thread.
 enum Command<R> {
-    /// Begin (or replace) blocking with `apps`, reporting the given reason.
+    /// Begin (or restart) blocking with `apps`, reporting the given reason.
     Start { apps: Vec<AppInfo>, reason: R },
     /// Stop blocking; the worker remains alive waiting for the next `Start`.
     Stop,
