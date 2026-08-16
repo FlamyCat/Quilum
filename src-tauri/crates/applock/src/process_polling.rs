@@ -5,13 +5,9 @@
 //! by exactly one worker thread (see [`crate::blocker`]), so it needs no
 //! synchronization.
 
-use std::{collections::HashSet, ffi::OsStr, path::PathBuf, sync::Arc};
+use std::{collections::HashSet, ffi::OsStr, path::PathBuf};
 
 use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, RefreshKind, System, UpdateKind};
-
-/// Callback invoked from the worker thread when blocked processes are killed;
-/// the argument is the number of processes killed in a single scan.
-pub type OnKill = Arc<dyn Fn(usize) + Send + Sync>;
 
 /// Polls the running processes and kills any that match a blocked list.
 pub(crate) struct ProcessPoller {
