@@ -5,14 +5,18 @@ mod db;
 #[cfg(target_os = "linux")]
 mod graphics;
 mod model;
+mod notifications;
 mod scheduler;
 
 use std::env;
 
+use applock::AppBlocker;
 use chrono::{DateTime, Utc};
 use quilum_db::storage::Storage;
 use surrealdb::types::RecordId;
 use tauri::{Manager, State};
+
+use crate::notifications::NotificationService;
 
 #[tauri::command]
 async fn relate_task_to_slot(
@@ -107,11 +111,18 @@ pub fn run() {
             commands::session::end_focus_session,
         ])
         .setup(|app| {
+            let (event_tx, event_rx) = std::sync::mpsc::channel();
+            let blocker = AppBlocker::spawn(event_tx);
+            app.manage(blocker.clone());
+
+            let notification_service = NotificationService::new(app.handle().clone(), event_rx);
+            tauri::async_runtime::spawn_blocking(move || notification_service.run());
+
             let storage = tauri::async_runtime::block_on(Storage::new_surrealkv())
                 .expect("Failed to initialize database");
             app.manage(storage.clone());
 
-            commands::session::check_and_restore_session(storage, app.handle().clone());
+            commands::session::check_and_restore_session(blocker, storage);
 
             Ok(())
         })

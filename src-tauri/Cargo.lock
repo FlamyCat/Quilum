@@ -133,6 +133,7 @@ dependencies = [
  "serde_json",
  "surrealdb",
  "sysinfo 0.39.5",
+ "thiserror 2.0.18",
  "tokio",
  "windows 0.62.2",
  "windows-sys 0.61.2",

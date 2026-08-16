@@ -1,37 +1,9 @@
-use std::{sync::Arc, time::Duration};
-
-use applock::{BlockingSession, app_list::AppInfo, start_polling};
+use applock::{AppBlocker, app_list::AppInfo, blocker::BlockReason};
 use chrono::{DateTime, Utc};
+use quilum_db::model::task::Task;
 use tauri::State;
-use tauri_plugin_notification::NotificationExt;
-use tokio::{sync::Mutex, task::JoinHandle};
 
 use crate::db::Storage;
-
-pub struct BlockingState {
-    pub session: BlockingSession,
-    pub polling_handle: Option<JoinHandle<()>>,
-    pub stop_flag: Arc<std::sync::atomic::AtomicBool>,
-    _storage: Storage,
-    _app_handle: tauri::AppHandle,
-}
-
-pub fn blocking_state() -> &'static Arc<Mutex<Option<BlockingState>>> {
-    static STATE: std::sync::OnceLock<Arc<Mutex<Option<BlockingState>>>> =
-        std::sync::OnceLock::new();
-    STATE.get_or_init(|| Arc::new(Mutex::new(None)))
-}
-
-async fn stop_blocking(guard: &mut tokio::sync::MutexGuard<'_, Option<BlockingState>>) {
-    if let Some(ref mut bs) = **guard {
-        bs.stop_flag
-            .store(true, std::sync::atomic::Ordering::SeqCst);
-        bs.session.stop();
-        if let Some(h) = bs.polling_handle.take() {
-            let _ = h.abort();
-        }
-    }
-}
 
 fn blocked_apps_to_info(blocked: Vec<quilum_db::blocked_app::BlockedApp>) -> Vec<AppInfo> {
     blocked
@@ -43,21 +15,10 @@ fn blocked_apps_to_info(blocked: Vec<quilum_db::blocked_app::BlockedApp>) -> Vec
         .collect()
 }
 
-async fn end_focus_session_internal(
-    app_handle: tauri::AppHandle,
-) -> tauri_plugin_notification::Result<()> {
-    app_handle
-        .notification()
-        .builder()
-        .title("Период концентрации")
-        .body("Период концентрации окончен. Приложения разблокированы.")
-        .show()
-}
-
 #[tauri::command]
 pub async fn start_focus_session(
+    blocker: State<'_, AppBlocker>,
     storage: State<'_, Storage>,
-    app_handle: tauri::AppHandle,
     end_time: i64,
 ) -> Result<(), String> {
     let end_time = DateTime::from_timestamp(end_time, 0).ok_or("Invalid end time")?;
@@ -68,157 +29,84 @@ pub async fn start_focus_session(
         .map_err(|e| e.to_string())?;
     let blocked_info = blocked_apps_to_info(blocked);
 
-    let state = blocking_state();
-    let mut guard = state.lock().await;
-    stop_blocking(&mut guard).await;
+    let task = storage
+        .get_next_scheduled_task()
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or("No scheduled task for the focus session")?;
 
-    let session = BlockingSession::new();
-    session.start(blocked_info, end_time);
+    blocker
+        .start(blocked_info, BlockReason::Task(task))
+        .map_err(|e| e.to_string())?;
 
-    let blocked_set = session.blocked_apps();
-    let stop_flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let poll_interval = Duration::from_millis(300);
-
-    let handle = start_polling(blocked_set, poll_interval, stop_flag.clone());
-    let end_time_for_task = end_time;
-
-    *guard = Some(BlockingState {
-        session,
-        polling_handle: Some(handle),
-        stop_flag,
-        _storage: (*storage).clone(),
-        _app_handle: app_handle.clone(),
-    });
-
-    drop(guard);
-
+    let blocker_for_task = blocker.inner().clone();
     tauri::async_runtime::spawn(async move {
         let now = Utc::now();
-        let sleep_duration = (end_time_for_task - now).to_std().unwrap_or_default();
+        let sleep_duration = (end_time - now).to_std().unwrap_or_default();
         tokio::time::sleep(sleep_duration).await;
-        let _ = end_focus_session_internal(app_handle).await;
+        let _ = blocker_for_task.stop();
     });
 
     Ok(())
 }
 
 #[tauri::command]
-pub async fn end_focus_session(app_handle: tauri::AppHandle) -> Result<(), String> {
-    end_focus_session_internal(app_handle)
-        .await
-        .map_err(|e| e.to_string())
+pub async fn end_focus_session(blocker: State<'_, AppBlocker>) -> Result<(), String> {
+    blocker.stop().map_err(|e| e.to_string())
 }
 
-pub fn check_and_restore_session(storage: Storage, app_handle: tauri::AppHandle) {
+pub fn check_and_restore_session(blocker: AppBlocker, storage: Storage) {
     tauri::async_runtime::spawn(async move {
-        let state = blocking_state();
-        let mut guard = state.lock().await;
-        stop_blocking(&mut guard).await;
-        drop(guard);
-
         let Ok(Some(task)) = storage.get_next_scheduled_task().await else {
+            let _ = blocker.stop();
             return;
         };
-
         let Ok(blocked) = storage.get_blocked_apps().await else {
             return;
         };
+        let blocked_info = blocked_apps_to_info(blocked);
 
-        let blocked_info = blocked_apps_to_info(blocked.clone());
         let now = Utc::now();
         let scheduled_for = task
             .scheduled_for()
             .expect("The task is expected to be scheduled at this point");
-        let end_timestamp = scheduled_for + task.estimated_duration;
-        let task_name = task.name().to_string();
-        let task_duration = task.estimated_duration;
+        let end = scheduled_for + task.estimated_duration;
 
-        if scheduled_for <= now && now <= end_timestamp {
-            let end = end_timestamp;
-            start_blocking(
-                blocked_info,
-                end,
-                storage.clone(),
-                app_handle,
-                task_name,
-                task_duration,
-            );
+        if scheduled_for <= now && now <= end {
+            start_blocking(blocked_info, blocker, task);
         } else if scheduled_for > now {
+            let _ = blocker.stop();
+            let blocked_info_clone = blocked_info;
+            let blocker_clone = blocker.clone();
             let start_time = scheduled_for;
-
-            let blocked_info_clone = blocked_apps_to_info(blocked);
-            let storage_clone = storage.clone();
-            let app_handle_clone = app_handle.clone();
-            let task_name_clone = task_name;
-            let task_duration_clone = task_duration;
 
             tauri::async_runtime::spawn(async move {
                 let sleep_duration = (start_time - Utc::now()).to_std().unwrap_or_default();
                 tokio::time::sleep(sleep_duration).await;
-                start_blocking(
-                    blocked_info_clone,
-                    end_timestamp,
-                    storage_clone,
-                    app_handle_clone,
-                    task_name_clone,
-                    task_duration_clone,
-                );
+                start_blocking(blocked_info_clone, blocker_clone, task);
             });
+        } else {
+            let _ = blocker.stop();
         }
     });
 }
 
-fn start_blocking(
-    apps: Vec<AppInfo>,
-    end_time: DateTime<Utc>,
-    storage: Storage,
-    app_handle: tauri::AppHandle,
-    task_name: String,
-    task_duration: Duration,
-) {
-    let duration_minutes = task_duration.as_secs();
-    let notification_body = format!(
-        "Начался период концентрации: \"{}\" ({} мин.). Отвлекающие приложения заблокированы!",
-        task_name, duration_minutes
-    );
-    let _ = app_handle
-        .notification()
-        .builder()
-        .title("Период концентрации")
-        .body(&notification_body)
-        .show();
+fn start_blocking(apps: Vec<AppInfo>, blocker: AppBlocker, task: Task) {
+    let end_time = task
+        .scheduled_for()
+        .expect("The task is expected to be scheduled at this point")
+        + task.estimated_duration;
 
+    if let Err(err) = blocker.start(apps, BlockReason::Task(task)) {
+        eprintln!("Failed to start blocking: {err}");
+        return;
+    }
+
+    let blocker_for_task = blocker.clone();
     tauri::async_runtime::spawn(async move {
-        let state = blocking_state();
-        let mut guard = state.lock().await;
-        stop_blocking(&mut guard).await;
-
-        let bs_session = BlockingSession::new();
-        bs_session.start(apps, end_time);
-
-        let blocked_set = bs_session.blocked_apps();
-        let stop_flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let poll_interval = Duration::from_millis(300);
-
-        let handle = start_polling(blocked_set, poll_interval, stop_flag.clone());
-        let end_time_for_task = end_time;
-        let app_handle_clone = app_handle.clone();
-
-        *guard = Some(BlockingState {
-            session: bs_session,
-            polling_handle: Some(handle),
-            stop_flag,
-            _storage: storage,
-            _app_handle: app_handle,
-        });
-
-        drop(guard);
-
-        let _ = tauri::async_runtime::spawn(async move {
-            let now = Utc::now();
-            let sleep_duration = (end_time_for_task - now).to_std().unwrap_or_default();
-            tokio::time::sleep(sleep_duration).await;
-            let _ = end_focus_session_internal(app_handle_clone).await;
-        });
+        let now = Utc::now();
+        let sleep_duration = (end_time - now).to_std().unwrap_or_default();
+        tokio::time::sleep(sleep_duration).await;
+        let _ = blocker_for_task.stop();
     });
 }

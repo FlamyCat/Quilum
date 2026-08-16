@@ -8,7 +8,7 @@ use std::{
 use desktop_edit::Desktop;
 use regex::Regex;
 
-use crate::{app_list::types::AppInfo, model::AppIdentifier};
+use crate::app_list::types::AppInfo;
 
 pub fn get_installed_apps() -> Vec<AppInfo> {
     let mut apps = Vec::new();
@@ -106,7 +106,7 @@ fn parse_desktop_file(path: &Path) -> Option<AppInfo> {
 
     let binary_path = extract_binary_from_exec(&exec)?;
 
-    Some(AppInfo::new(AppIdentifier::Path(binary_path), name))
+    Some(AppInfo::new(binary_path, name))
 }
 
 fn extract_binary_from_exec(exec_cmd: &str) -> Option<PathBuf> {
@@ -115,7 +115,7 @@ fn extract_binary_from_exec(exec_cmd: &str) -> Option<PathBuf> {
         return None;
     }
 
-    let first_token = tokens.get(0)?;
+    let first_token = tokens.first()?;
     let exe_name = Path::new(first_token)
         .file_name()
         .and_then(|s| s.to_str())

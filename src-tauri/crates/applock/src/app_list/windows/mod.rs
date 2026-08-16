@@ -5,7 +5,7 @@ use std::{
 
 use winreg::{HKCU, HKLM, RegKey};
 
-use crate::{app_list::AppInfo, model::AppIdentifier};
+use crate::app_list::AppInfo;
 
 pub fn get_installed_apps() -> Vec<AppInfo> {
     collect_from_registry()
@@ -35,8 +35,8 @@ fn uninstall_roots() -> Vec<RegKey> {
                 r"Software\Microsoft\Windows\CurrentVersion\Uninstall",
                 r"Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall",
             ]
-                .into_iter()
-                .map(move |sub| root.open_subkey(sub))
+            .into_iter()
+            .map(move |sub| root.open_subkey(sub))
         })
         .flatten()
         .collect()
@@ -50,7 +50,7 @@ fn parse_or_discard_entry(entry: &RegKey) -> Option<AppInfo> {
     let display_name = read_display_name(entry)?;
     let executable = read_executable_path(entry)?;
 
-    Some(AppInfo::new(AppIdentifier::Path(executable), display_name))
+    Some(AppInfo::new(executable, display_name))
 }
 
 fn is_system_component(entry: &RegKey) -> bool {

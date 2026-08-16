@@ -1,4 +1,3 @@
-pub mod app_identifier;
 pub mod blocked_app;
 pub mod event;
 pub mod plan;

@@ -1,3 +1,4 @@
+use applock::AppBlocker;
 use quilum_db::{Storage, TaskListWithTasks, tasklist::TaskList};
 use surrealdb::types::RecordId;
 use tauri::State;
@@ -17,15 +18,15 @@ pub async fn create_task_list(
 
 #[tauri::command]
 pub async fn update_task_list(
+    blocker: State<'_, AppBlocker>,
     storage: State<'_, Storage>,
-    app_handle: tauri::AppHandle,
     task_list: TaskList,
 ) -> Result<(), String> {
     let result = storage
         .update_task_list(task_list)
         .await
         .map_err(|e| e.to_string());
-    check_and_restore_session(storage.inner().clone(), app_handle.clone());
+    check_and_restore_session(blocker.inner().clone(), storage.inner().clone());
     result
 }
 
